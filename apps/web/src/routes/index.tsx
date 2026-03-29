@@ -6,8 +6,50 @@ import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { buildSeoHead, buildStructuredDataMeta } from "~/lib/seo";
+
+const HOME_DESCRIPTION =
+  "AGFS is a private Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring preview links.";
+
+const HOME_STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://agfs.dev/#website",
+      url: "https://agfs.dev",
+      name: "AGFS",
+      alternateName: "AgentFilesystem",
+      description: HOME_DESCRIPTION,
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://agfs.dev/#software",
+      name: "AGFS",
+      alternateName: "AgentFilesystem",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Web, macOS, Linux, Windows",
+      url: "https://agfs.dev",
+      description: HOME_DESCRIPTION,
+      image: "https://agfs.dev/og-card.svg",
+      screenshot: "https://agfs.dev/og-card.svg",
+    },
+  ],
+};
 
 export const Route = createFileRoute("/")({
+  head: () => {
+    const seo = buildSeoHead({
+      title: "AGFS | Private Filesystem for AI Agents",
+      description: HOME_DESCRIPTION,
+      path: "/",
+    });
+
+    return {
+      ...seo,
+      meta: [...seo.meta, ...buildStructuredDataMeta(HOME_STRUCTURED_DATA)],
+    };
+  },
   component: HomePage,
 });
 

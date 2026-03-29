@@ -17,6 +17,7 @@ export const Route = createFileRoute("/s/$token")({
           headers: {
             "cache-control": "private, max-age=60",
             "content-disposition": createContentDisposition("inline", share.name),
+            "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
           },
         });
       },

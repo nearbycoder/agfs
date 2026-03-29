@@ -1,0 +1,59 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>AGFS social card</title>
+  <defs>
+    <linearGradient id="bg" x1="104" y1="82" x2="1064" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827" />
+      <stop offset="1" stop-color="#223248" />
+    </linearGradient>
+    <radialGradient id="orbA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(264 80) rotate(67.1663) scale(382.119 488.698)">
+      <stop stop-color="#5EEAD4" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#5EEAD4" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="orbB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(936 548) rotate(-139.647) scale(444.478 526.648)">
+      <stop stop-color="#FDE68A" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#FDE68A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="folder" x1="162" y1="186" x2="424" y2="412" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8E5" />
+      <stop offset="1" stop-color="#F3D59A" />
+    </linearGradient>
+    <linearGradient id="spark" x1="369" y1="145" x2="446" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9AF7E0" />
+      <stop offset="1" stop-color="#59D9C8" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="48" fill="url(#bg)" />
+  <rect width="1200" height="630" rx="48" fill="url(#orbA)" />
+  <rect width="1200" height="630" rx="48" fill="url(#orbB)" />
+  <g opacity="0.08">
+    <path d="M0 95H1200" stroke="white" />
+    <path d="M0 207H1200" stroke="white" />
+    <path d="M0 319H1200" stroke="white" />
+    <path d="M0 431H1200" stroke="white" />
+    <path d="M0 543H1200" stroke="white" />
+    <path d="M130 0V630" stroke="white" />
+    <path d="M355 0V630" stroke="white" />
+    <path d="M580 0V630" stroke="white" />
+    <path d="M805 0V630" stroke="white" />
+    <path d="M1030 0V630" stroke="white" />
+  </g>
+  <rect x="86" y="86" width="380" height="458" rx="40" fill="#0C121A" fill-opacity="0.38" stroke="white" stroke-opacity="0.08" />
+  <path d="M143 224C143 208.536 155.536 196 171 196H249.101C257.609 196 265.636 199.865 270.946 206.491L292.561 233.468C297.87 240.093 305.898 243.959 314.405 243.959H404C419.464 243.959 432 256.495 432 271.959V384C432 407.196 413.196 426 390 426H185C161.804 426 143 407.196 143 384V224Z" fill="url(#folder)" />
+  <path d="M173 272C173 262.059 181.059 254 191 254H384C393.941 254 402 262.059 402 272V370C402 384.359 390.359 396 376 396H199C184.641 396 173 384.359 173 370V272Z" fill="#FFFDF7" fill-opacity="0.94" />
+  <path d="M224 305H347" stroke="#1E293B" stroke-width="20" stroke-linecap="round" stroke-opacity="0.18" />
+  <path d="M224 343H299" stroke="#1E293B" stroke-width="20" stroke-linecap="round" stroke-opacity="0.18" />
+  <circle cx="219" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
+  <circle cx="286" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
+  <circle cx="353" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
+  <path d="M329 322L348 306L365 322L346 338L329 322Z" fill="#1F766C" fill-opacity="0.95" />
+  <path d="M393 141L406.318 172.682L438 186L406.318 199.318L393 231L379.682 199.318L348 186L379.682 172.682L393 141Z" fill="url(#spark)" />
+  <g fill="white">
+    <text x="536" y="191" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="700" letter-spacing="0.18em" opacity="0.72">AGFS</text>
+    <text x="536" y="292" font-family="ui-sans-serif, system-ui, sans-serif" font-size="76" font-weight="800">Private filesystem</text>
+    <text x="536" y="376" font-family="ui-sans-serif, system-ui, sans-serif" font-size="76" font-weight="800">for AI agents</text>
+    <text x="536" y="452" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" opacity="0.76">Store screenshots, logs, and artifacts. Browse them in the web app,</text>
+    <text x="536" y="494" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" opacity="0.76">automate with the CLI, and share expiring previews from one control plane.</text>
+  </g>
+  <rect x="536" y="531" width="315" height="46" rx="23" fill="white" fill-opacity="0.1" />
+  <text x="566" y="561" fill="white" fill-opacity="0.76" font-family="ui-monospace, SFMono-Regular, monospace" font-size="22" font-weight="600">Cloudflare Workers + R2 + D1</text>
+</svg>

@@ -5,8 +5,18 @@ import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { buildSeoHead } from "~/lib/seo";
+
+const CLI_DESCRIPTION =
+  "Install the AGFS CLI to upload files, browse remote folders, approve device login, generate preview links, and move artifacts between local machines, CI, and remote agents.";
 
 export const Route = createFileRoute("/cli")({
+  head: () =>
+    buildSeoHead({
+      title: "AGFS CLI | Upload, Browse, and Share Agent Files",
+      description: CLI_DESCRIPTION,
+      path: "/cli",
+    }),
   component: CliPage,
 });
 

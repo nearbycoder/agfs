@@ -10,8 +10,15 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 
 export const Route = createFileRoute("/app/tokens")({
+  head: () =>
+    buildSeoHead({
+      title: pageTitle("Tokens"),
+      description: "Create and revoke AGFS tokens for CI jobs, remote agents, and unattended automation without exposing bucket credentials.",
+      robots: NOINDEX_ROBOTS,
+    }),
   component: TokensPage,
 });
 

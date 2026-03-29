@@ -9,8 +9,15 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 
 export const Route = createFileRoute("/device")({
+  head: () =>
+    buildSeoHead({
+      title: pageTitle("Approve Device Login"),
+      description: "Approve a waiting AGFS CLI login from the browser and hand access back to the terminal securely.",
+      robots: NOINDEX_ROBOTS,
+    }),
   validateSearch: z.object({
     user_code: z.string().optional(),
   }),

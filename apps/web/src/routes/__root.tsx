@@ -11,20 +11,28 @@ import { cn } from "~/lib/utils";
 import appCss from "~/styles/app.css?url";
 import { DefaultCatchBoundary } from "~/components/DefaultCatchBoundary";
 import { NotFound } from "~/components/NotFound";
+import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_TITLE, buildSeoHead, siteHeadLinks } from "~/lib/seo";
 
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "agfs.dev | AgentFilesystem" },
-      {
-        name: "description",
-        content: "Private Cloudflare-native file storage for humans and AI agents.",
-      },
-    ],
-    links: [{ rel: "stylesheet", href: appCss }],
-  }),
+  head: () => {
+    const seo = buildSeoHead({
+      title: SITE_TITLE,
+      description: DEFAULT_DESCRIPTION,
+    });
+
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { name: "application-name", content: SITE_NAME },
+        { name: "apple-mobile-web-app-title", content: SITE_NAME },
+        { name: "theme-color", content: "#10131a" },
+        { name: "color-scheme", content: "light dark" },
+        ...seo.meta,
+      ],
+      links: [{ rel: "stylesheet", href: appCss }, ...siteHeadLinks],
+    };
+  },
   errorComponent: DefaultCatchBoundary,
   notFoundComponent: () => <NotFound />,
   shellComponent: RootDocument,

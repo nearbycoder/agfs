@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /cli
+Disallow: /api/
+Disallow: /app/
+Disallow: /device
+Disallow: /s/
+
+Sitemap: https://agfs.dev/sitemap.xml

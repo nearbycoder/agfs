@@ -8,8 +8,15 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 
 export const Route = createFileRoute("/app/shares")({
+  head: () =>
+    buildSeoHead({
+      title: pageTitle("Shares"),
+      description: "Review signed AGFS preview links, open shared artifacts, and revoke access instantly when a task is done.",
+      robots: NOINDEX_ROBOTS,
+    }),
   component: SharesPage,
 });
 

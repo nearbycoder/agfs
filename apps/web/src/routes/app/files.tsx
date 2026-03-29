@@ -21,9 +21,16 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 import { cn } from "~/lib/utils";
 
 export const Route = createFileRoute("/app/files")({
+  head: () =>
+    buildSeoHead({
+      title: pageTitle("Files"),
+      description: "Browse private AGFS folders, upload artifacts, and create expiring preview links from one workspace.",
+      robots: NOINDEX_ROBOTS,
+    }),
   component: FilesPage,
 });
 
