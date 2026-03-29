@@ -7,6 +7,9 @@
     "check": "pnpm -r typecheck",
     "cli": "pnpm --filter @agfs/cli build && node packages/cli/dist/index.js",
     "dev": "pnpm --filter @agfs/web dev",
+    "deploy": "pnpm --filter @agfs/web deploy",
+    "d1:migrate:remote": "pnpm --filter @agfs/web d1:migrate:remote",
+    "r2:cors": "pnpm --filter @agfs/web r2:cors:production",
     "test": "pnpm -r test"
   },
   "devDependencies": {
