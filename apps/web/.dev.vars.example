@@ -1,0 +1,7 @@
+BETTER_AUTH_SECRET=replace-with-a-random-secret
+GITHUB_CLIENT_ID=replace-with-your-github-client-id
+GITHUB_CLIENT_SECRET=replace-with-your-github-client-secret
+# Optional for local upload proxy mode; required for real presigned R2 upload flow
+R2_ACCOUNT_ID=replace-with-your-cloudflare-account-id
+R2_ACCESS_KEY_ID=replace-with-your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=replace-with-your-r2-secret-access-key

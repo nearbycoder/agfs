@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agfs-dev",
+  "compatibility_date": "2025-09-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    "R2_BUCKET_NAME": "agfs-files"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agfs-db",
+      "database_id": "replace-with-your-d1-database-id",
+      "migrations_dir": "../../packages/db/src/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES_BUCKET",
+      "bucket_name": "agfs-files"
+    }
+  ]
+}

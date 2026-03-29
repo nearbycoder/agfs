@@ -1,0 +1,24 @@
+{
+  "name": "@agfs/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "agfs": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agfs/contracts": "workspace:*",
+    "commander": "^14.0.0",
+    "mime-types": "^3.0.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^3.0.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  }
+}
