@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/v1/fs/upload-intents")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, uploadIntentRequestSchema);
-          return json(await createUploadIntent(auth.user.id, body));
+          return json(await createUploadIntent(auth.user, body));
         } catch (error) {
           return handleRouteError(error);
         }

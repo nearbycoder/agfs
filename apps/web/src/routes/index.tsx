@@ -6,7 +6,9 @@ import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { formatBytes, formatMonthlyPrice } from "~/lib/format";
 import { buildSeoHead, buildStructuredDataMeta } from "~/lib/seo";
+import { ORDERED_STORAGE_PLANS } from "~/lib/storage-plans";
 
 const HOME_DESCRIPTION =
   "AGFS is a private Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring preview links.";
@@ -56,6 +58,18 @@ const CONTROL_PLANE_STEPS = [
 ];
 
 const CONTROL_PLANE_TAGS = ["Private namespace", "Expiring previews", "CLI + web app"];
+const PLAN_MARKETING = {
+  free: {
+    eyebrow: "Default",
+    copy: "Every account starts with a clean 1 GB workspace for artifacts, logs, screenshots, and previews.",
+    detail: "Best for personal use, small runs, and trying the full AGFS workflow.",
+  },
+  paid: {
+    eyebrow: "Coming soon",
+    copy: "Bump storage to 20 GB for teams, heavier automation, and longer-lived artifact histories.",
+    detail: "Stripe billing is on the way. For now, paid access is enabled manually for selected users.",
+  },
+};
 
 export const Route = createFileRoute("/")({
   head: () => {
@@ -178,6 +192,51 @@ screenshot.png    381 kB    image/png`}
               </div>
             </CardContent>
           </Card>
+        </section>
+
+        <section className="border-t border-zinc-200/80 pt-8 dark:border-zinc-800/80">
+          <div className="space-y-3 text-center">
+            <Badge className="w-fit" variant="secondary">
+              Pricing
+            </Badge>
+            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">Start free, then unlock more storage.</h2>
+            <p className="mx-auto max-w-2xl text-base leading-7 text-zinc-500 dark:text-zinc-400">
+              The free plan is the standard today. Paid storage is defined now and will move to Stripe self-serve next.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-5 lg:grid-cols-2">
+            {ORDERED_STORAGE_PLANS.map((plan) => {
+              const marketing = PLAN_MARKETING[plan.id];
+
+              return (
+                <Card className={plan.id === "paid" ? "border-zinc-900 bg-zinc-950 text-zinc-50 dark:border-zinc-700" : ""} key={plan.id}>
+                  <CardHeader className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge variant={plan.id === "paid" ? "warning" : "secondary"}>{marketing.eyebrow}</Badge>
+                      <p className={plan.id === "paid" ? "text-xs font-medium uppercase tracking-[0.16em] text-zinc-400" : "text-xs font-medium uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500"}>
+                        {formatBytes(plan.storageLimitBytes)} included
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <CardTitle className={plan.id === "paid" ? "text-zinc-50" : ""}>{plan.name}</CardTitle>
+                      <p className={plan.id === "paid" ? "text-4xl font-semibold tracking-[-0.05em] text-zinc-50" : "text-4xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50"}>
+                        {plan.priceMonthlyCents == null ? "Free" : `${formatMonthlyPrice(plan.priceMonthlyCents)}/mo`}
+                      </p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className={plan.id === "paid" ? "text-sm leading-6 text-zinc-300" : "text-sm leading-6 text-zinc-600 dark:text-zinc-400"}>
+                      {marketing.copy}
+                    </p>
+                    <div className={plan.id === "paid" ? "rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-zinc-300" : "rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 text-sm leading-6 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-400"}>
+                      {marketing.detail}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </section>
 
         <section className="border-t border-zinc-200/80 pt-8 dark:border-zinc-800/80">

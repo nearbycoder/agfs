@@ -21,6 +21,7 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import { formatBytes } from "~/lib/format";
 import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 import { cn } from "~/lib/utils";
 
@@ -36,19 +37,6 @@ export const Route = createFileRoute("/app/files")({
 
 function joinPath(base: string, name: string) {
   return base === "/" ? `/${name}` : `${base}/${name}`;
-}
-
-function formatBytes(value: number | null) {
-  if (value == null) {
-    return "Folder";
-  }
-  if (value < 1024) {
-    return `${value} B`;
-  }
-  if (value < 1024 * 1024) {
-    return `${Math.round(value / 102.4) / 10} kB`;
-  }
-  return `${Math.round(value / 104857.6) / 10} MB`;
 }
 
 function getDownloadHref(path: string) {
@@ -498,7 +486,7 @@ function FilesPage() {
                     <TableCell>
                       <Badge variant={entry.kind === "folder" ? "secondary" : "outline"}>{entry.kind}</Badge>
                     </TableCell>
-                    <TableCell>{formatBytes(entry.size)}</TableCell>
+                    <TableCell>{formatBytes(entry.size, { nullLabel: "Folder" })}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         {entry.kind === "file" ? (

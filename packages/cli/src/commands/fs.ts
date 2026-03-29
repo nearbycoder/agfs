@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { AgfsClient } from "../lib/client";
-import { renderEntries, renderTree } from "../lib/format";
+import { renderAccountSummary, renderEntries, renderTree } from "../lib/format";
 
 export function registerFsCommands(program: Command) {
   program
@@ -21,6 +21,15 @@ export function registerFsCommands(program: Command) {
       const client = await AgfsClient.fromConfig();
       const result = await client.tree(pathname);
       console.log(renderTree(result.tree));
+    });
+
+  program
+    .command("usage")
+    .description("Show the current plan, storage usage, and remaining quota")
+    .action(async () => {
+      const client = await AgfsClient.fromConfig();
+      const result = await client.account();
+      console.log(renderAccountSummary(result));
     });
 
   program

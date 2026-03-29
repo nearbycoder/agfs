@@ -3,6 +3,7 @@ import { z } from "zod";
 export const ENTRY_KIND_VALUES = ["file", "folder"] as const;
 export const TOKEN_SOURCE_VALUES = ["session", "api-token"] as const;
 export const DEVICE_STATUS_VALUES = ["pending", "approved", "consumed", "expired"] as const;
+export const STORAGE_PLAN_ID_VALUES = ["free", "paid"] as const;
 
 export const pathSchema = z
   .string()
@@ -17,6 +18,7 @@ export const ttlSchema = z
 export const entryKindSchema = z.enum(ENTRY_KIND_VALUES);
 export const tokenSourceSchema = z.enum(TOKEN_SOURCE_VALUES);
 export const deviceStatusSchema = z.enum(DEVICE_STATUS_VALUES);
+export const storagePlanIdSchema = z.enum(STORAGE_PLAN_ID_VALUES);
 
 export const sessionUserSchema = z.object({
   id: z.string(),
@@ -88,6 +90,16 @@ export const shareLinkRecordSchema = z.object({
 export const whoAmIResponseSchema = z.object({
   user: sessionUserSchema,
   authSource: tokenSourceSchema,
+});
+
+export const accountSummarySchema = z.object({
+  planId: storagePlanIdSchema,
+  planName: z.string(),
+  storageUsedBytes: z.number().int().nonnegative(),
+  storageLimitBytes: z.number().int().nonnegative(),
+  storageRemainingBytes: z.number().int().nonnegative(),
+  isOverLimit: z.boolean(),
+  paidPlanComingSoon: z.boolean(),
 });
 
 export const deviceStartRequestSchema = z.object({
@@ -203,6 +215,8 @@ export const successResponseSchema = z.object({
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
+export type StoragePlanId = z.infer<typeof storagePlanIdSchema>;
+export type AccountSummary = z.infer<typeof accountSummarySchema>;
 export type FsEntry = z.infer<typeof fsEntrySchema>;
 export type FsTreeNode = z.infer<typeof fsTreeNodeSchema>;
 export type UploadIntent = z.infer<typeof uploadIntentSchema>;

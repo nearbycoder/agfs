@@ -19,6 +19,8 @@ import {
 } from "@agfs/db";
 import { db } from "./db";
 import { requireResourceBindings, requireStringBindings } from "./bindings";
+import { getStorageWriteDecisionForUser } from "./account";
+import { errorResponse } from "./http";
 import { createUploadIntentUrl } from "./r2";
 
 function mapEntry(row: typeof entries.$inferSelect): FsEntry {
@@ -155,11 +157,12 @@ export async function mkdir(ownerId: string, path: string) {
   await ensureFolderChain(ownerId, normalizeAgfsPath(path));
 }
 
-export async function createUploadIntent(ownerId: string, input: {
+export async function createUploadIntent(user: { id: string; email: string }, input: {
   path: string;
   contentType: string;
   size: number;
 }) {
+  const ownerId = user.id;
   const normalized = normalizeAgfsPath(input.path);
   const parentPath = getParentPath(normalized) ?? "/";
   await ensureFolderChain(ownerId, parentPath);
@@ -167,6 +170,15 @@ export async function createUploadIntent(ownerId: string, input: {
   const existing = await getEntryByPath(ownerId, normalized);
   if (existing && existing.kind !== "file") {
     throw new Error("Cannot overwrite a folder");
+  }
+
+  const storageDecision = await getStorageWriteDecisionForUser({
+    user,
+    existingFileSizeBytes: existing?.size ?? 0,
+    incomingSizeBytes: input.size,
+  });
+  if (!storageDecision.allowed) {
+    throw errorResponse(403, storageDecision.message);
   }
 
   const entryId = existing?.id ?? createAgfsId("ent");
@@ -197,7 +209,8 @@ export async function createUploadIntent(ownerId: string, input: {
   });
 }
 
-export async function commitUpload(ownerId: string, uploadId: string, etag: string) {
+export async function commitUpload(user: { id: string; email: string }, uploadId: string, etag: string) {
+  const ownerId = user.id;
   const [upload] = await db
     .select()
     .from(uploads)
@@ -224,6 +237,20 @@ export async function commitUpload(ownerId: string, uploadId: string, etag: stri
   if (objectSize == null || objectSize !== upload.size) {
     await FILES_BUCKET.delete(upload.objectKey);
     throw new Error("Uploaded object size did not match the approved upload intent");
+  }
+
+  const storageDecision = await getStorageWriteDecisionForUser({
+    user,
+    existingFileSizeBytes: existing?.size ?? 0,
+    incomingSizeBytes: objectSize,
+  });
+  if (!storageDecision.allowed) {
+    await FILES_BUCKET.delete(upload.objectKey);
+    await db
+      .update(uploads)
+      .set({ status: "expired" })
+      .where(eq(uploads.id, upload.id));
+    throw errorResponse(403, storageDecision.message);
   }
 
   const row = {

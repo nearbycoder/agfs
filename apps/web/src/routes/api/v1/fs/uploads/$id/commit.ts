@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/v1/fs/uploads/$id/commit")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, uploadCommitRequestSchema);
-          return json({ entry: await commitUpload(auth.user.id, params.id, body.etag) });
+          return json({ entry: await commitUpload(auth.user, params.id, body.etag) });
         } catch (error) {
           return handleRouteError(error);
         }

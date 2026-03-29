@@ -4,6 +4,7 @@ import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { lookup as lookupMime } from "mime-types";
 import {
+  accountSummarySchema,
   devicePollResponseSchema,
   deviceStartResponseSchema,
   listEntriesResponseSchema,
@@ -61,6 +62,11 @@ export class AgfsClient {
   async whoAmI() {
     const response = await this.request("/api/v1/whoami");
     return whoAmIResponseSchema.parse(await response.json());
+  }
+
+  async account() {
+    const response = await this.request("/api/v1/account");
+    return accountSummarySchema.parse(await response.json());
   }
 
   async startDeviceLogin(clientName = "agfs cli") {
