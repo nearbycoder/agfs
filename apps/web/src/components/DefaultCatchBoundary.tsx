@@ -1,11 +1,26 @@
+import { AlertTriangle } from "lucide-react";
+import { Badge } from "~/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+
 export function DefaultCatchBoundary(props: { error: Error }) {
   return (
-    <main className="status-screen">
-      <div className="status-card">
-        <p className="eyebrow">System fault</p>
-        <h1>{props.error.message}</h1>
-        <p>The request did not complete cleanly. Refresh the page or inspect the server logs.</p>
-      </div>
+    <main className="status-shell">
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <Badge className="w-fit" variant="warning">
+            System fault
+          </Badge>
+          <CardTitle className="flex items-center gap-3">
+            <AlertTriangle className="size-5 text-amber-600" />
+            {props.error.message}
+          </CardTitle>
+          <CardDescription>The request did not complete cleanly. Refresh the page or inspect the Worker logs.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+          AGFS is designed to stream files and metadata through the same control plane, so deployment mismatches and
+          missing bindings usually surface quickly here.
+        </CardContent>
+      </Card>
     </main>
   );
 }

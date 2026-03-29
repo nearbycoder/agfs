@@ -13,9 +13,10 @@ AgentFilesystem is a Cloudflare-native file manager for humans and agents.
 
 1. Install dependencies with `pnpm install`
 2. Configure secrets for GitHub OAuth and R2 presigning
-3. Run `pnpm --filter @agfs/web d1:migrate:local`
-4. Run `pnpm --filter @agfs/web cf-typegen`
-5. Run `pnpm dev`
+3. Run `pnpm --filter @agfs/web cf-typegen`
+4. Run `pnpm dev`
+
+`pnpm dev` now auto-applies local D1 migrations before the TanStack Start worker boots, so the Better Auth and AGFS tables stay in sync with local development.
 
 ## Environment
 
@@ -32,7 +33,7 @@ For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.exam
 ## Useful commands
 
 - `pnpm dev`: start the TanStack Start app locally
-- `pnpm --filter @agfs/web d1:migrate:local`: apply the full AGFS + Better Auth schema to the local D1 database
+- `pnpm d1:migrate:local`: apply the full AGFS + Better Auth schema to the local D1 database
 - `pnpm d1:migrate:remote`: apply the production D1 schema to Cloudflare
 - `pnpm r2:cors`: apply the production R2 CORS policy
 - `pnpm deploy:production`: build and deploy the production Worker to `agfs.dev`
