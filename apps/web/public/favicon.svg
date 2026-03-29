@@ -1,32 +1,29 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>AGFS favicon</title>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">AGFS favicon</title>
   <defs>
-    <linearGradient id="bg" x1="64" y1="56" x2="448" y2="456" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#121822" />
-      <stop offset="1" stop-color="#283548" />
+    <linearGradient id="bg" x1="256" y1="32" x2="256" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111216" />
+      <stop offset="1" stop-color="#090A0D" />
     </linearGradient>
-    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(392 120) rotate(136.432) scale(276.685)">
-      <stop stop-color="#8BE9D6" stop-opacity="0.48" />
-      <stop offset="1" stop-color="#8BE9D6" stop-opacity="0" />
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(170 78) rotate(52.298) scale(298.108 333.688)">
+      <stop stop-color="#F5F5F4" stop-opacity="0.12" />
+      <stop offset="0.55" stop-color="#F5F5F4" stop-opacity="0.03" />
+      <stop offset="1" stop-color="#F5F5F4" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="folder" x1="128" y1="146" x2="362" y2="356" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF8E5" />
-      <stop offset="1" stop-color="#F3D59A" />
-    </linearGradient>
-    <linearGradient id="spark" x1="338" y1="124" x2="403" y2="184" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#9AF7E0" />
-      <stop offset="1" stop-color="#59D9C8" />
-    </linearGradient>
   </defs>
-  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#bg)" />
-  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#glow)" />
-  <path d="M122 174C122 159.641 133.641 148 148 148H220.519C228.42 148 235.879 151.589 240.808 157.745L260.861 182.77C265.79 188.926 273.249 192.515 281.151 192.515H364C378.359 192.515 390 204.156 390 218.515V321C390 343.091 372.091 361 350 361H162C139.909 361 122 343.091 122 321V174Z" fill="url(#folder)" />
-  <path d="M150 218.515C150 209.678 157.163 202.515 166 202.515H346C354.837 202.515 362 209.678 362 218.515V308C362 321.255 351.255 332 338 332H174C160.745 332 150 321.255 150 308V218.515Z" fill="#FFFDF7" fill-opacity="0.94" />
-  <path d="M195 249.5H317" stroke="#1E293B" stroke-width="18" stroke-linecap="round" stroke-opacity="0.16" />
-  <path d="M195 284H270" stroke="#1E293B" stroke-width="18" stroke-linecap="round" stroke-opacity="0.16" />
-  <path d="M298 263.5L327.5 244L342 259.5L312.5 279L298 263.5Z" fill="#1F766C" fill-opacity="0.9" />
-  <circle cx="189" cy="266.5" r="15" fill="#1C2430" fill-opacity="0.9" />
-  <circle cx="258" cy="266.5" r="15" fill="#1C2430" fill-opacity="0.9" />
-  <circle cx="327" cy="266.5" r="15" fill="#1C2430" fill-opacity="0.9" />
-  <path d="M349 112L359.701 137.299L385 148L359.701 158.701L349 184L338.299 158.701L313 148L338.299 137.299L349 112Z" fill="url(#spark)" />
+
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#bg)" />
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#glow)" />
+  <rect x="33" y="33" width="446" height="446" rx="107" stroke="#F5F5F4" stroke-opacity="0.06" />
+
+  <path
+    d="M114 183C114 165.327 128.327 151 146 151H217.705C226.228 151 234.403 154.322 240.499 160.254L258.827 178.086C264.924 184.019 273.099 187.34 281.622 187.34H366C383.673 187.34 398 201.668 398 219.34V318C398 353.346 369.346 382 334 382H178C142.654 382 114 353.346 114 318V183Z"
+    fill="#0F1115"
+    stroke="#F5F5F4"
+    stroke-width="24"
+    stroke-linejoin="round"
+  />
+
+  <path d="M194 244L240 284L194 324" stroke="#F5F5F4" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M266 324H328" stroke="#A1A1AA" stroke-width="24" stroke-linecap="round" />
 </svg>

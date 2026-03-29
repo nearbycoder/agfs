@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FolderKanban, Link2, Upload } from "lucide-react";
 import { authClient } from "~/lib/auth-client";
 import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
@@ -36,6 +36,26 @@ const HOME_STRUCTURED_DATA = {
     },
   ],
 };
+
+const CONTROL_PLANE_STEPS = [
+  {
+    label: "Upload",
+    description: "Drop screenshots, logs, and artifacts into a private namespace without exposing bucket URLs or ad hoc paths.",
+    icon: Upload,
+  },
+  {
+    label: "Browse",
+    description: "Open the same account-scoped workspace in the web app when you want fast inspection, organization, and selection.",
+    icon: FolderKanban,
+  },
+  {
+    label: "Share",
+    description: "Hand back expiring AGFS links that stay on agfs.dev, open inline, and feel like part of the product instead of raw storage.",
+    icon: Link2,
+  },
+];
+
+const CONTROL_PLANE_TAGS = ["Private namespace", "Expiring previews", "CLI + web app"];
 
 export const Route = createFileRoute("/")({
   head: () => {
@@ -112,33 +132,49 @@ $ agfs ls /runs/latest
 screenshot.png    381 kB    image/png`}
           </CodeWindow>
 
-          <Card className="border-zinc-200/90 bg-white/80 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/70">
-            <CardHeader className="space-y-3">
-              <Badge className="w-fit" variant="outline">
-                Why it exists
-              </Badge>
-              <CardTitle className="text-xl tracking-[-0.03em] text-zinc-950">
-                Remote agents can create files you can&apos;t directly reach.
-              </CardTitle>
+          <Card className="app-preview-card h-full border-white/10 bg-zinc-950 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_24px_80px_rgba(0,0,0,0.46)]">
+            <CardHeader className="space-y-4 pb-5">
+              <span className="app-preview-chip w-fit">Why it exists</span>
+              <div className="space-y-3">
+                <CardTitle className="max-w-sm text-xl tracking-[-0.04em] text-zinc-50">
+                  Remote agents can create files you can&apos;t directly reach.
+                </CardTitle>
+                <p className="max-w-md text-sm leading-6 text-zinc-300/78">
+                  AGFS keeps the handoff in one darker control plane, using the same visual language as the app: a
+                  private namespace, predictable actions, and preview links that feel native instead of improvised.
+                </p>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2 border-t border-zinc-200 pt-4 first:border-t-0 first:pt-0 dark:border-zinc-800">
-                <p className="section-label">Upload</p>
-                <p className="section-copy">
-                  Send screenshots, logs, and artifacts into a private user namespace without exposing raw bucket paths.
-                </p>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3">
+                {CONTROL_PLANE_STEPS.map((step) => {
+                  const Icon = step.icon;
+
+                  return (
+                    <div
+                      className="rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                      key={step.label}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                          <Icon className="size-4" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="app-preview-label">{step.label}</p>
+                          <p className="text-sm leading-6 text-zinc-300">{step.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="space-y-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-                <p className="section-label">Browse</p>
-                <p className="section-copy">
-                  Open the web app to inspect files and folders, or use the CLI when you want a filesystem-first workflow.
-                </p>
-              </div>
-              <div className="space-y-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-                <p className="section-label">Share</p>
-                <p className="section-copy">
-                  Generate expiring AGFS links that open inline, so an agent can hand you something clickable immediately.
-                </p>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {CONTROL_PLANE_TAGS.map((tag) => (
+                  <span className="app-preview-chip" key={tag}>
+                    {tag}
+                  </span>
+                ))}
               </div>
             </CardContent>
           </Card>

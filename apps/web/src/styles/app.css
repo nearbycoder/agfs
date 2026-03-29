@@ -183,4 +183,37 @@
   .status-shell {
     @apply mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-7xl items-center justify-center px-4 py-12 sm:px-6 lg:px-8;
   }
+
+  .app-preview-card {
+    isolation: isolate;
+    background-image:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 22rem),
+      linear-gradient(180deg, rgba(20, 20, 23, 0.98), rgba(8, 8, 10, 0.98));
+  }
+
+  .app-preview-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.44), transparent 84%);
+    opacity: 0.55;
+  }
+
+  .app-preview-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .app-preview-chip {
+    @apply inline-flex items-center rounded-full border border-white/8 bg-white/[0.05] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-300/82;
+  }
+
+  .app-preview-label {
+    @apply font-mono text-[11px] uppercase tracking-[0.24em] text-zinc-500;
+  }
 }

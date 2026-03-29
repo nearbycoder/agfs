@@ -1,59 +1,69 @@
-<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>AGFS social card</title>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">AGFS social card</title>
+  <desc id="desc">AGFS social preview card with the folder terminal icon, title, subtitle, and description.</desc>
   <defs>
-    <linearGradient id="bg" x1="104" y1="82" x2="1064" y2="560" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#111827" />
-      <stop offset="1" stop-color="#223248" />
+    <linearGradient id="bg" x1="600" y1="0" x2="600" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101114" />
+      <stop offset="1" stop-color="#060709" />
     </linearGradient>
-    <radialGradient id="orbA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(264 80) rotate(67.1663) scale(382.119 488.698)">
-      <stop stop-color="#5EEAD4" stop-opacity="0.16" />
-      <stop offset="1" stop-color="#5EEAD4" stop-opacity="0" />
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(326 72) rotate(55.0212) scale(446.879 521.184)">
+      <stop stop-color="#F5F5F4" stop-opacity="0.12" />
+      <stop offset="0.48" stop-color="#F5F5F4" stop-opacity="0.04" />
+      <stop offset="1" stop-color="#F5F5F4" stop-opacity="0" />
     </radialGradient>
-    <radialGradient id="orbB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(936 548) rotate(-139.647) scale(444.478 526.648)">
-      <stop stop-color="#FDE68A" stop-opacity="0.16" />
-      <stop offset="1" stop-color="#FDE68A" stop-opacity="0" />
-    </radialGradient>
-    <linearGradient id="folder" x1="162" y1="186" x2="424" y2="412" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFF8E5" />
-      <stop offset="1" stop-color="#F3D59A" />
-    </linearGradient>
-    <linearGradient id="spark" x1="369" y1="145" x2="446" y2="214" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#9AF7E0" />
-      <stop offset="1" stop-color="#59D9C8" />
-    </linearGradient>
   </defs>
+
   <rect width="1200" height="630" rx="48" fill="url(#bg)" />
-  <rect width="1200" height="630" rx="48" fill="url(#orbA)" />
-  <rect width="1200" height="630" rx="48" fill="url(#orbB)" />
-  <g opacity="0.08">
-    <path d="M0 95H1200" stroke="white" />
-    <path d="M0 207H1200" stroke="white" />
-    <path d="M0 319H1200" stroke="white" />
-    <path d="M0 431H1200" stroke="white" />
-    <path d="M0 543H1200" stroke="white" />
-    <path d="M130 0V630" stroke="white" />
-    <path d="M355 0V630" stroke="white" />
-    <path d="M580 0V630" stroke="white" />
-    <path d="M805 0V630" stroke="white" />
-    <path d="M1030 0V630" stroke="white" />
+  <rect width="1200" height="630" rx="48" fill="url(#glow)" />
+
+  <g opacity="0.12">
+    <path d="M0 58H1200" stroke="#F4F4F5" />
+    <path d="M0 116H1200" stroke="#F4F4F5" />
+    <path d="M0 174H1200" stroke="#F4F4F5" />
+    <path d="M0 232H1200" stroke="#F4F4F5" />
+    <path d="M0 290H1200" stroke="#F4F4F5" />
+    <path d="M0 348H1200" stroke="#F4F4F5" />
+    <path d="M0 406H1200" stroke="#F4F4F5" />
+    <path d="M0 464H1200" stroke="#F4F4F5" />
+    <path d="M0 522H1200" stroke="#F4F4F5" />
+    <path d="M76 0V630" stroke="#F4F4F5" />
+    <path d="M134 0V630" stroke="#F4F4F5" />
+    <path d="M192 0V630" stroke="#F4F4F5" />
+    <path d="M250 0V630" stroke="#F4F4F5" />
+    <path d="M308 0V630" stroke="#F4F4F5" />
+    <path d="M366 0V630" stroke="#F4F4F5" />
+    <path d="M424 0V630" stroke="#F4F4F5" />
+    <path d="M482 0V630" stroke="#F4F4F5" />
+    <path d="M540 0V630" stroke="#F4F4F5" />
+    <path d="M598 0V630" stroke="#F4F4F5" />
+    <path d="M656 0V630" stroke="#F4F4F5" />
+    <path d="M714 0V630" stroke="#F4F4F5" />
+    <path d="M772 0V630" stroke="#F4F4F5" />
+    <path d="M830 0V630" stroke="#F4F4F5" />
+    <path d="M888 0V630" stroke="#F4F4F5" />
+    <path d="M946 0V630" stroke="#F4F4F5" />
+    <path d="M1004 0V630" stroke="#F4F4F5" />
+    <path d="M1062 0V630" stroke="#F4F4F5" />
+    <path d="M1120 0V630" stroke="#F4F4F5" />
   </g>
-  <rect x="86" y="86" width="380" height="458" rx="40" fill="#0C121A" fill-opacity="0.38" stroke="white" stroke-opacity="0.08" />
-  <path d="M143 224C143 208.536 155.536 196 171 196H249.101C257.609 196 265.636 199.865 270.946 206.491L292.561 233.468C297.87 240.093 305.898 243.959 314.405 243.959H404C419.464 243.959 432 256.495 432 271.959V384C432 407.196 413.196 426 390 426H185C161.804 426 143 407.196 143 384V224Z" fill="url(#folder)" />
-  <path d="M173 272C173 262.059 181.059 254 191 254H384C393.941 254 402 262.059 402 272V370C402 384.359 390.359 396 376 396H199C184.641 396 173 384.359 173 370V272Z" fill="#FFFDF7" fill-opacity="0.94" />
-  <path d="M224 305H347" stroke="#1E293B" stroke-width="20" stroke-linecap="round" stroke-opacity="0.18" />
-  <path d="M224 343H299" stroke="#1E293B" stroke-width="20" stroke-linecap="round" stroke-opacity="0.18" />
-  <circle cx="219" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
-  <circle cx="286" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
-  <circle cx="353" cy="325" r="16" fill="#1C2430" fill-opacity="0.92" />
-  <path d="M329 322L348 306L365 322L346 338L329 322Z" fill="#1F766C" fill-opacity="0.95" />
-  <path d="M393 141L406.318 172.682L438 186L406.318 199.318L393 231L379.682 199.318L348 186L379.682 172.682L393 141Z" fill="url(#spark)" />
-  <g fill="white">
-    <text x="536" y="191" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="700" letter-spacing="0.18em" opacity="0.72">AGFS</text>
-    <text x="536" y="292" font-family="ui-sans-serif, system-ui, sans-serif" font-size="76" font-weight="800">Private filesystem</text>
-    <text x="536" y="376" font-family="ui-sans-serif, system-ui, sans-serif" font-size="76" font-weight="800">for AI agents</text>
-    <text x="536" y="452" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" opacity="0.76">Store screenshots, logs, and artifacts. Browse them in the web app,</text>
-    <text x="536" y="494" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500" opacity="0.76">automate with the CLI, and share expiring previews from one control plane.</text>
+
+  <rect x="92" y="92" width="150" height="150" rx="38" fill="#111216" />
+  <rect x="92.75" y="92.75" width="148.5" height="148.5" rx="37.25" stroke="#F5F5F4" stroke-opacity="0.08" stroke-width="1.5" />
+  <g transform="translate(0 8) scale(0.88)">
+    <path
+      d="M129 144.9C129 137.223 135.223 131 142.9 131H174.066C177.768 131 181.32 132.443 183.967 135.019L191.924 142.76C194.571 145.336 198.123 146.778 201.825 146.778H238.5C246.178 146.778 252.4 153.001 252.4 160.678V203.5C252.4 218.857 239.957 231.3 224.6 231.3H156.8C141.443 231.3 129 218.857 129 203.5V144.9Z"
+      fill="#0F1115"
+      stroke="#F5F5F4"
+      stroke-width="10.5"
+      stroke-linejoin="round"
+    />
+    <path d="M165 170L188 189L165 208" stroke="#F5F5F4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M201 208H231" stroke="#A1A1AA" stroke-width="12" stroke-linecap="round" />
   </g>
-  <rect x="536" y="531" width="315" height="46" rx="23" fill="white" fill-opacity="0.1" />
-  <text x="566" y="561" fill="white" fill-opacity="0.76" font-family="ui-monospace, SFMono-Regular, monospace" font-size="22" font-weight="600">Cloudflare Workers + R2 + D1</text>
+
+  <text x="92" y="320" fill="#A1A1AA" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" font-weight="700" letter-spacing="5">AGFS.DEV</text>
+  <text x="92" y="408" fill="#FAFAFA" font-family="Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="78" font-weight="800">Private filesystem</text>
+  <text x="92" y="490" fill="#FAFAFA" font-family="Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="78" font-weight="800">for AI agents</text>
+  <text x="92" y="556" fill="#A1A1AA" font-family="Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27" font-weight="500">Store screenshots, logs, and artifacts in one clean control</text>
+  <text x="92" y="592" fill="#A1A1AA" font-family="Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27" font-weight="500">plane for uploads, previews, and sharing.</text>
 </svg>

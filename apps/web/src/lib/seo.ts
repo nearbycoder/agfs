@@ -4,7 +4,8 @@ export const SITE_URL = "https://agfs.dev";
 export const DEFAULT_DESCRIPTION =
   "Private Cloudflare-native file storage for humans and AI agents. Store screenshots, logs, and artifacts, browse them in the web app, automate with the CLI, and share expiring previews.";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-card.svg`;
-export const DEFAULT_OG_IMAGE_ALT = "AGFS social card with a folder mark and the tagline Private filesystem for AI agents.";
+export const DEFAULT_OG_IMAGE_ALT =
+  "AGFS social card with the folder terminal icon, title, subtitle, and a short product description.";
 export const INDEX_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 export const NOINDEX_ROBOTS = "noindex, nofollow, noarchive, nosnippet";
 
