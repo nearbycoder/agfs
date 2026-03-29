@@ -39,7 +39,7 @@ function SharesPage() {
     void refresh().catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : "Failed to load shares");
     });
-  }, [refresh]);
+  }, []);
 
   async function handleRevoke(id: string) {
     const response = await fetch(`/api/v1/shares/${id}`, { method: "DELETE" });

@@ -91,11 +91,14 @@ function FilesPage() {
       setError(cause instanceof Error ? cause.message : "Failed to load entries");
       setEntries([]);
     });
-  }, [path, refreshEntries]);
+  }, [path]);
 
   useEffect(() => {
     const currentFilePaths = new Set(entries.filter((entry) => entry.kind === "file").map((entry) => entry.path));
-    setSelectedPaths((current) => current.filter((entryPath) => currentFilePaths.has(entryPath)));
+    setSelectedPaths((current) => {
+      const next = current.filter((entryPath) => currentFilePaths.has(entryPath));
+      return next.length === current.length ? current : next;
+    });
   }, [entries]);
 
   const breadcrumbItems = useMemo(() => {

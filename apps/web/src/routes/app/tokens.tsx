@@ -44,7 +44,7 @@ function TokensPage() {
     void refresh().catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : "Failed to load tokens");
     });
-  }, [refresh]);
+  }, []);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
