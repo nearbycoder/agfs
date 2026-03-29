@@ -99,9 +99,9 @@ Recommended settings for this repository:
 - Worker / project: `agfs-dev-production`
 - Git repository: `nearbycoder/agfs`
 - Production branch: `main`
-- Root directory: `apps/web`
-- Build command: `pnpm run build:production`
-- Deploy command: `CLOUDFLARE_ENV=production pnpm exec wrangler deploy --env production`
+- Root directory: repository root
+- Build command: `pnpm --dir apps/web run build:production`
+- Deploy command: `pnpm --dir apps/web exec wrangler deploy --env production`
 
 Optional watch paths that fit this monorepo well:
 
@@ -115,7 +115,7 @@ Optional watch paths that fit this monorepo well:
 If Cloudflare enables preview builds for non-production branches and asks for a preview deploy command, use:
 
 ```bash
-CLOUDFLARE_ENV=production pnpm exec wrangler versions upload --env production
+pnpm --dir apps/web exec wrangler versions upload --env production
 ```
 
 The production app secrets still live in Cloudflare, not GitHub:
