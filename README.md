@@ -35,7 +35,7 @@ For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.exam
 - `pnpm --filter @agfs/web d1:migrate:local`: apply the full AGFS + Better Auth schema to the local D1 database
 - `pnpm d1:migrate:remote`: apply the production D1 schema to Cloudflare
 - `pnpm r2:cors`: apply the production R2 CORS policy
-- `pnpm deploy`: build and deploy the production Worker to `agfs.dev`
+- `pnpm deploy:production`: build and deploy the production Worker to `agfs.dev`
 - `pnpm check`: run TypeScript checks across the workspace
 - `pnpm test`: run unit tests
 - `pnpm --filter @agfs/web cf-typegen`: generate local Cloudflare binding types
@@ -80,7 +80,7 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
 6. Deploy the Worker:
 
    ```bash
-   pnpm deploy
+   pnpm deploy:production
    ```
 
 7. Smoke test:
@@ -90,16 +90,33 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
    - Run `AGFS_BASE_URL=https://agfs.dev agfs whoami`
    - Run `AGFS_BASE_URL=https://agfs.dev agfs upload ./shot.png /screenshots/shot.png --share 15m`
 
-## GitHub auto-deploy
+## Cloudflare Git deploys
 
-Pushes to `main` now deploy through GitHub Actions using [.github/workflows/deploy.yml](/Users/nearby/Sites/agfs.dev/.github/workflows/deploy.yml).
+Production deploys now come from Cloudflare's Git integration in the Cloudflare dashboard.
 
-Add these repository secrets in GitHub at `nearbycoder/agfs` before the workflow can deploy:
+Recommended settings for this repository:
 
-- `CLOUDFLARE_ACCOUNT_ID`: `0a4ba75d9277c4e96b49255f3109e7b6`
-- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token scoped to Workers deploys on this account
+- Worker / project: `agfs-dev-production`
+- Git repository: `nearbycoder/agfs`
+- Production branch: `main`
+- Root directory: `apps/web`
+- Build command: `pnpm run build:production`
+- Deploy command: `CLOUDFLARE_ENV=production pnpm exec wrangler deploy --env production`
 
-The workflow installs dependencies, runs `pnpm check`, runs `pnpm test`, and then calls `pnpm deploy` on every push to `main`. It also supports manual runs with `workflow_dispatch`.
+Optional watch paths that fit this monorepo well:
+
+- `apps/web/**`
+- `packages/**`
+- `package.json`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `tsconfig.base.json`
+
+If Cloudflare enables preview builds for non-production branches and asks for a preview deploy command, use:
+
+```bash
+CLOUDFLARE_ENV=production pnpm exec wrangler versions upload --env production
+```
 
 The production app secrets still live in Cloudflare, not GitHub:
 
