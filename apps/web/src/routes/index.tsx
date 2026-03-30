@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, FolderKanban, Link2, Upload } from "lucide-react";
+import { FaGithub } from "react-icons/fa6";
 import { authClient } from "~/lib/auth-client";
 import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
@@ -11,7 +12,8 @@ import { buildSeoHead, buildStructuredDataMeta } from "~/lib/seo";
 import { ORDERED_STORAGE_PLANS } from "~/lib/storage-plans";
 
 const HOME_DESCRIPTION =
-  "AGFS is a private Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring preview links.";
+  "AGFS is a Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring preview links.";
+const GITHUB_REPO_URL = "https://github.com/nearbycoder/agfs";
 
 const HOME_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -112,8 +114,15 @@ function HomePage() {
               A simple place for screenshots, logs, and artifacts your agent can hand back.
             </h1>
             <p className="mx-auto max-w-2xl text-base leading-7 text-zinc-500 dark:text-zinc-400 sm:text-lg">
-              AGFS gives every user a private filesystem backed by R2, with a clean web workspace and a CLI that feels
+              AGFS gives every user a private filesystem backed by R2, with a clean web workspace, a CLI that feels
               normal on local machines, CI, and remote agent hosts.
+            </p>
+            <p className="mx-auto max-w-2xl text-sm font-medium tracking-[-0.01em] text-zinc-600 dark:text-zinc-300">
+              Open source on{" "}
+              <a className="underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:decoration-zinc-700 dark:hover:decoration-zinc-300" href={GITHUB_REPO_URL} rel="noreferrer" target="_blank">
+                github.com/nearbycoder/agfs
+              </a>
+              .
             </p>
           </div>
 
@@ -121,6 +130,12 @@ function HomePage() {
             <Button onClick={handleSignIn} size="lg" type="button">
               {actionLabel}
               <ArrowRight className="size-4" />
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <a href={GITHUB_REPO_URL} rel="noreferrer" target="_blank">
+                <FaGithub className="size-4" />
+                View on GitHub
+              </a>
             </Button>
             <Button asChild size="lg" variant="ghost">
               <Link to="/cli">CLI docs</Link>
