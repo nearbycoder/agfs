@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useState } from "react";
 import { accountSummarySchema, type AccountSummary } from "@agfs/contracts";
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { ChevronRight, FolderKanban, HardDrive, KeyRound, Link2, LogOut, ShieldCheck, Sparkles } from "lucide-react";
@@ -24,22 +24,37 @@ export function AppShell() {
   const usageRatio = account ? Math.min((account.storageUsedBytes / account.storageLimitBytes) * 100, 100) : 0;
   const overageBytes = account ? Math.max(account.storageUsedBytes - account.storageLimitBytes, 0) : 0;
 
-  const refreshAccount = useEffectEvent(async () => {
-    const response = await fetch("/api/v1/account");
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error ?? "Failed to load account details");
+  useEffect(() => {
+    if (!session.data?.user?.id) {
+      setAccount(null);
+      return;
     }
 
-    setAccount(accountSummarySchema.parse(payload));
-  });
+    let cancelled = false;
 
-  useEffect(() => {
     setAccountError(null);
-    void refreshAccount().catch((cause: unknown) => {
-      setAccountError(cause instanceof Error ? cause.message : "Failed to load account details");
-    });
-  }, [refreshAccount]);
+    void (async () => {
+      try {
+        const response = await fetch("/api/v1/account");
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Failed to load account details");
+        }
+
+        if (!cancelled) {
+          setAccount(accountSummarySchema.parse(payload));
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setAccountError(cause instanceof Error ? cause.message : "Failed to load account details");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.data?.user?.id]);
 
   async function handleSignOut() {
     await authClient.signOut();
