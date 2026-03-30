@@ -1,3 +1,5 @@
+![AGFS screenshot](./readme.png)
+
 # agfs.dev
 
 AgentFilesystem is a Cloudflare-native file manager for humans and agents.
