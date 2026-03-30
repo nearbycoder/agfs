@@ -25,10 +25,13 @@ AgentFilesystem is a Cloudflare-native file manager for humans and agents.
 Copy `.env.example` into your local secret manager or Worker secret setup and provide:
 
 - `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- Optional: `PAID_PLAN_EMAILS` as a comma-delimited list for accounts that should resolve to the paid plan
 - `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
 - `APP_URL`
 
 For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.example` as `apps/web/.dev.vars`. `wrangler.jsonc` already supplies `APP_URL` and `R2_BUCKET_NAME` as non-secret vars.
+
+`PAID_PLAN_EMAILS` is optional. If set, each comma-delimited email in the list is normalized and granted the paid storage plan.
 
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are optional for local development now. If they are missing, AGFS falls back to a same-origin Worker upload endpoint backed by the local `FILES_BUCKET` binding instead of generating presigned R2 upload URLs.
 

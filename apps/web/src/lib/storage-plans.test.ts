@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STORAGE_PLANS, evaluateStorageWrite, resolveStoragePlanIdForEmail } from "./storage-plans";
+import { STORAGE_PLANS, evaluateStorageWrite, parsePaidPlanEmails, resolveStoragePlanIdForEmail } from "./storage-plans";
 
 describe("storage plan resolution", () => {
   it("defaults users to the free plan", () => {
@@ -8,6 +8,13 @@ describe("storage plan resolution", () => {
 
   it("resolves overrides by normalized email", () => {
     expect(resolveStoragePlanIdForEmail("VIP@Example.com", { "vip@example.com": "paid" })).toBe("paid");
+  });
+
+  it("parses paid plan emails from a comma-delimited env value", () => {
+    expect(parsePaidPlanEmails(" VIP@Example.com, second@example.com ,,")).toEqual({
+      "second@example.com": "paid",
+      "vip@example.com": "paid",
+    });
   });
 });
 

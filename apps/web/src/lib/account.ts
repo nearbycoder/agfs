@@ -1,10 +1,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { AccountSummary, SessionUser } from "@agfs/contracts";
 import { entries } from "@agfs/db";
+import { getBindings } from "./bindings";
 import { db } from "./db";
-import { STORAGE_PLANS, evaluateStorageWrite, resolveStoragePlanForEmail } from "./storage-plans";
+import { STORAGE_PLANS, evaluateStorageWrite, parsePaidPlanEmails, resolveStoragePlanForEmail } from "./storage-plans";
 
 export type AccountUser = Pick<SessionUser, "id" | "email">;
+
+function getStoragePlanOverridesByEmail() {
+  return parsePaidPlanEmails(getBindings().PAID_PLAN_EMAILS);
+}
 
 export async function getCommittedStorageBytes(ownerId: string) {
   const [row] = await db
@@ -18,7 +23,7 @@ export async function getCommittedStorageBytes(ownerId: string) {
 }
 
 export async function getAccountSummaryForUser(user: AccountUser): Promise<AccountSummary> {
-  const plan = resolveStoragePlanForEmail(user.email);
+  const plan = resolveStoragePlanForEmail(user.email, getStoragePlanOverridesByEmail());
   const storageUsedBytes = await getCommittedStorageBytes(user.id);
 
   return {
@@ -37,7 +42,7 @@ export async function getStorageWriteDecisionForUser(input: {
   existingFileSizeBytes?: number | null;
   incomingSizeBytes: number;
 }) {
-  const plan = resolveStoragePlanForEmail(input.user.email);
+  const plan = resolveStoragePlanForEmail(input.user.email, getStoragePlanOverridesByEmail());
   const usedBytes = await getCommittedStorageBytes(input.user.id);
 
   return evaluateStorageWrite({

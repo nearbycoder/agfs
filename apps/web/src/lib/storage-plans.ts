@@ -2,6 +2,7 @@ import type { StoragePlanId } from "@agfs/contracts";
 import { formatBytes } from "./format";
 
 const GIB = 1024 ** 3;
+const DEFAULT_STORAGE_PLAN_OVERRIDES_BY_EMAIL: Record<string, StoragePlanId> = {};
 
 export interface StoragePlan {
   id: StoragePlanId;
@@ -10,10 +11,6 @@ export interface StoragePlan {
   priceMonthlyCents: number | null;
   comingSoon: boolean;
 }
-
-export const STORAGE_PLAN_OVERRIDES_BY_EMAIL: Record<string, StoragePlanId> = {
-  "nearbycoder@gmail.com": "paid",
-};
 
 export const STORAGE_PLANS: Record<StoragePlanId, StoragePlan> = {
   free: {
@@ -47,16 +44,30 @@ export function normalizePlanOverrideEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+export function parsePaidPlanEmails(value: string | null | undefined): Record<string, StoragePlanId> {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return DEFAULT_STORAGE_PLAN_OVERRIDES_BY_EMAIL;
+  }
+
+  return Object.fromEntries(
+    value
+      .split(",")
+      .map(normalizePlanOverrideEmail)
+      .filter((email) => email.length > 0)
+      .map((email) => [email, "paid" satisfies StoragePlanId]),
+  );
+}
+
 export function resolveStoragePlanIdForEmail(
   email: string,
-  overrides: Record<string, StoragePlanId> = STORAGE_PLAN_OVERRIDES_BY_EMAIL,
+  overrides: Record<string, StoragePlanId> = DEFAULT_STORAGE_PLAN_OVERRIDES_BY_EMAIL,
 ): StoragePlanId {
   return overrides[normalizePlanOverrideEmail(email)] ?? "free";
 }
 
 export function resolveStoragePlanForEmail(
   email: string,
-  overrides: Record<string, StoragePlanId> = STORAGE_PLAN_OVERRIDES_BY_EMAIL,
+  overrides: Record<string, StoragePlanId> = DEFAULT_STORAGE_PLAN_OVERRIDES_BY_EMAIL,
 ) {
   return STORAGE_PLANS[resolveStoragePlanIdForEmail(email, overrides)];
 }
