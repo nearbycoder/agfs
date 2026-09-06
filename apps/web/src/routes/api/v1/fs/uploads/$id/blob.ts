@@ -29,9 +29,14 @@ export const Route = createFileRoute("/api/v1/fs/uploads/$id/blob")({
             return new Response("Upload not found", { status: 404 });
           }
 
+          const contentLength = request.headers.get("content-length");
+          if (contentLength === null || !/^\d+$/.test(contentLength) || Number(contentLength) !== upload.size) {
+            return new Response("Content-Length must match upload intent", { status: 400 });
+          }
           const body = request.body ?? (await request.arrayBuffer());
           const result = await putObject(upload.objectKey, body, upload.contentType);
-          const headers = new Headers();
+          if (!result) return new Response("Upload already received", { status: 409 });
+          const headers = new Headers({ "cache-control": "no-store" });
           if (result.etag) {
             headers.set("etag", result.etag);
           }

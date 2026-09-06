@@ -11,11 +11,12 @@
     "deploy:production": "pnpm --filter @agfs/web run deploy:production",
     "d1:migrate:remote": "pnpm --filter @agfs/web d1:migrate:remote",
     "r2:cors": "pnpm --filter @agfs/web r2:cors:production",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "security:check": "pnpm audit --audit-level low && pnpm test && pnpm build && pnpm check"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }

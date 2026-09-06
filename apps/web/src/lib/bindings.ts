@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 
 export interface AppBindings {
   APP_URL: string;
+  AUTH_RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
   BETTER_AUTH_SECRET: string;
   DB: D1Database;
   FILES_BUCKET: R2Bucket;
@@ -14,8 +15,8 @@ export interface AppBindings {
   R2_SECRET_ACCESS_KEY: string;
 }
 
-type StringBindingKey = Exclude<keyof AppBindings, "DB" | "FILES_BUCKET">;
-type ResourceBindingKey = Extract<keyof AppBindings, "DB" | "FILES_BUCKET">;
+type StringBindingKey = Exclude<keyof AppBindings, "DB" | "FILES_BUCKET" | "AUTH_RATE_LIMITER">;
+type ResourceBindingKey = Extract<keyof AppBindings, "DB" | "FILES_BUCKET" | "AUTH_RATE_LIMITER">;
 
 export function getBindings(): Partial<AppBindings> {
   return env as Partial<AppBindings>;

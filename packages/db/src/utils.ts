@@ -1,5 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+export class InputError extends Error {}
+
 export const AGFS_TOKEN_PREFIX = "agfs";
 export const AGFS_SHARE_PREFIX = "agfssh";
 export const AGFS_UPLOAD_PREFIX = "agfsupl";
@@ -14,7 +16,7 @@ export function createAgfsId(prefix: string): string {
 
 export function normalizeAgfsPath(input: string): string {
   if (!input) {
-    throw new Error("Path is required");
+    throw new InputError("Path is required");
   }
 
   const normalized = `/${input}`.replace(/\/+/g, "/");
@@ -25,10 +27,10 @@ export function normalizeAgfsPath(input: string): string {
     .filter(Boolean);
 
   if (pieces.some((piece) => piece === "." || piece === "..")) {
-    throw new Error("Relative path segments are not allowed");
+    throw new InputError("Relative path segments are not allowed");
   }
   if (pieces.some((piece) => /[\\\u0000-\u001F\u007F]/.test(piece))) {
-    throw new Error("Path contains unsupported characters");
+    throw new InputError("Path contains unsupported characters");
   }
 
   const result = `/${pieces.join("/")}`;
@@ -85,15 +87,16 @@ export function createUserCode(): string {
 export function parseTtl(input: string, { maxDays = 7 }: { maxDays?: number } = {}): number {
   const match = /^(\d+)\s*(m|h|d)$/i.exec(input.trim());
   if (!match) {
-    throw new Error("Invalid TTL");
+    throw new InputError("Invalid TTL");
   }
 
   const value = Number(match[1]);
   const unit = match[2].toLowerCase();
   const ms = unit === "m" ? value * 60_000 : unit === "h" ? value * 3_600_000 : value * 86_400_000;
 
+  if (!Number.isSafeInteger(ms) || ms <= 0) throw new InputError("TTL must be positive and finite");
   if (ms > maxDays * 86_400_000) {
-    throw new Error(`TTL cannot exceed ${maxDays} days`);
+    throw new InputError(`TTL cannot exceed ${maxDays} days`);
   }
 
   return ms;

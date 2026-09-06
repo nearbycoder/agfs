@@ -1,4 +1,5 @@
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -28,9 +29,15 @@ export async function readConfig(): Promise<CliConfig> {
 
 export async function writeConfig(config: CliConfig) {
   const filePath = getConfigPath();
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, JSON.stringify(config, null, 2), "utf8");
-  await chmod(filePath, 0o600);
+  await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  await chmod(path.dirname(filePath), 0o700);
+  const temporary = `${filePath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, JSON.stringify(config, null, 2), { encoding: "utf8", mode: 0o600, flag: "wx" });
+    await rename(temporary, filePath);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 export function getResolvedBaseUrl(config: CliConfig) {
@@ -38,5 +45,9 @@ export function getResolvedBaseUrl(config: CliConfig) {
 }
 
 export function getResolvedToken(config: CliConfig) {
-  return process.env.AGFS_TOKEN ?? config.token ?? null;
+  if (process.env.AGFS_TOKEN) return process.env.AGFS_TOKEN;
+  if (config.token && new URL(getResolvedBaseUrl(config)).origin !== new URL(config.baseUrl ?? "https://agfs.dev").origin) {
+    throw new Error("Stored token belongs to a different server; log in to this server or set AGFS_TOKEN explicitly");
+  }
+  return config.token ?? null;
 }

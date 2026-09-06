@@ -2,8 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agfs-dev",
   "compatibility_date": "2025-09-24",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "src/server.ts",
   "workers_dev": true,
   "observability": {
     "enabled": true
@@ -61,12 +63,29 @@
         "required": [
           "BETTER_AUTH_SECRET",
           "GITHUB_CLIENT_ID",
-          "GITHUB_CLIENT_SECRET",
-          "R2_ACCOUNT_ID",
-          "R2_ACCESS_KEY_ID",
-          "R2_SECRET_ACCESS_KEY"
+          "GITHUB_CLIENT_SECRET"
         ]
+      },
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMITER",
+          "namespace_id": "94672001",
+          "simple": {
+            "limit": 60,
+            "period": 60
+          }
+        }
+      ]
+    }
+  },
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "94672001",
+      "simple": {
+        "limit": 60,
+        "period": 60
       }
     }
-  }
+  ]
 }

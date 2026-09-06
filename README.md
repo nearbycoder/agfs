@@ -14,7 +14,7 @@ AgentFilesystem is a Cloudflare-native file manager for humans and agents.
 ## Planned setup
 
 1. Install dependencies with `pnpm install`
-2. Configure secrets for GitHub OAuth and R2 presigning
+2. Configure secrets for GitHub OAuth
 3. Run `pnpm --filter @agfs/web cf-typegen`
 4. Run `pnpm dev`
 
@@ -26,14 +26,14 @@ Copy `.env.example` into your local secret manager or Worker secret setup and pr
 
 - `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - Optional: `PAID_PLAN_EMAILS` as a comma-delimited list for accounts that should resolve to the paid plan
-- `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME` (non-secret; supplied by Wrangler)
 - `APP_URL`
 
 For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.example` as `apps/web/.dev.vars`. `wrangler.jsonc` already supplies `APP_URL` and `R2_BUCKET_NAME` as non-secret vars.
 
 `PAID_PLAN_EMAILS` is optional. If set, each comma-delimited email in the list is normalized and granted the paid storage plan.
 
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are optional for local development now. If they are missing, AGFS falls back to a same-origin Worker upload endpoint backed by the local `FILES_BUCKET` binding instead of generating presigned R2 upload URLs.
+Uploads use a same-origin Worker endpoint backed by `FILES_BUCKET`, with create-only writes, exact Content-Length checks, and a 100 MB per-file limit. Pending uploads reserve storage and expire after 15 minutes; abandoned objects are cleaned when the owner requests another upload. R2 S3 credentials are no longer used. Shared files download as attachments with sandbox and no-cache headers.
 
 ## Useful commands
 
@@ -50,7 +50,7 @@ For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.exam
 
 - One D1 database named `agfs-db` bound as `DB`
 - One R2 bucket named `agfs-files` bound as `FILES_BUCKET`
-- R2 S3 API credentials stored as Worker secrets for presigned uploads
+- Worker upload capabilities hashed in D1; R2 access through the bucket binding
 
 The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-ac6a6ca4cece` and a dedicated Wrangler `production` environment that deploys to the custom domain `agfs.dev`.
 
@@ -59,16 +59,13 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
 1. Create a production GitHub OAuth app with:
    - Homepage URL: `https://agfs.dev`
    - Authorization callback URL: `https://agfs.dev/api/auth/callback/github`
-2. In the Cloudflare dashboard, create an R2 API token with Object Read & Write access for `agfs-files`. Copy the Access Key ID and Secret Access Key once.
+2. Confirm the `FILES_BUCKET` binding points to `agfs-files`; an S3 API token is not required.
 3. Set the production Worker secrets:
 
    ```bash
    pnpm --filter @agfs/web exec wrangler secret put BETTER_AUTH_SECRET --env production
    pnpm --filter @agfs/web exec wrangler secret put GITHUB_CLIENT_ID --env production
    pnpm --filter @agfs/web exec wrangler secret put GITHUB_CLIENT_SECRET --env production
-   pnpm --filter @agfs/web exec wrangler secret put R2_ACCOUNT_ID --env production
-   pnpm --filter @agfs/web exec wrangler secret put R2_ACCESS_KEY_ID --env production
-   pnpm --filter @agfs/web exec wrangler secret put R2_SECRET_ACCESS_KEY --env production
    ```
 
 4. Apply the R2 CORS policy:
@@ -129,6 +126,9 @@ The production app secrets still live in Cloudflare, not GitHub:
 - `BETTER_AUTH_SECRET`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
-- `R2_ACCOUNT_ID`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
+
+## Security verification
+
+Run `pnpm security:check` to audit dependencies, run regression tests, build, and typecheck the workspace. Production builds also run the workspace tests before compiling. Dependabot checks npm workspace dependencies weekly.
+
+The September 2026 review and deployment verification are documented in [SECURITY-AUDIT.md](./SECURITY-AUDIT.md). `scripts/security-smoke.mjs` runs only against localhost:8787 and expects disposable local users `alice` and `bob` with API tokens `agfs_local_test_alice` and `agfs_local_test_bob`. Never seed these fixtures in production.

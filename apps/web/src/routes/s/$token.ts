@@ -15,8 +15,8 @@ export const Route = createFileRoute("/s/$token")({
 
         return streamObject(share.r2Key, {
           headers: {
-            "cache-control": "private, max-age=60",
-            "content-disposition": createContentDisposition("inline", share.name),
+            "cache-control": "private, no-store",
+            "content-disposition": createContentDisposition("attachment", share.name),
             "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
           },
         });

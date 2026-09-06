@@ -69,3 +69,12 @@ describe("destination helpers", () => {
     expect(joinRelativeDestination("./downloads", "screenshots/a.png")).toBe("downloads/screenshots/a.png");
   });
 });
+
+
+it("rejects traversal and Windows paths from remote file listings", () => {
+  for (const name of ["..", ".", "../outside", "a/b", "a\\b", "C:secret", ""]) {
+    expect(() => flattenTree([{ id: "bad", path: "/bad", name, kind: "file", size: 0 }])).toThrow("Unsafe remote filename");
+  }
+  expect(() => joinRelativeDestination("downloads", "../outside")).toThrow();
+  expect(() => getRemoteLeafName("/..")).toThrow();
+});
