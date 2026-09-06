@@ -3,6 +3,75 @@ import { AgfsClient } from "../lib/client";
 import { renderAccountSummary, renderEntries, renderTree } from "../lib/format";
 
 export function registerFsCommands(program: Command) {
+  for (const reason of ["trash", "version"]) {
+    program
+      .command(reason === "trash" ? "trash" : "versions")
+      .description("List retained files")
+      .argument("[path]", "Remote path", "/")
+      .action(async (path: string) => {
+        const client = await AgfsClient.fromConfig();
+        console.log(
+          JSON.stringify(
+            await (await client.request(`/api/v1/recovery?reason=${reason}&path=${encodeURIComponent(path)}`)).json(),
+            null,
+            2,
+          ),
+        );
+      });
+  }
+  program
+    .command("restore")
+    .description("Restore a retained item to a vacant path")
+    .argument("<id>")
+    .argument("[path]")
+    .action(async (id: string, path?: string) => {
+      const client = await AgfsClient.fromConfig();
+      console.log(
+        await (
+          await client.request("/api/v1/recovery/restore", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ id, path }),
+          })
+        ).json(),
+      );
+    });
+  program
+    .command("preview")
+    .description("Create an isolated five-minute preview")
+    .argument("<path>")
+    .action(async (path: string) => {
+      const client = await AgfsClient.fromConfig();
+      console.log(
+        (
+          await (
+            await client.request("/api/v1/fs/preview", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ path }),
+            })
+          ).json()
+        ).url,
+      );
+    });
+  program
+    .command("activity")
+    .description("List recent activity")
+    .option("--cursor <cursor>", "Older activity cursor")
+    .action(async (options: { cursor?: string }) => {
+      const client = await AgfsClient.fromConfig();
+      console.log(
+        JSON.stringify(
+          await (
+            await client.request(
+              `/api/v1/activity${options.cursor ? `?cursor=${encodeURIComponent(options.cursor)}` : ""}`,
+            )
+          ).json(),
+          null,
+          2,
+        ),
+      );
+    });
   program
     .command("ls")
     .description("List the direct children at a remote path")
@@ -69,7 +138,7 @@ export function registerFsCommands(program: Command) {
     .description("Upload a local file into AGFS")
     .argument("<localPath>", "Local file path")
     .argument("[remotePath]", "Remote destination path")
-    .option("--share <ttl>", "Create a preview link after upload")
+    .option("--share <ttl>", "Create a download link after upload")
     .action(async (localPath: string, remotePath: string | undefined, options: { share?: string }) => {
       const client = await AgfsClient.fromConfig();
       const destination = remotePath ?? `/${localPath.split("/").at(-1)}`;
@@ -94,7 +163,7 @@ export function registerFsCommands(program: Command) {
 
   program
     .command("share")
-    .description("Generate a preview URL for a file")
+    .description("Generate a download URL for a file")
     .argument("<remotePath>", "Remote file path")
     .option("--ttl <ttl>", "Link lifetime", "15m")
     .action(async (remotePath: string, options: { ttl: string }) => {

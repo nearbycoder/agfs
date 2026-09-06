@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agfs-dev",
-  "compatibility_date": "2025-09-24",
+  "compatibility_date": "2026-09-06",
   "compatibility_flags": [
     "nodejs_compat"
   ],
@@ -12,7 +12,8 @@
   },
   "vars": {
     "APP_URL": "http://localhost:3000",
-    "R2_BUCKET_NAME": "agfs-files"
+    "R2_BUCKET_NAME": "agfs-files",
+    "PREVIEW_URL": "http://localhost:8788"
   },
   "d1_databases": [
     {
@@ -33,7 +34,8 @@
       "workers_dev": false,
       "vars": {
         "APP_URL": "https://agfs.dev",
-        "R2_BUCKET_NAME": "agfs-files"
+        "R2_BUCKET_NAME": "agfs-files",
+        "PREVIEW_URL": "https://preview.agfs.dev"
       },
       "routes": [
         {
@@ -63,7 +65,8 @@
         "required": [
           "BETTER_AUTH_SECRET",
           "GITHUB_CLIENT_ID",
-          "GITHUB_CLIENT_SECRET"
+          "GITHUB_CLIENT_SECRET",
+          "PREVIEW_SIGNING_SECRET"
         ]
       },
       "ratelimits": [
@@ -75,7 +78,12 @@
             "period": 60
           }
         }
-      ]
+      ],
+      "triggers": {
+        "crons": [
+          "17 * * * *"
+        ]
+      }
     }
   },
   "ratelimits": [
@@ -87,5 +95,10 @@
         "period": 60
       }
     }
-  ]
+  ],
+  "triggers": {
+    "crons": [
+      "17 * * * *"
+    ]
+  }
 }

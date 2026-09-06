@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/v1/fs/uploads/$id/blob")({
             .from(uploads)
             .where(and(eq(uploads.id, params.id), eq(uploads.status, "pending")));
 
-          if (!upload) {
+          if (!upload || upload.multipartId || upload.size > 100_000_000) {
             return new Response("Upload not found", { status: 404 });
           }
 

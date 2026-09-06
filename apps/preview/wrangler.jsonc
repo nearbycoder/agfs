@@ -1,0 +1,9 @@
+{
+  "$schema":"node_modules/wrangler/config-schema.json",
+  "name":"agfs-preview","main":"src/index.ts","compatibility_date":"2026-09-06",
+  "workers_dev":false,
+  "routes":[{"pattern":"preview.agfs.dev","custom_domain":true}],
+  "r2_buckets":[{"binding":"FILES_BUCKET","bucket_name":"agfs-files"}],
+  "secrets":{"required":["PREVIEW_SIGNING_SECRET"]},
+  "observability":{"enabled":true}
+}

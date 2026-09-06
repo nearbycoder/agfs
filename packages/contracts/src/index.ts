@@ -5,15 +5,9 @@ export const TOKEN_SOURCE_VALUES = ["session", "api-token"] as const;
 export const DEVICE_STATUS_VALUES = ["pending", "approved", "consumed", "expired"] as const;
 export const STORAGE_PLAN_ID_VALUES = ["free", "paid"] as const;
 
-export const pathSchema = z
-  .string()
-  .min(1)
-  .max(4096)
-  .startsWith("/");
+export const pathSchema = z.string().min(1).max(4096).startsWith("/");
 
-export const ttlSchema = z
-  .string()
-  .regex(/^\d+\s*(m|h|d)$/i, "TTL must use m, h, or d units");
+export const ttlSchema = z.string().regex(/^\d+\s*(m|h|d)$/i, "TTL must use m, h, or d units");
 
 export const entryKindSchema = z.enum(ENTRY_KIND_VALUES);
 export const tokenSourceSchema = z.enum(TOKEN_SOURCE_VALUES);
@@ -68,10 +62,18 @@ export const uploadIntentSchema = z.object({
   expiresAt: z.string(),
 });
 
+export const permissionSchema = z.enum(["read", "write", "delete", "share", "manage"]);
+export const tokenScopeSchema = z.object({
+  pathPrefix: pathSchema.default("/"),
+  permissions: z.array(permissionSchema).min(1).default(["read", "write", "delete", "share"]),
+});
+
 export const apiTokenRecordSchema = z.object({
   id: z.string(),
   label: z.string(),
   prefix: z.string(),
+  pathPrefix: z.string(),
+  permissions: z.array(permissionSchema),
   lastUsedAt: z.string().nullable(),
   expiresAt: z.string().nullable(),
   createdAt: z.string(),
@@ -137,7 +139,11 @@ export const devicePollResponseSchema = z.union([
 ]);
 
 export const deviceApproveRequestSchema = z.object({
-  userCode: z.string().trim().toUpperCase().regex(/^[0-9A-F]{8}$/),
+  userCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[0-9A-F]{8}$/),
   label: z.string().min(1).max(100).default("CLI login"),
 });
 
@@ -202,7 +208,8 @@ export const tokenListResponseSchema = z.object({
 
 export const tokenCreateRequestSchema = z.object({
   label: z.string().min(1).max(100),
-  ttl: ttlSchema.optional(),
+  ttl: ttlSchema.default("30d"),
+  ...tokenScopeSchema.shape,
 });
 
 export const tokenCreateResponseSchema = z.object({
@@ -222,3 +229,4 @@ export type FsTreeNode = z.infer<typeof fsTreeNodeSchema>;
 export type UploadIntent = z.infer<typeof uploadIntentSchema>;
 export type ApiTokenRecord = z.infer<typeof apiTokenRecordSchema>;
 export type ShareLinkRecord = z.infer<typeof shareLinkRecordSchema>;
+export { uploadResumable } from "./upload";

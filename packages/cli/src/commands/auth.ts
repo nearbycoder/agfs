@@ -7,6 +7,35 @@ function sleep(ms: number) {
 }
 
 export function registerAuthCommands(program: Command) {
+  const tokens = program.command("tokens").description("Manage agent credentials (requires account management access)");
+  tokens.command("list").action(async () => {
+    const client = await AgfsClient.fromConfig();
+    console.log(JSON.stringify(await client.listTokens(), null, 2));
+  });
+  tokens
+    .command("create")
+    .argument("<label>")
+    .option("--ttl <ttl>", "Token lifetime, at most 90d", "30d")
+    .option("--path <path>", "Allowed folder", "/")
+    .option("--permissions <permissions>", "Comma-separated read,write,delete,share", "read")
+    .action(async (label: string, options: { ttl: string; path: string; permissions: string }) => {
+      const client = await AgfsClient.fromConfig();
+      console.log(
+        JSON.stringify(
+          await client.createToken(label, options.ttl, options.path, options.permissions.split(",")),
+          null,
+          2,
+        ),
+      );
+    });
+  tokens
+    .command("revoke")
+    .argument("<id>")
+    .action(async (id: string) => {
+      const client = await AgfsClient.fromConfig();
+      await client.request(`/api/v1/tokens/${encodeURIComponent(id)}`, { method: "DELETE" });
+      console.log("Token revoked.");
+    });
   program
     .command("login")
     .description("Authenticate the CLI with device flow or a provided API token")

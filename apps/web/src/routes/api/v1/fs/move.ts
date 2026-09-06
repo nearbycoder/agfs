@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { authorize } from "~/lib/scope";
+import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { moveEntryRequestSchema, successResponseSchema } from "@agfs/contracts";
 import { moveEntry } from "~/lib/fs";
@@ -12,6 +14,9 @@ export const Route = createFileRoute("/api/v1/fs/move")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, moveEntryRequestSchema);
+          authorize(auth, "write", body.from, body.to);
+          authorize(auth, "delete", body.from);
+          auditOperation("move", body.from);
           await moveEntry(auth.user.id, body.from, body.to);
           return json(successResponseSchema.parse({ ok: true }));
         } catch (error) {

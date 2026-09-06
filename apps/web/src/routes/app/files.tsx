@@ -2,19 +2,8 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  ArrowUp,
-  Copy,
-  Download,
-  FileImage,
-  Folder,
-  FolderPlus,
-  Link2,
-  MoveRight,
-  Trash2,
-  Upload,
-} from "lucide-react";
-import { listEntriesResponseSchema, successResponseSchema } from "@agfs/contracts";
+import { ArrowUp, Copy, Download, FileImage, Folder, FolderPlus, Link2, MoveRight, Trash2, Upload } from "lucide-react";
+import { uploadResumable, listEntriesResponseSchema, successResponseSchema } from "@agfs/contracts";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button, buttonVariants } from "~/components/ui/button";
@@ -29,7 +18,8 @@ export const Route = createFileRoute("/app/files")({
   head: () =>
     buildSeoHead({
       title: pageTitle("Files"),
-      description: "Browse private AGFS folders, upload artifacts, and create expiring download links from one workspace.",
+      description:
+        "Browse private AGFS folders, upload artifacts, and create expiring download links from one workspace.",
       robots: NOINDEX_ROBOTS,
     }),
   component: FilesPage,
@@ -54,12 +44,16 @@ function triggerDownload(path: string) {
 
 function FilesPage() {
   const [path, setPath] = useState("/");
-  const [entries, setEntries] = useState<Array<ReturnType<typeof listEntriesResponseSchema.parse>["entries"][number]>>([]);
+  const [entries, setEntries] = useState<Array<ReturnType<typeof listEntriesResponseSchema.parse>["entries"][number]>>(
+    [],
+  );
   const [folderName, setFolderName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharePath, setSharePath] = useState<string | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
   const refreshEntries = useEffectEvent(async (nextPath: string) => {
@@ -105,7 +99,8 @@ function FilesPage() {
   const fileCount = entries.filter((entry) => entry.kind === "file").length;
   const totalBytes = entries.reduce((sum, entry) => sum + (entry.size ?? 0), 0);
   const visibleFiles = entries.filter((entry) => entry.kind === "file");
-  const allVisibleFilesSelected = visibleFiles.length > 0 && visibleFiles.every((entry) => selectedPaths.includes(entry.path));
+  const allVisibleFilesSelected =
+    visibleFiles.length > 0 && visibleFiles.every((entry) => selectedPaths.includes(entry.path));
 
   async function mutate(action: () => Promise<void>) {
     setIsBusy(true);
@@ -192,7 +187,8 @@ function FilesPage() {
   }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const files = event.currentTarget.files;
+    const inputElement = event.currentTarget;
+    const files = inputElement.files;
     if (!files?.length) {
       return;
     }
@@ -200,6 +196,18 @@ function FilesPage() {
     await mutate(async () => {
       for (const file of Array.from(files)) {
         const remotePath = joinPath(path, file.name);
+        if (file.size > 0) {
+          await uploadResumable({
+            path: remotePath,
+            contentType: file.type || "application/octet-stream",
+            size: file.size,
+            fingerprint: `${file.size}:${file.lastModified}:${file.name}`,
+            request: fetch,
+            read: (start, end) => file.slice(start, end).arrayBuffer(),
+            progress: (bytes) => setUploadProgress(`${file.name}: ${Math.round((bytes / file.size) * 100)}%`),
+          });
+          continue;
+        }
         const createResponse = await fetch("/api/v1/fs/upload-intents", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -234,7 +242,8 @@ function FilesPage() {
           throw new Error(commitPayload.error ?? `Failed to finalize ${file.name}`);
         }
       }
-      event.currentTarget.value = "";
+      inputElement.value = "";
+      setUploadProgress(null);
     });
   }
 
@@ -284,7 +293,7 @@ function FilesPage() {
             <div className="space-y-3">
               <CardTitle className="dashboard-title">{path}</CardTitle>
               <CardDescription className="max-w-2xl">
-                Browse your private files, upload artifacts up to 100 MB each, and create expiring download links.
+                Browse your private files, upload artifacts with automatic resume, and create expiring download links.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
@@ -319,7 +328,7 @@ function FilesPage() {
               <label className={cn(buttonVariants({ variant: "default" }), "cursor-pointer")}>
                 <Upload className="size-4" />
                 Upload files
-                <input hidden multiple onChange={handleUpload} type="file" />
+                <input disabled={isBusy} hidden multiple onChange={handleUpload} type="file" />
               </label>
               <Button disabled={!selectedPaths.length} onClick={handleDownloadSelected} type="button" variant="outline">
                 <Download className="size-4" />
@@ -331,15 +340,21 @@ function FilesPage() {
             <div className="mini-grid">
               <div className="mini-stat">
                 <p className="section-label">Folders</p>
-                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">{folderCount}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+                  {folderCount}
+                </p>
               </div>
               <div className="mini-stat">
                 <p className="section-label">Files</p>
-                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">{fileCount}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+                  {fileCount}
+                </p>
               </div>
               <div className="mini-stat">
                 <p className="section-label">Bytes in view</p>
-                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">{formatBytes(totalBytes)}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+                  {formatBytes(totalBytes)}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -351,7 +366,9 @@ function FilesPage() {
               Operations
             </Badge>
             <CardTitle>Create a folder or hand back a download link.</CardTitle>
-            <CardDescription>Keep the filesystem tidy and surface a fresh share URL whenever an agent uploads a new artifact.</CardDescription>
+            <CardDescription>
+              Keep the filesystem tidy and surface a fresh share URL whenever an agent uploads a new artifact.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <form className="space-y-3" onSubmit={handleCreateFolder}>
@@ -376,8 +393,15 @@ function FilesPage() {
               <p className="section-label">Latest share link</p>
               {shareUrl ? (
                 <div className="mt-3 space-y-3">
-                  {sharePath ? <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">{sharePath}</p> : null}
-                  <a className="block break-all text-sm leading-6 text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-700" href={shareUrl} rel="noreferrer" target="_blank">
+                  {sharePath ? (
+                    <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">{sharePath}</p>
+                  ) : null}
+                  <a
+                    className="block break-all text-sm leading-6 text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-700"
+                    href={shareUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
                     {shareUrl}
                   </a>
                   <div className="flex gap-2">
@@ -401,13 +425,24 @@ function FilesPage() {
                   </div>
                 </div>
               ) : (
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Generate a share from any file row to surface an expiring download URL here.</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                  Generate a share from any file row to surface an expiring download URL here.
+                </p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      <p className="section-copy" role="status">
+        {uploadProgress ??
+          "Uploads resume when you select the same file again. Up to 20 GB per file, within your available storage."}
+      </p>
+      {previewUrl ? (
+        <a className="underline" href={previewUrl} target="_blank" rel="noopener noreferrer">
+          Open isolated preview (expires in 5 minutes)
+        </a>
+      ) : null}
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Request failed</AlertTitle>
@@ -418,14 +453,18 @@ function FilesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Directory contents</CardTitle>
-          <CardDescription>Folders open in place. Files can be selected, downloaded, shared, renamed, or removed from the current path.</CardDescription>
+          <CardDescription>
+            Folders open in place. Files can be selected, downloaded, shared, renamed, or removed from the current path.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
               <Folder className="size-6 text-zinc-400 dark:text-zinc-500" />
               <p className="mt-4 text-sm font-medium text-zinc-900 dark:text-zinc-100">This folder is empty</p>
-              <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">Upload files, create a folder, or move back up to browse a different part of the namespace.</p>
+              <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                Upload files, create a folder, or move back up to browse a different part of the namespace.
+              </p>
             </div>
           ) : (
             <Table>
@@ -462,7 +501,11 @@ function FilesPage() {
                     </TableCell>
                     <TableCell className="min-w-[280px]">
                       {entry.kind === "folder" ? (
-                        <button className="flex items-start gap-3 text-left" onClick={() => setPath(entry.path)} type="button">
+                        <button
+                          className="flex items-start gap-3 text-left"
+                          onClick={() => setPath(entry.path)}
+                          type="button"
+                        >
                           <span className="rounded-xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
                             <Folder className="size-4 text-zinc-700 dark:text-zinc-300" />
                           </span>
@@ -472,12 +515,17 @@ function FilesPage() {
                           </span>
                         </button>
                       ) : (
-                        <a className="group flex items-start gap-3 rounded-xl transition-colors hover:text-zinc-950 dark:hover:text-zinc-50" href={getDownloadHref(entry.path)}>
+                        <a
+                          className="group flex items-start gap-3 rounded-xl transition-colors hover:text-zinc-950 dark:hover:text-zinc-50"
+                          href={getDownloadHref(entry.path)}
+                        >
                           <span className="rounded-xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
                             <FileImage className="size-4 text-zinc-700 dark:text-zinc-300" />
                           </span>
                           <span>
-                            <span className="block font-medium text-zinc-950 dark:text-zinc-50 underline decoration-transparent underline-offset-4 transition-colors group-hover:decoration-current">{entry.name}</span>
+                            <span className="block font-medium text-zinc-950 dark:text-zinc-50 underline decoration-transparent underline-offset-4 transition-colors group-hover:decoration-current">
+                              {entry.name}
+                            </span>
                             <span className="block text-sm text-zinc-500 dark:text-zinc-400">{entry.path}</span>
                           </span>
                         </a>
@@ -491,6 +539,31 @@ function FilesPage() {
                       <div className="flex justify-end gap-2">
                         {entry.kind === "file" ? (
                           <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isBusy}
+                              onClick={() =>
+                                mutate(async () => {
+                                  setPreviewUrl(null);
+                                  const response = await fetch("/api/v1/fs/preview", {
+                                    method: "POST",
+                                    headers: { "content-type": "application/json" },
+                                    body: JSON.stringify({ path: entry.path }),
+                                  });
+                                  const result = await response.json();
+                                  if (!response.ok) throw new Error(result.error);
+                                  setPreviewUrl(result.url);
+                                })
+                              }
+                            >
+                              Preview
+                            </Button>
+                            <Button asChild size="sm" variant="ghost">
+                              <a href={`/app/recovery?reason=version&path=${encodeURIComponent(entry.path)}`}>
+                                Versions
+                              </a>
+                            </Button>
                             <Button asChild size="sm" variant="ghost">
                               <a href={getDownloadHref(entry.path)}>
                                 <Download className="size-4" />
@@ -514,7 +587,7 @@ function FilesPage() {
                           variant="ghost"
                         >
                           <Trash2 className="size-4 text-red-500" />
-                          Delete
+                          Move to trash
                         </Button>
                       </div>
                     </TableCell>

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { auditOperation } from "~/lib/request-context";
+import { authorize } from "~/lib/scope";
 import { createFileRoute } from "@tanstack/react-router";
 import { successResponseSchema, tokenCreateRequestSchema } from "@agfs/contracts";
 import { createApiTokenForUser, listApiTokens, requireRequestAuth } from "~/lib/authz";
@@ -10,6 +12,7 @@ export const Route = createFileRoute("/api/v1/tokens")({
       GET: async ({ request }) => {
         try {
           const auth = await requireRequestAuth(request);
+          authorize(auth, "manage");
           return json({ tokens: await listApiTokens(auth.user.id) });
         } catch (error) {
           return handleRouteError(error);
@@ -18,7 +21,9 @@ export const Route = createFileRoute("/api/v1/tokens")({
       POST: async ({ request }) => {
         try {
           const auth = await requireRequestAuth(request);
+          authorize(auth, "manage");
           const body = await parseJson(request, tokenCreateRequestSchema);
+          auditOperation("token.create");
           return json(await createApiTokenForUser(auth.user.id, body));
         } catch (error) {
           return handleRouteError(error);

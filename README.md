@@ -6,7 +6,8 @@ AgentFilesystem is a Cloudflare-native file manager for humans and agents.
 
 ## Workspace
 
-- `apps/web`: TanStack Start app deployed to Cloudflare Workers
+- `apps/web`: TanStack Start app and stateless MCP endpoint on Cloudflare Workers
+- `apps/preview`: isolated preview Worker at `preview.agfs.dev`
 - `packages/contracts`: shared Zod API contracts
 - `packages/db`: Drizzle schema, helpers, and SQL migrations
 - `packages/cli`: Node CLI for login and filesystem management
@@ -27,13 +28,43 @@ Copy `.env.example` into your local secret manager or Worker secret setup and pr
 - `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - Optional: `PAID_PLAN_EMAILS` as a comma-delimited list for accounts that should resolve to the paid plan
 - `R2_BUCKET_NAME` (non-secret; supplied by Wrangler)
-- `APP_URL`
+- `APP_URL` and `PREVIEW_URL`
+- `PREVIEW_SIGNING_SECRET`: a random 32-byte secret shared only by the app and preview Workers
 
 For local Cloudflare development, put Worker secrets in `apps/web/.dev.vars.example` as `apps/web/.dev.vars`. `wrangler.jsonc` already supplies `APP_URL` and `R2_BUCKET_NAME` as non-secret vars.
 
 `PAID_PLAN_EMAILS` is optional. If set, each comma-delimited email in the list is normalized and granted the paid storage plan.
 
-Uploads use a same-origin Worker endpoint backed by `FILES_BUCKET`, with create-only writes, exact Content-Length checks, and a 100 MB per-file limit. Pending uploads reserve storage and expire after 15 minutes; abandoned objects are cleaned when the owner requests another upload. R2 S3 credentials are no longer used. Shared files download as attachments with sandbox and no-cache headers.
+The web app and CLI use resumable R2 multipart transfers in 8 MiB chunks (up to 20 GB per file, subject to account quota). Re-select the same file or repeat the CLI upload command within 24 hours to resume. Every previously uploaded part is rehashed before reuse. The legacy single-request endpoint remains capped at 100 MB.
+
+Deletion moves files to trash, and overwrites retain the previous version, for 30 days. Restore to a vacant path through **Trash & versions** or the CLI. Retained physical objects count toward storage exactly once. Permanent removal releases their storage when no live file or version references them. Shared downloads remain attachments; private previews use short-lived signed URLs on a separate Worker that has no app auth or database binding.
+
+Hourly cleanup expires abandoned uploads, retained files, and unused device authorizations. Activity is retained for 90 days. New API tokens expire in 30 days by default (maximum 90), with `read`, `write`, `delete`, `share`, and account-level `manage` permissions and a literal folder boundary. Existing tokens keep their prior access; web-issued agent tokens cannot manage credentials. Device login issues a 30-day account management token.
+
+## Stateless MCP
+
+Connect an HTTP MCP client to `https://agfs.dev/mcp` with an `Authorization: Bearer <AGFS_TOKEN>` header. Create a scoped token at `/app/tokens`. The official TypeScript SDK v2 `createMcpHandler` serves the **2026-07-28** stateless protocol and legacy stateless Streamable HTTP on the same endpoint, without session IDs or server affinity. Tokens are verified on every request; every tool uses the same REST authorization checks.
+
+Example client configuration (environment-variable syntax varies by client):
+
+```json
+{"mcpServers":{"agfs":{"url":"https://agfs.dev/mcp","headers":{"Authorization":"Bearer ${AGFS_TOKEN}"}}}}
+```
+
+Tools cover listing, trees, text reading/writing, folders, moves, trash, recovery, shares, previews, activity, and starting larger uploads. `fs_read` is limited to 1 MiB; `fs_write` accepts up to 8,192 text characters within the endpoint's 16 KiB JSON limit. Larger binary transfers use the authenticated multipart HTTP API. This endpoint uses manually issued AGFS tokens; it does not advertise an OAuth authorization server.
+
+```bash
+agfs tokens create reader --path /project --permissions read --ttl 7d
+agfs upload ./artifact.zip /project/artifact.zip  # repeat to resume
+agfs versions /project/artifact.zip
+agfs trash /project
+agfs restore <recovery-id> /project/restored.zip
+agfs preview /project/log.txt
+agfs activity
+```
+
+Build the updated CLI from this checkout with `pnpm --filter @agfs/cli build`; run `node packages/cli/dist/index.js`. Publishing the CLI to npm is a separate release step.
+
 
 ## Useful commands
 
@@ -80,7 +111,17 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
    pnpm d1:migrate:remote
    ```
 
-6. Deploy the Worker:
+6. Set the same `PREVIEW_SIGNING_SECRET` on both Workers, deploy the preview Worker, then deploy the app:
+
+   ```bash
+   pnpm --dir apps/web exec wrangler secret put PREVIEW_SIGNING_SECRET --env production
+   pnpm --dir apps/preview exec wrangler secret put PREVIEW_SIGNING_SECRET
+   pnpm --dir apps/preview deploy
+   ```
+
+   For a new environment, create the preview Worker with `wrangler deploy` before setting its secret. Use the same secret value for both commands. Never commit it.
+
+   Deploy the app:
 
    ```bash
    pnpm deploy:production
@@ -109,6 +150,7 @@ Recommended settings for this repository:
 Optional watch paths that fit this monorepo well:
 
 - `apps/web/**`
+- `apps/preview/**`
 - `packages/**`
 - `package.json`
 - `pnpm-lock.yaml`
@@ -132,3 +174,8 @@ The production app secrets still live in Cloudflare, not GitHub:
 Run `pnpm security:check` to audit dependencies, run regression tests, build, and typecheck the workspace. Production builds also run the workspace tests before compiling. Dependabot checks npm workspace dependencies weekly.
 
 The September 2026 review and deployment verification are documented in [SECURITY-AUDIT.md](./SECURITY-AUDIT.md). `scripts/security-smoke.mjs` runs only against localhost:8787 and expects disposable local users `alice` and `bob` with API tokens `agfs_local_test_alice` and `agfs_local_test_bob`. Never seed these fixtures in production.
+
+
+Local feature verification: apply migrations to `/tmp/agfs-audit-state`, seed the disposable users described above, and start the built app on 8787 and preview Worker on 8788 using that same persistence directory. Set matching local-only preview signing secrets. Run `node scripts/security-smoke.mjs` and `node scripts/features-smoke.mjs`. The latter covers both protocol generations with the official MCP client, scoped tokens, recovery, multipart resume, and preview isolation. Invoke `/cdn-cgi/local/scheduled` to test cron locally. Never expose this local fixture environment publicly.
+
+The feature rollout and verification are documented in [AGENT-UPGRADE.md](./AGENT-UPGRADE.md).

@@ -1,3 +1,6 @@
+import { atomicBatch } from "./atomic-batch";
+import { storageUsageSql } from "./storage-usage";
+import { trashEntry } from "./recovery";
 import { and, asc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { FsEntry, FsTreeNode, ShareLinkRecord } from "@agfs/contracts";
 import {
@@ -59,7 +62,7 @@ export async function getEntryByPath(ownerId: string, path: string) {
   return row ?? null;
 }
 
-async function ensureFolderChain(ownerId: string, path: string) {
+export async function ensureFolderChain(ownerId: string, path: string) {
   const normalized = normalizeAgfsPath(path);
   if (normalized === "/") {
     return;
@@ -120,10 +123,7 @@ export async function treeEntries(ownerId: string, path: string): Promise<FsTree
           .select()
           .from(entries)
           .where(
-            and(
-              eq(entries.ownerId, ownerId),
-              or(eq(entries.path, normalized), descendantPathCondition(normalized)),
-            ),
+            and(eq(entries.ownerId, ownerId), or(eq(entries.path, normalized), descendantPathCondition(normalized))),
           )
           .orderBy(asc(entries.path));
 
@@ -164,11 +164,15 @@ export async function mkdir(ownerId: string, path: string) {
   await ensureFolderChain(ownerId, normalizeAgfsPath(path));
 }
 
-export async function createUploadIntent(user: { id: string; email: string }, input: {
-  path: string;
-  contentType: string;
-  size: number;
-}) {
+export async function createUploadIntent(
+  user: { id: string; email: string },
+  input: {
+    path: string;
+    contentType: string;
+    size: number;
+    resumable?: boolean;
+  },
+) {
   const ownerId = user.id;
   const normalized = normalizeAgfsPath(input.path);
   if (normalized === "/") throw errorResponse(400, "Cannot upload to root");
@@ -193,26 +197,20 @@ export async function createUploadIntent(user: { id: string; email: string }, in
   const versionId = createAgfsId("ver");
   const uploadId = createAgfsId("upl");
   const uploadToken = createUploadTokenValue();
-  const expiresAt = new Date(Date.now() + 15 * 60_000);
+  const expiresAt = new Date(Date.now() + (input.resumable ? 24 * 60 : 15) * 60_000);
   const objectKey = buildObjectKey(ownerId, entryId, versionId);
 
-  // Remove abandoned objects for this owner before reserving more upload space.
-  const stale = await db.select().from(uploads).where(and(eq(uploads.ownerId, ownerId), eq(uploads.status, "pending"), sql`${uploads.expiresAt} <= ${Date.now()}`)).limit(32);
-  const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
-  for (const abandoned of stale) {
-    await FILES_BUCKET.delete(abandoned.objectKey);
-    await db.update(uploads).set({ status: "expired" }).where(eq(uploads.id, abandoned.id));
-  }
   const reservation = await db.run(sql`
     INSERT INTO uploads (id, owner_id, path, content_type, size, object_key, upload_token_hash, status, expires_at)
     SELECT ${uploadId}, ${ownerId}, ${normalized}, ${input.contentType}, ${input.size}, ${objectKey}, ${hashSecret(uploadToken)}, 'pending', ${expiresAt.getTime()}
-    WHERE (SELECT count(*) FROM uploads WHERE owner_id = ${ownerId} AND status = 'pending') < 32
-      AND (SELECT coalesce(sum(size), 0) FROM uploads WHERE owner_id = ${ownerId} AND status = 'pending')
-        + (SELECT coalesce(sum(size), 0) FROM entries WHERE owner_id = ${ownerId} AND kind = 'file' AND path != ${normalized})
-        + ${input.size} <= ${Math.max(storageDecision.storageLimitBytes, storageDecision.currentUsageBytes)}
+    WHERE (SELECT count(*) FROM uploads WHERE owner_id = ${ownerId} AND status IN ('pending','completing')) < 32
+      AND (SELECT coalesce(sum(size), 0) FROM uploads WHERE owner_id = ${ownerId} AND status IN ('pending','completing'))
+        + ${storageUsageSql(ownerId)}
+        + ${input.size} <= ${storageDecision.storageLimitBytes}
     RETURNING id
   `);
-  if (!reservation.results.length) throw errorResponse(409, "Pending uploads exceed available storage; finish uploads or retry after they expire");
+  if (!reservation.results.length)
+    throw errorResponse(409, "Pending uploads exceed available storage; finish uploads or retry after they expire");
 
   return createUploadIntentUrl({
     uploadId,
@@ -233,7 +231,7 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
   if (!upload) {
     throw errorResponse(400, "Upload not found");
   }
-  if (upload.status !== "pending") {
+  if (!["pending", "completing"].includes(upload.status)) {
     throw errorResponse(409, "Upload is no longer pending");
   }
   if (upload.expiresAt.getTime() <= Date.now()) {
@@ -254,7 +252,7 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
   const objectSize = object.size;
 
   if (objectSize == null || objectSize !== upload.size) {
-    await FILES_BUCKET.delete(upload.objectKey);
+    // Leave object cleanup to the expiry job: another request may be committing this same upload.
     throw errorResponse(400, "Uploaded object size did not match the approved upload intent");
   }
 
@@ -264,11 +262,17 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
     incomingSizeBytes: objectSize,
   });
   if (!storageDecision.allowed) {
-    await FILES_BUCKET.delete(upload.objectKey);
+    // Leave object cleanup to the expiry job: another request may be committing this same upload.
     await db
       .update(uploads)
       .set({ status: "expired" })
-      .where(eq(uploads.id, upload.id));
+      .where(
+        and(
+          eq(uploads.id, upload.id),
+          sql`${uploads.status} in ('pending','completing')`,
+          sql`not exists (select 1 from entries where r2_key=${upload.objectKey})`,
+        ),
+      );
     throw errorResponse(403, storageDecision.message);
   }
 
@@ -288,21 +292,24 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
     updatedAt: now(),
   };
 
-  const [result] = await db.batch([
-    db.run(commitUploadStatement(row, uploadId, storageDecision.storageLimitBytes)),
-    db.update(uploads).set({ status: "committed", committedAt: now() }).where(and(
-      eq(uploads.id, upload.id), eq(uploads.status, "pending"),
-      sql`exists (select 1 from entries where owner_id = ${ownerId} and r2_key = ${upload.objectKey})`,
-    )),
+  const [result] = await atomicBatch([
+    commitUploadStatement(row, uploadId, storageDecision.storageLimitBytes),
+    db
+      .update(uploads)
+      .set({ status: "committed", committedAt: now() })
+      .where(
+        and(
+          eq(uploads.id, upload.id),
+          sql`${uploads.status} in ('pending','completing')`,
+          sql`exists (select 1 from entries where owner_id = ${ownerId} and r2_key = ${upload.objectKey})`,
+        ),
+      ),
   ]);
   if (!result.results.length) {
     throw errorResponse(409, "Upload could not be committed: quota or destination changed");
   }
   const savedId = String(result.results[0].id);
   row.id = savedId;
-  if (existing?.r2Key && existing.r2Key !== upload.objectKey) {
-    await FILES_BUCKET.delete(existing.r2Key);
-  }
 
   return mapEntry(
     existing
@@ -355,25 +362,27 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
           .select()
           .from(entries)
           .where(
-            and(
-              eq(entries.ownerId, ownerId),
-              or(eq(entries.path, sourcePath), descendantPathCondition(sourcePath)),
-            ),
+            and(eq(entries.ownerId, ownerId), or(eq(entries.path, sourcePath), descendantPathCondition(sourcePath))),
           )
       : [source];
 
-  for (const row of affected.sort((left, right) => left.path.length - right.path.length)) {
-    const nextPath = row.path === sourcePath ? destinationPath : `${destinationPath}${row.path.slice(sourcePath.length)}`;
-    await db
-      .update(entries)
-      .set({
-        path: nextPath,
-        parentPath: getParentPath(nextPath),
-        name: getBaseName(nextPath),
-        updatedAt: now(),
-      })
-      .where(and(eq(entries.ownerId, ownerId), eq(entries.id, row.id)));
-  }
+  await atomicBatch(
+    affected
+      .sort((left, right) => left.path.length - right.path.length)
+      .map((row) => {
+        const nextPath =
+          row.path === sourcePath ? destinationPath : `${destinationPath}${row.path.slice(sourcePath.length)}`;
+        return db
+          .update(entries)
+          .set({
+            path: nextPath,
+            parentPath: getParentPath(nextPath),
+            name: getBaseName(nextPath),
+            updatedAt: now(),
+          })
+          .where(and(eq(entries.ownerId, ownerId), eq(entries.id, row.id)));
+      }),
+  );
 }
 
 export async function deleteEntry(ownerId: string, path: string, recursive = false) {
@@ -383,17 +392,13 @@ export async function deleteEntry(ownerId: string, path: string, recursive = fal
     throw errorResponse(400, "Entry not found");
   }
 
-  const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
   const affected =
     entry.kind === "folder"
       ? await db
           .select()
           .from(entries)
           .where(
-            and(
-              eq(entries.ownerId, ownerId),
-              or(eq(entries.path, normalized), descendantPathCondition(normalized)),
-            ),
+            and(eq(entries.ownerId, ownerId), or(eq(entries.path, normalized), descendantPathCondition(normalized))),
           )
       : [entry];
 
@@ -401,18 +406,7 @@ export async function deleteEntry(ownerId: string, path: string, recursive = fal
     throw errorResponse(400, "Folder is not empty");
   }
 
-  for (const row of affected.filter((candidate) => candidate.r2Key)) {
-    await FILES_BUCKET.delete(row.r2Key!);
-  }
-
-  await db
-    .delete(entries)
-    .where(
-      and(
-        eq(entries.ownerId, ownerId),
-        or(eq(entries.path, normalized), descendantPathCondition(normalized)),
-      ),
-    );
+  await trashEntry(ownerId, normalized, recursive);
 }
 
 export async function listShares(ownerId: string): Promise<ShareLinkRecord[]> {

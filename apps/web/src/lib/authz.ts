@@ -1,5 +1,8 @@
+import { requestContext } from "./request-context";
+import { ALL_PERMISSIONS, type Permission } from "./scope";
 import { and, eq, gt, isNull, or, lte } from "drizzle-orm";
 import {
+  normalizeAgfsPath,
   apiTokens,
   createApiTokenValue,
   createAgfsId,
@@ -23,6 +26,9 @@ import { getBearerToken, requireSameOriginMutation, errorResponse } from "./http
 export interface RequestAuth {
   authSource: "session" | "api-token";
   tokenId?: string;
+  tokenLabel?: string;
+  pathPrefix?: string;
+  permissions?: Permission[];
   user: SessionUser;
 }
 
@@ -36,9 +42,11 @@ function mapUser(row: { id: string; name: string | null; email: string; image?: 
 }
 
 export async function resolveRequestAuth(request: Request): Promise<RequestAuth | null> {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const session = getBearerToken(request)
+    ? null
+    : await auth.api.getSession({
+        headers: request.headers,
+      });
 
   if (session?.user) {
     requireSameOriginMutation(request, requireStringBindings("APP_URL").APP_URL);
@@ -61,6 +69,8 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
       ownerId: apiTokens.ownerId,
       label: apiTokens.label,
       prefix: apiTokens.prefix,
+      pathPrefix: apiTokens.pathPrefix,
+      permissions: apiTokens.permissions,
       tokenHash: apiTokens.tokenHash,
       userId: users.id,
       userName: users.name,
@@ -86,6 +96,9 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
   return {
     authSource: "api-token",
     tokenId: record.id,
+    tokenLabel: record.label,
+    pathPrefix: record.pathPrefix,
+    permissions: JSON.parse(record.permissions),
     user: mapUser({
       id: record.userId,
       name: record.userName,
@@ -104,20 +117,21 @@ export async function requireRequestAuth(request: Request): Promise<RequestAuth>
     });
   }
 
+  const context = requestContext.getStore();
+  if (context) context.auth = result;
   return result;
 }
 
 export async function listApiTokens(ownerId: string): Promise<ApiTokenRecord[]> {
-  const rows = await db
-    .select()
-    .from(apiTokens)
-    .where(eq(apiTokens.ownerId, ownerId));
+  const rows = await db.select().from(apiTokens).where(eq(apiTokens.ownerId, ownerId));
 
   return rows
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
     .map((row) => ({
       id: row.id,
       label: row.label,
+      pathPrefix: row.pathPrefix,
+      permissions: JSON.parse(row.permissions),
       prefix: row.prefix,
       lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
       expiresAt: row.expiresAt?.toISOString() ?? null,
@@ -126,14 +140,19 @@ export async function listApiTokens(ownerId: string): Promise<ApiTokenRecord[]> 
     }));
 }
 
-export async function createApiTokenForUser(ownerId: string, input: { label: string; ttl?: string }) {
+export async function createApiTokenForUser(
+  ownerId: string,
+  input: { label: string; ttl?: string; pathPrefix?: string; permissions?: Permission[] },
+) {
   const token = createApiTokenValue();
   const createdAt = now();
-  const expiresAt = input.ttl ? new Date(createdAt.getTime() + parseTtl(input.ttl)) : null;
+  const expiresAt = new Date(createdAt.getTime() + parseTtl(input.ttl ?? "30d", { maxDays: 90 }));
   const record = {
     id: createAgfsId("tok"),
     ownerId,
     label: input.label,
+    pathPrefix: normalizeAgfsPath(input.pathPrefix ?? "/"),
+    permissions: JSON.stringify(input.permissions ?? ALL_PERMISSIONS),
     prefix: secretPrefix(token),
     tokenHash: hashSecret(token),
     createdAt,
@@ -149,6 +168,8 @@ export async function createApiTokenForUser(ownerId: string, input: { label: str
     record: {
       id: record.id,
       label: record.label,
+      pathPrefix: record.pathPrefix,
+      permissions: JSON.parse(record.permissions),
       prefix: record.prefix,
       lastUsedAt: null,
       expiresAt: record.expiresAt?.toISOString() ?? null,
@@ -190,14 +211,14 @@ export async function startDeviceAuthorization(clientName: string) {
   };
 }
 
-export async function approveDeviceAuthorization(ownerId: string, input: {
-  label: string;
-  userCode: string;
-}) {
-  const [record] = await db
-    .select()
-    .from(deviceCodes)
-    .where(eq(deviceCodes.userCode, input.userCode));
+export async function approveDeviceAuthorization(
+  ownerId: string,
+  input: {
+    label: string;
+    userCode: string;
+  },
+) {
+  const [record] = await db.select().from(deviceCodes).where(eq(deviceCodes.userCode, input.userCode));
 
   if (!record) {
     throw errorResponse(400, "Device code not found");
@@ -209,8 +230,16 @@ export async function approveDeviceAuthorization(ownerId: string, input: {
     throw errorResponse(400, "Device code already approved");
   }
 
-  const [claimed] = await db.update(deviceCodes).set({ approvedAt: now(), ownerId })
-    .where(and(eq(deviceCodes.deviceCode, record.deviceCode), isNull(deviceCodes.approvedAt), gt(deviceCodes.expiresAt, now())))
+  const [claimed] = await db
+    .update(deviceCodes)
+    .set({ approvedAt: now(), ownerId })
+    .where(
+      and(
+        eq(deviceCodes.deviceCode, record.deviceCode),
+        isNull(deviceCodes.approvedAt),
+        gt(deviceCodes.expiresAt, now()),
+      ),
+    )
     .returning({ deviceCode: deviceCodes.deviceCode });
   if (!claimed) throw errorResponse(409, "Device code already approved or expired");
   const created = await createApiTokenForUser(ownerId, { label: input.label });
@@ -221,7 +250,10 @@ export async function approveDeviceAuthorization(ownerId: string, input: {
       ownerId,
       apiTokenId: created.record.id,
       approvedAt: now(),
-      accessTokenPlaintext: sealDeviceToken(created.token, requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET),
+      accessTokenPlaintext: sealDeviceToken(
+        created.token,
+        requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET,
+      ),
       label: input.label,
     })
     .where(eq(deviceCodes.deviceCode, record.deviceCode));
@@ -230,10 +262,7 @@ export async function approveDeviceAuthorization(ownerId: string, input: {
 }
 
 export async function pollDeviceAuthorization(deviceCode: string) {
-  const [record] = await db
-    .select()
-    .from(deviceCodes)
-    .where(eq(deviceCodes.deviceCode, deviceCode));
+  const [record] = await db.select().from(deviceCodes).where(eq(deviceCodes.deviceCode, deviceCode));
 
   if (!record) {
     throw errorResponse(400, "Device code not found");
@@ -251,7 +280,9 @@ export async function pollDeviceAuthorization(deviceCode: string) {
         accessTokenPlaintext: null,
         consumedAt: now(),
       })
-      .where(and(eq(deviceCodes.deviceCode, deviceCode), isNull(deviceCodes.consumedAt), gt(deviceCodes.expiresAt, now())))
+      .where(
+        and(eq(deviceCodes.deviceCode, deviceCode), isNull(deviceCodes.consumedAt), gt(deviceCodes.expiresAt, now())),
+      )
       .returning({ deviceCode: deviceCodes.deviceCode });
     if (!consumed) return { status: "expired" as const };
 
@@ -259,7 +290,7 @@ export async function pollDeviceAuthorization(deviceCode: string) {
       status: "approved" as const,
       accessToken: openDeviceToken(accessToken, requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET),
       tokenType: "Bearer" as const,
-      expiresAt: null,
+      expiresAt: new Date(record.approvedAt.getTime() + 30 * 86_400_000).toISOString(),
     };
   }
 

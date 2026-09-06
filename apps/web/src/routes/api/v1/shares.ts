@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { authorize, canAccess } from "~/lib/scope";
+import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { shareCreateRequestSchema } from "@agfs/contracts";
 import { createShare, listShares } from "~/lib/fs";
@@ -11,7 +13,9 @@ export const Route = createFileRoute("/api/v1/shares")({
       GET: async ({ request }) => {
         try {
           const auth = await requireRequestAuth(request);
-          return json({ shares: await listShares(auth.user.id) });
+          return json({
+            shares: (await listShares(auth.user.id)).filter((share) => canAccess(auth, "share", share.path)),
+          });
         } catch (error) {
           return handleRouteError(error);
         }
@@ -20,6 +24,8 @@ export const Route = createFileRoute("/api/v1/shares")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, shareCreateRequestSchema);
+          authorize(auth, "share", body.path);
+          auditOperation("share.create", body.path);
           return json({ share: await createShare(auth.user.id, body.path, body.ttl) });
         } catch (error) {
           return handleRouteError(error);

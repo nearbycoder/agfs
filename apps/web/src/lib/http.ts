@@ -19,10 +19,11 @@ function encodeDispositionFilename(filename: string): string {
 }
 
 export function createContentDisposition(disposition: "attachment" | "inline", filename: string): string {
-  const fallback = filename
-    .replace(/[^\x20-\x7E]/g, "_")
-    .replace(/["\\]/g, "_")
-    .trim() || "download";
+  const fallback =
+    filename
+      .replace(/[^\x20-\x7E]/g, "_")
+      .replace(/["\\]/g, "_")
+      .trim() || "download";
 
   return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeDispositionFilename(filename)}`;
 }
@@ -34,6 +35,7 @@ export function handleRouteError(error: unknown): Response {
 
   if (error instanceof InputError) return errorResponse(400, error.message);
   if (error instanceof ZodError || error instanceof SyntaxError) return errorResponse(400, "Invalid request");
+  console.error("Unexpected route error", error instanceof Error ? error.name : "Unknown error");
   return errorResponse(500, "Request failed");
 }
 
@@ -58,7 +60,10 @@ export async function parseJson<T>(request: Request, schema: ZodType<T>): Promis
   }
   const bytes = new Uint8Array(size);
   let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   const payload = JSON.parse(new TextDecoder().decode(bytes));
   return schema.parse(payload);
 }
