@@ -12,7 +12,7 @@ import { buildSeoHead, buildStructuredDataMeta } from "~/lib/seo";
 import { ORDERED_STORAGE_PLANS } from "~/lib/storage-plans";
 
 const HOME_DESCRIPTION =
-  "AGFS is a Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring preview links.";
+  "AGFS is a Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring download links.";
 const GITHUB_REPO_URL = "https://github.com/nearbycoder/agfs";
 
 const HOME_STRUCTURED_DATA = {
@@ -44,7 +44,7 @@ const HOME_STRUCTURED_DATA = {
 const CONTROL_PLANE_STEPS = [
   {
     label: "Upload",
-    description: "Drop screenshots, logs, and artifacts into a private namespace without exposing bucket URLs or ad hoc paths.",
+    description: "Upload screenshots, logs, and artifacts up to 100 MB each into your private namespace.",
     icon: Upload,
   },
   {
@@ -54,12 +54,12 @@ const CONTROL_PLANE_STEPS = [
   },
   {
     label: "Share",
-    description: "Hand back expiring AGFS links that stay on agfs.dev, open inline, and feel like part of the product instead of raw storage.",
+    description: "Hand back expiring AGFS links that stay on agfs.dev and download the file without exposing raw storage URLs.",
     icon: Link2,
   },
 ];
 
-const CONTROL_PLANE_TAGS = ["Private namespace", "Expiring previews", "CLI + web app"];
+const CONTROL_PLANE_TAGS = ["Private namespace", "Expiring downloads", "CLI + web app"];
 const PLAN_MARKETING = {
   free: {
     eyebrow: "Default",
@@ -145,7 +145,7 @@ function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Account-scoped storage</span>
             <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
-            <span>Signed preview links</span>
+            <span>Signed download links</span>
             <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
             <span>GitHub login plus agent tokens</span>
           </div>
@@ -170,7 +170,7 @@ screenshot.png    381 kB    image/png`}
                 </CardTitle>
                 <p className="max-w-md text-sm leading-6 text-zinc-300/78">
                   AGFS keeps the handoff in one darker control plane, using the same visual language as the app: a
-                  private namespace, predictable actions, and preview links that feel native instead of improvised.
+                  private namespace, predictable actions, and download links that feel native instead of improvised.
                 </p>
               </div>
             </CardHeader>
@@ -257,9 +257,9 @@ screenshot.png    381 kB    image/png`}
         <section className="border-t border-zinc-200/80 pt-8 dark:border-zinc-800/80">
           <div className="grid gap-8 sm:grid-cols-3">
             <div className="space-y-2">
-              <p className="section-label">Preview links</p>
+              <p className="section-label">Download links</p>
               <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                Signed URLs stay on `agfs.dev`, expire automatically, and render files inline when possible.
+                Share URLs stay on `agfs.dev`, expire automatically, and download files as attachments.
               </p>
             </div>
             <div className="space-y-2">

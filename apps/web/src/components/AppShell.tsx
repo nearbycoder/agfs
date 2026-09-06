@@ -68,7 +68,7 @@ export function AppShell() {
           <Badge variant="secondary">Private namespace</Badge>
           <div className="space-y-2">
             <h1 className="text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">AGFS control plane</h1>
-            <p className="section-copy">Artifacts, preview links, and agent credentials for one account-scoped filesystem.</p>
+            <p className="section-copy">Artifacts, download links, and agent credentials for one account-scoped filesystem.</p>
           </div>
           <Card className="border-dashed bg-zinc-50/80 p-4 shadow-none dark:border-zinc-800 dark:bg-zinc-900/70">
             <div className="flex items-start gap-3">

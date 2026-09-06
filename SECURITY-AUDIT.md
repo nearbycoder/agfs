@@ -39,3 +39,7 @@ Scope: web/API source, authentication and authorization, D1/R2 data paths, share
 - GitHub OAuth interactive sign-in needs the user's account and is not exercised using fabricated production credentials. Local tests use disposable users/API tokens; production checks are unauthenticated and non-destructive.
 - CLI fixes are in the repository build; this change does not publish a new npm CLI release.
 - Production builds now run workspace tests. Weekly Dependabot updates and `pnpm security:check` provide repeatable checks.
+
+## Production verification
+
+PR #1 was merged as `3f8a505` and deployed on 2026-09-06. Cloudflare's production Git build `90240fbe-5d6a-4a9e-9a67-4595c79258f0` succeeded; its version `2c6164e8-fa82-4561-9953-011ac65bbaa3` served 100% of traffic at verification. Live checks passed for public pages, auth-session lookup, anonymous API denial, invalid-share denial, cross-origin mutation rejection, and security/cache headers. Earlier PR-branch build failures did not reproduce in the production build; their cause remains unconfirmed.

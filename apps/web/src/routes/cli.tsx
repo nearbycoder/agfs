@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { buildSeoHead } from "~/lib/seo";
 
 const CLI_DESCRIPTION =
-  "Install the AGFS CLI to upload files, browse remote folders, approve device login, generate preview links, and move artifacts between local machines, CI, and remote agents.";
+  "Install the AGFS CLI to upload files, browse remote folders, approve device login, generate download links, and move artifacts between local machines, CI, and remote agents.";
 
 export const Route = createFileRoute("/cli")({
   head: () =>
@@ -51,7 +51,7 @@ function CliPage() {
             {[
               { icon: TerminalSquare, title: "Device auth", copy: "Approve once in the browser and keep moving in the terminal." },
               { icon: FolderTree, title: "Folder-aware", copy: "Upload, move, remove, and recursively download remote trees." },
-              { icon: Link2, title: "Share links", copy: "Generate preview URLs directly from agent workflows." },
+              { icon: Link2, title: "Share links", copy: "Generate download URLs directly from agent workflows." },
             ].map((item) => (
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60" key={item.title}>
                 <item.icon className="size-4 text-zinc-700 dark:text-zinc-300" />
@@ -105,9 +105,9 @@ agfs rm /sessions/run-42 --recursive`}
               </p>
             </div>
             <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/70">
-              <p className="section-label">Generate previews</p>
+              <p className="section-label">Generate download links</p>
               <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                `agfs upload ./shot.png /shots/shot.png --share 15m` prints the preview URL directly in the terminal.
+                `agfs upload ./shot.png /shots/shot.png --share 15m` prints the download URL directly in the terminal.
               </p>
             </div>
             <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">

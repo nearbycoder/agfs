@@ -29,7 +29,7 @@ export const Route = createFileRoute("/app/files")({
   head: () =>
     buildSeoHead({
       title: pageTitle("Files"),
-      description: "Browse private AGFS folders, upload artifacts, and create expiring preview links from one workspace.",
+      description: "Browse private AGFS folders, upload artifacts, and create expiring download links from one workspace.",
       robots: NOINDEX_ROBOTS,
     }),
   component: FilesPage,
@@ -284,7 +284,7 @@ function FilesPage() {
             <div className="space-y-3">
               <CardTitle className="dashboard-title">{path}</CardTitle>
               <CardDescription className="max-w-2xl">
-                Browse the account-scoped namespace, upload artifacts from your machine, and issue preview links without exposing raw bucket URLs.
+                Browse your private files, upload artifacts up to 100 MB each, and create expiring download links.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
@@ -350,7 +350,7 @@ function FilesPage() {
             <Badge className="w-fit" variant="secondary">
               Operations
             </Badge>
-            <CardTitle>Create a folder or hand back a preview link.</CardTitle>
+            <CardTitle>Create a folder or hand back a download link.</CardTitle>
             <CardDescription>Keep the filesystem tidy and surface a fresh share URL whenever an agent uploads a new artifact.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -401,7 +401,7 @@ function FilesPage() {
                   </div>
                 </div>
               ) : (
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Generate a share from any file row to surface a signed preview URL here.</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Generate a share from any file row to surface a expiring download URL here.</p>
               )}
             </div>
           </CardContent>
