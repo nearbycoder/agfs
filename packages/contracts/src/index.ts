@@ -116,7 +116,7 @@ export const deviceStartResponseSchema = z.object({
 });
 
 export const devicePollRequestSchema = z.object({
-  deviceCode: z.string().min(1),
+  deviceCode: z.string().min(1).max(128),
 });
 
 export const devicePollResponseSchema = z.union([
@@ -137,7 +137,7 @@ export const devicePollResponseSchema = z.union([
 ]);
 
 export const deviceApproveRequestSchema = z.object({
-  userCode: z.string().min(1),
+  userCode: z.string().trim().toUpperCase().regex(/^[0-9A-F]{8}$/),
   label: z.string().min(1).max(100).default("CLI login"),
 });
 
@@ -176,11 +176,11 @@ export const deleteEntryRequestSchema = z.object({
 export const uploadIntentRequestSchema = z.object({
   path: pathSchema,
   contentType: z.string().min(1).max(255),
-  size: z.number().int().nonnegative(),
+  size: z.number().int().nonnegative().max(100_000_000, "Uploads are limited to 100 MB per file"),
 });
 
 export const uploadCommitRequestSchema = z.object({
-  etag: z.string().min(1),
+  etag: z.string().min(1).max(256),
 });
 
 export const shareCreateRequestSchema = z.object({

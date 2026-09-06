@@ -21,11 +21,12 @@ interface R2Bucket {
     key: string,
     value: ReadableStream<Uint8Array> | ArrayBuffer | ArrayBufferView | string | Blob,
     options?: {
+      onlyIf?: { etagDoesNotMatch: string };
       httpMetadata?: {
         contentType?: string;
       };
     },
   ): Promise<{
     etag?: string;
-  }>;
+  } | null>;
 }

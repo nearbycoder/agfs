@@ -17,14 +17,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "commander": "^14.0.0",
-    "mime-types": "^3.0.1",
-    "zod": "^4.1.12"
+    "commander": "^14.0.3",
+    "mime-types": "^3.0.2",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@agfs/contracts": "workspace:*",
     "@types/mime-types": "^3.0.1",
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }

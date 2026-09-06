@@ -48,7 +48,7 @@ vi.mock("./account", () => ({
   getStorageWriteDecisionForUser: mocks.getStorageWriteDecisionForUser,
 }));
 
-import { commitUpload } from "./fs";
+import { commitUpload, moveEntry } from "./fs";
 
 describe("commitUpload quota recheck", () => {
   beforeEach(() => {
@@ -103,4 +103,35 @@ describe("commitUpload quota recheck", () => {
       error: "Storage limit reached for the Free plan (1.0 kB). Current usage is 1.0 kB and this upload would use 1.6 kB.",
     });
   });
+});
+
+import { DatabaseSync } from "node:sqlite";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
+import { descendantPathCondition } from "./fs";
+
+it("matches literal, case-sensitive folder prefixes in SQLite", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE entries (path TEXT); INSERT INTO entries VALUES ('/a_b/file'), ('/axb/file'), ('/a%b/file'), ('/AB/file'), ('/ab/file')");
+  for (const pathname of ["/a_b", "/a%b", "/AB", "/ab"]) {
+    const query = new SQLiteSyncDialect().sqlToQuery(descendantPathCondition(pathname));
+    const rows = db.prepare(`SELECT path FROM entries WHERE ${query.sql}`).all(...query.params as any[]);
+    expect(rows.map((row) => row.path)).toEqual([`${pathname}/file`]);
+  }
+  db.close();
+});
+
+it("rejects a committed upload before inspecting or deleting its stored object", async () => {
+  mocks.selectResults.push([{ id: "u", status: "committed" }]);
+  mocks.head.mockClear();
+  await expect(commitUpload({ id: "owner", email: "a@example.com" }, "u", "etag")).rejects.toMatchObject({ status: 409 });
+  expect(mocks.head).not.toHaveBeenCalled();
+});
+
+it("moves descendants without interpreting dollar sequences in destination names", async () => {
+  mocks.selectResults.length = 0;
+  mocks.updateSet.mockClear();
+  const source = { id: "folder", ownerId: "owner", path: "/from", kind: "folder" };
+  mocks.selectResults.push([source], [], [], [source, { id: "child", ownerId: "owner", path: "/from/child", kind: "file" }]);
+  await moveEntry("owner", "/from", "/$&");
+  expect(mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({ path: "/$&/child" }));
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNotNull, isNull, like, or } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { FsEntry, FsTreeNode, ShareLinkRecord } from "@agfs/contracts";
 import {
   buildObjectKey,
@@ -18,10 +18,17 @@ import {
   uploads,
 } from "@agfs/db";
 import { db } from "./db";
+import { commitUploadStatement } from "./upload-commit";
 import { requireResourceBindings, requireStringBindings } from "./bindings";
 import { getStorageWriteDecisionForUser } from "./account";
 import { errorResponse } from "./http";
 import { createUploadIntentUrl } from "./r2";
+
+// SQLite LIKE is case-insensitive and treats %/_ as wildcards. Paths are literal.
+export function descendantPathCondition(path: string) {
+  const prefix = `${path}/`;
+  return sql`substr(${entries.path}, 1, length(${prefix})) = ${prefix}`;
+}
 
 function mapEntry(row: typeof entries.$inferSelect): FsEntry {
   return {
@@ -65,7 +72,7 @@ async function ensureFolderChain(ownerId: string, path: string) {
     const existing = await getEntryByPath(ownerId, current);
     if (existing) {
       if (existing.kind !== "folder") {
-        throw new Error(`Cannot create folder path through file ${existing.path}`);
+        throw errorResponse(400, `Cannot create folder path through file ${existing.path}`);
       }
       continue;
     }
@@ -88,10 +95,10 @@ export async function listEntries(ownerId: string, path: string) {
   if (normalized !== "/") {
     const existing = await getEntryByPath(ownerId, normalized);
     if (!existing) {
-      throw new Error("Folder not found");
+      throw errorResponse(400, "Folder not found");
     }
     if (existing.kind !== "folder") {
-      throw new Error("Path is not a folder");
+      throw errorResponse(400, "Path is not a folder");
     }
   }
 
@@ -115,7 +122,7 @@ export async function treeEntries(ownerId: string, path: string): Promise<FsTree
           .where(
             and(
               eq(entries.ownerId, ownerId),
-              or(eq(entries.path, normalized), like(entries.path, `${normalized}/%`)),
+              or(eq(entries.path, normalized), descendantPathCondition(normalized)),
             ),
           )
           .orderBy(asc(entries.path));
@@ -164,12 +171,13 @@ export async function createUploadIntent(user: { id: string; email: string }, in
 }) {
   const ownerId = user.id;
   const normalized = normalizeAgfsPath(input.path);
+  if (normalized === "/") throw errorResponse(400, "Cannot upload to root");
   const parentPath = getParentPath(normalized) ?? "/";
   await ensureFolderChain(ownerId, parentPath);
 
   const existing = await getEntryByPath(ownerId, normalized);
   if (existing && existing.kind !== "file") {
-    throw new Error("Cannot overwrite a folder");
+    throw errorResponse(400, "Cannot overwrite a folder");
   }
 
   const storageDecision = await getStorageWriteDecisionForUser({
@@ -188,17 +196,23 @@ export async function createUploadIntent(user: { id: string; email: string }, in
   const expiresAt = new Date(Date.now() + 15 * 60_000);
   const objectKey = buildObjectKey(ownerId, entryId, versionId);
 
-  await db.insert(uploads).values({
-    id: uploadId,
-    ownerId,
-    path: normalized,
-    contentType: input.contentType,
-    size: input.size,
-    objectKey,
-    uploadTokenHash: hashSecret(uploadToken),
-    status: "pending",
-    expiresAt,
-  });
+  // Remove abandoned objects for this owner before reserving more upload space.
+  const stale = await db.select().from(uploads).where(and(eq(uploads.ownerId, ownerId), eq(uploads.status, "pending"), sql`${uploads.expiresAt} <= ${Date.now()}`)).limit(32);
+  const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
+  for (const abandoned of stale) {
+    await FILES_BUCKET.delete(abandoned.objectKey);
+    await db.update(uploads).set({ status: "expired" }).where(eq(uploads.id, abandoned.id));
+  }
+  const reservation = await db.run(sql`
+    INSERT INTO uploads (id, owner_id, path, content_type, size, object_key, upload_token_hash, status, expires_at)
+    SELECT ${uploadId}, ${ownerId}, ${normalized}, ${input.contentType}, ${input.size}, ${objectKey}, ${hashSecret(uploadToken)}, 'pending', ${expiresAt.getTime()}
+    WHERE (SELECT count(*) FROM uploads WHERE owner_id = ${ownerId} AND status = 'pending') < 32
+      AND (SELECT coalesce(sum(size), 0) FROM uploads WHERE owner_id = ${ownerId} AND status = 'pending')
+        + (SELECT coalesce(sum(size), 0) FROM entries WHERE owner_id = ${ownerId} AND kind = 'file' AND path != ${normalized})
+        + ${input.size} <= ${Math.max(storageDecision.storageLimitBytes, storageDecision.currentUsageBytes)}
+    RETURNING id
+  `);
+  if (!reservation.results.length) throw errorResponse(409, "Pending uploads exceed available storage; finish uploads or retry after they expire");
 
   return createUploadIntentUrl({
     uploadId,
@@ -217,26 +231,31 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
     .where(and(eq(uploads.id, uploadId), eq(uploads.ownerId, ownerId)));
 
   if (!upload) {
-    throw new Error("Upload not found");
+    throw errorResponse(400, "Upload not found");
   }
-  if (upload.expiresAt.getTime() < Date.now()) {
-    throw new Error("Upload expired");
+  if (upload.status !== "pending") {
+    throw errorResponse(409, "Upload is no longer pending");
+  }
+  if (upload.expiresAt.getTime() <= Date.now()) {
+    throw errorResponse(400, "Upload expired");
   }
 
   const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
   const object = await FILES_BUCKET.head(upload.objectKey);
   if (!object) {
-    throw new Error("Uploaded object not found in R2");
+    throw errorResponse(400, "Uploaded object not found in R2");
   }
 
   const existing = await getEntryByPath(ownerId, upload.path);
+  if (existing && existing.kind !== "file") throw errorResponse(409, "Cannot overwrite a folder");
+  await ensureFolderChain(ownerId, getParentPath(upload.path) ?? "/");
   const createdAt = existing?.createdAt ?? now();
   const nextEntryId = existing?.id ?? upload.objectKey.split("/")[3] ?? createAgfsId("ent");
   const objectSize = object.size;
 
   if (objectSize == null || objectSize !== upload.size) {
     await FILES_BUCKET.delete(upload.objectKey);
-    throw new Error("Uploaded object size did not match the approved upload intent");
+    throw errorResponse(400, "Uploaded object size did not match the approved upload intent");
   }
 
   const storageDecision = await getStorageWriteDecisionForUser({
@@ -269,23 +288,21 @@ export async function commitUpload(user: { id: string; email: string }, uploadId
     updatedAt: now(),
   };
 
-  if (existing) {
-    const oldKey = existing.r2Key;
-    await db
-      .update(entries)
-      .set(row)
-      .where(and(eq(entries.ownerId, ownerId), eq(entries.id, existing.id)));
-    if (oldKey && oldKey !== upload.objectKey) {
-      await FILES_BUCKET.delete(oldKey);
-    }
-  } else {
-    await db.insert(entries).values(row);
+  const [result] = await db.batch([
+    db.run(commitUploadStatement(row, uploadId, storageDecision.storageLimitBytes)),
+    db.update(uploads).set({ status: "committed", committedAt: now() }).where(and(
+      eq(uploads.id, upload.id), eq(uploads.status, "pending"),
+      sql`exists (select 1 from entries where owner_id = ${ownerId} and r2_key = ${upload.objectKey})`,
+    )),
+  ]);
+  if (!result.results.length) {
+    throw errorResponse(409, "Upload could not be committed: quota or destination changed");
   }
-
-  await db
-    .update(uploads)
-    .set({ status: "committed", committedAt: now() })
-    .where(eq(uploads.id, upload.id));
+  const savedId = String(result.results[0].id);
+  row.id = savedId;
+  if (existing?.r2Key && existing.r2Key !== upload.objectKey) {
+    await FILES_BUCKET.delete(existing.r2Key);
+  }
 
   return mapEntry(
     existing
@@ -301,20 +318,20 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
   const destinationPath = normalizeAgfsPath(to);
 
   if (sourcePath === "/" || destinationPath === "/") {
-    throw new Error("Root cannot be moved");
+    throw errorResponse(400, "Root cannot be moved");
   }
   if (destinationPath === sourcePath || destinationPath.startsWith(`${sourcePath}/`)) {
-    throw new Error("Destination cannot be inside the source path");
+    throw errorResponse(400, "Destination cannot be inside the source path");
   }
 
   const source = await getEntryByPath(ownerId, sourcePath);
   if (!source) {
-    throw new Error("Source entry not found");
+    throw errorResponse(400, "Source entry not found");
   }
 
   const existing = await getEntryByPath(ownerId, destinationPath);
   if (existing) {
-    throw new Error("Destination already exists");
+    throw errorResponse(400, "Destination already exists");
   }
 
   await ensureFolderChain(ownerId, getParentPath(destinationPath) ?? "/");
@@ -325,11 +342,11 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
     .where(
       and(
         eq(entries.ownerId, ownerId),
-        or(eq(entries.path, destinationPath), like(entries.path, `${destinationPath}/%`)),
+        or(eq(entries.path, destinationPath), descendantPathCondition(destinationPath)),
       ),
     );
   if (conflicts.length > 0) {
-    throw new Error("Destination subtree already exists");
+    throw errorResponse(400, "Destination subtree already exists");
   }
 
   const affected =
@@ -340,13 +357,13 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
           .where(
             and(
               eq(entries.ownerId, ownerId),
-              or(eq(entries.path, sourcePath), like(entries.path, `${sourcePath}/%`)),
+              or(eq(entries.path, sourcePath), descendantPathCondition(sourcePath)),
             ),
           )
       : [source];
 
   for (const row of affected.sort((left, right) => left.path.length - right.path.length)) {
-    const nextPath = row.path === sourcePath ? destinationPath : row.path.replace(`${sourcePath}/`, `${destinationPath}/`);
+    const nextPath = row.path === sourcePath ? destinationPath : `${destinationPath}${row.path.slice(sourcePath.length)}`;
     await db
       .update(entries)
       .set({
@@ -363,7 +380,7 @@ export async function deleteEntry(ownerId: string, path: string, recursive = fal
   const normalized = normalizeAgfsPath(path);
   const entry = await getEntryByPath(ownerId, normalized);
   if (!entry) {
-    throw new Error("Entry not found");
+    throw errorResponse(400, "Entry not found");
   }
 
   const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
@@ -375,13 +392,13 @@ export async function deleteEntry(ownerId: string, path: string, recursive = fal
           .where(
             and(
               eq(entries.ownerId, ownerId),
-              or(eq(entries.path, normalized), like(entries.path, `${normalized}/%`)),
+              or(eq(entries.path, normalized), descendantPathCondition(normalized)),
             ),
           )
       : [entry];
 
   if (entry.kind === "folder" && !recursive && affected.length > 1) {
-    throw new Error("Folder is not empty");
+    throw errorResponse(400, "Folder is not empty");
   }
 
   for (const row of affected.filter((candidate) => candidate.r2Key)) {
@@ -393,7 +410,7 @@ export async function deleteEntry(ownerId: string, path: string, recursive = fal
     .where(
       and(
         eq(entries.ownerId, ownerId),
-        or(eq(entries.path, normalized), like(entries.path, `${normalized}/%`)),
+        or(eq(entries.path, normalized), descendantPathCondition(normalized)),
       ),
     );
 }
@@ -425,7 +442,7 @@ export async function listShares(ownerId: string): Promise<ShareLinkRecord[]> {
 export async function createShare(ownerId: string, path: string, ttl: string): Promise<ShareLinkRecord> {
   const entry = await getEntryByPath(ownerId, path);
   if (!entry || entry.kind !== "file") {
-    throw new Error("File not found");
+    throw errorResponse(400, "File not found");
   }
 
   const token = createShareTokenValue();

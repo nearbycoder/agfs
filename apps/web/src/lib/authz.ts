@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { and, eq, gt, isNull, or, lte } from "drizzle-orm";
 import {
   apiTokens,
   createApiTokenValue,
@@ -14,10 +14,11 @@ import {
   verifyHash,
 } from "@agfs/db";
 import type { ApiTokenRecord, SessionUser } from "@agfs/contracts";
+import { openDeviceToken, sealDeviceToken } from "./device-token";
 import { auth } from "./auth";
 import { requireStringBindings } from "./bindings";
 import { db } from "./db";
-import { getBearerToken } from "./http";
+import { getBearerToken, requireSameOriginMutation, errorResponse } from "./http";
 
 export interface RequestAuth {
   authSource: "session" | "api-token";
@@ -40,6 +41,7 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
   });
 
   if (session?.user) {
+    requireSameOriginMutation(request, requireStringBindings("APP_URL").APP_URL);
     return {
       authSource: "session",
       user: mapUser(session.user),
@@ -165,6 +167,7 @@ export async function revokeApiToken(ownerId: string, tokenId: string) {
 
 export async function startDeviceAuthorization(clientName: string) {
   const bindings = requireStringBindings("APP_URL");
+  await db.update(deviceCodes).set({ accessTokenPlaintext: null }).where(lte(deviceCodes.expiresAt, now()));
   const deviceCode = createDeviceCode();
   const userCode = createUserCode();
   const expiresAt = new Date(Date.now() + 10 * 60_000);
@@ -197,15 +200,19 @@ export async function approveDeviceAuthorization(ownerId: string, input: {
     .where(eq(deviceCodes.userCode, input.userCode));
 
   if (!record) {
-    throw new Error("Device code not found");
+    throw errorResponse(400, "Device code not found");
   }
   if (record.expiresAt.getTime() <= Date.now()) {
-    throw new Error("Device code expired");
+    throw errorResponse(400, "Device code expired");
   }
   if (record.approvedAt) {
-    throw new Error("Device code already approved");
+    throw errorResponse(400, "Device code already approved");
   }
 
+  const [claimed] = await db.update(deviceCodes).set({ approvedAt: now(), ownerId })
+    .where(and(eq(deviceCodes.deviceCode, record.deviceCode), isNull(deviceCodes.approvedAt), gt(deviceCodes.expiresAt, now())))
+    .returning({ deviceCode: deviceCodes.deviceCode });
+  if (!claimed) throw errorResponse(409, "Device code already approved or expired");
   const created = await createApiTokenForUser(ownerId, { label: input.label });
 
   await db
@@ -214,7 +221,7 @@ export async function approveDeviceAuthorization(ownerId: string, input: {
       ownerId,
       apiTokenId: created.record.id,
       approvedAt: now(),
-      accessTokenPlaintext: created.token,
+      accessTokenPlaintext: sealDeviceToken(created.token, requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET),
       label: input.label,
     })
     .where(eq(deviceCodes.deviceCode, record.deviceCode));
@@ -229,26 +236,28 @@ export async function pollDeviceAuthorization(deviceCode: string) {
     .where(eq(deviceCodes.deviceCode, deviceCode));
 
   if (!record) {
-    throw new Error("Device code not found");
+    throw errorResponse(400, "Device code not found");
   }
 
-  if (record.expiresAt.getTime() <= Date.now()) {
+  if (record.consumedAt || record.expiresAt.getTime() <= Date.now()) {
     return { status: "expired" as const };
   }
 
   if (record.approvedAt && record.accessTokenPlaintext && !record.consumedAt) {
     const accessToken = record.accessTokenPlaintext;
-    await db
+    const [consumed] = await db
       .update(deviceCodes)
       .set({
         accessTokenPlaintext: null,
         consumedAt: now(),
       })
-      .where(eq(deviceCodes.deviceCode, deviceCode));
+      .where(and(eq(deviceCodes.deviceCode, deviceCode), isNull(deviceCodes.consumedAt), gt(deviceCodes.expiresAt, now())))
+      .returning({ deviceCode: deviceCodes.deviceCode });
+    if (!consumed) return { status: "expired" as const };
 
     return {
       status: "approved" as const,
-      accessToken,
+      accessToken: openDeviceToken(accessToken, requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET),
       tokenType: "Bearer" as const,
       expiresAt: null,
     };

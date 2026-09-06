@@ -1,7 +1,11 @@
-import type { ZodType } from "zod";
+import { ZodError, type ZodType } from "zod";
+import { InputError } from "@agfs/db";
 
 export function json<T>(data: T, init?: ResponseInit): Response {
-  return Response.json(data, init);
+  const headers = new Headers(init?.headers);
+  headers.set("cache-control", "no-store");
+  headers.set("x-content-type-options", "nosniff");
+  return Response.json(data, { ...init, headers });
 }
 
 export function errorResponse(status: number, message: string): Response {
@@ -28,11 +32,34 @@ export function handleRouteError(error: unknown): Response {
     return error;
   }
 
-  return errorResponse(400, error instanceof Error ? error.message : "Request failed");
+  if (error instanceof InputError) return errorResponse(400, error.message);
+  if (error instanceof ZodError || error instanceof SyntaxError) return errorResponse(400, "Invalid request");
+  return errorResponse(500, "Request failed");
 }
 
 export async function parseJson<T>(request: Request, schema: ZodType<T>): Promise<T> {
-  const payload = await request.json();
+  if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
+    throw errorResponse(415, "Content-Type must be application/json");
+  }
+  const reader = request.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16_384) {
+        await reader.cancel();
+        throw errorResponse(413, "Request body too large");
+      }
+      chunks.push(value);
+    }
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  const payload = JSON.parse(new TextDecoder().decode(bytes));
   return schema.parse(payload);
 }
 
@@ -54,4 +81,13 @@ export function getBearerToken(request: Request): string | null {
   }
 
   return token.trim();
+}
+
+export function requireSameOriginMutation(request: Request, appUrl: string): void {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  const origin = request.headers.get("origin");
+  const site = request.headers.get("sec-fetch-site");
+  if ((origin && origin !== new URL(appUrl).origin) || site === "cross-site" || site === "same-site") {
+    throw errorResponse(403, "Cross-origin request forbidden");
+  }
 }
