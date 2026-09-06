@@ -145,7 +145,7 @@ function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span>Account-scoped storage</span>
             <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
-            <span>Signed download links</span>
+            <span>Expiring download links</span>
             <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
             <span>GitHub login plus agent tokens</span>
           </div>

@@ -401,7 +401,7 @@ function FilesPage() {
                   </div>
                 </div>
               ) : (
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Generate a share from any file row to surface a expiring download URL here.</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Generate a share from any file row to surface an expiring download URL here.</p>
               )}
             </div>
           </CardContent>
