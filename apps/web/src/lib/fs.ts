@@ -363,7 +363,7 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
       : [source];
 
   for (const row of affected.sort((left, right) => left.path.length - right.path.length)) {
-    const nextPath = row.path === sourcePath ? destinationPath : row.path.replace(`${sourcePath}/`, `${destinationPath}/`);
+    const nextPath = row.path === sourcePath ? destinationPath : `${destinationPath}${row.path.slice(sourcePath.length)}`;
     await db
       .update(entries)
       .set({

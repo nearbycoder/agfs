@@ -21,7 +21,7 @@ Scope: web/API source, authentication and authorization, D1/R2 data paths, share
 
 - Initial pnpm audit: 59 advisories (3 critical, 31 high, 19 moderate, 6 low).
 - Updated pnpm audit: zero known vulnerabilities, including development dependencies.
-- All 43 workspace unit/regression tests, production build, CLI build and TypeScript checks passed.
+- All 44 workspace unit/regression tests, production build, CLI build and TypeScript checks passed.
 - SQLite-backed regression tests for literal folder matching and atomic quota/destination conditions.
 - Local Cloudflare Worker + migrated disposable D1 + R2: 30 HTTP checks covering auth, two-user isolation, upload/commit/replay, safe shares and revocation, and device approval/consumption.
 - Local browser: homepage, CLI navigation and interactive elements rendered; no detected browser errors.
