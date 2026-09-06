@@ -116,7 +116,7 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
    ```bash
    pnpm --dir apps/web exec wrangler secret put PREVIEW_SIGNING_SECRET --env production
    pnpm --dir apps/preview exec wrangler secret put PREVIEW_SIGNING_SECRET
-   pnpm --dir apps/preview deploy
+   pnpm --dir apps/preview run deploy
    ```
 
    For a new environment, create the preview Worker with `wrangler deploy` before setting its secret. Use the same secret value for both commands. Never commit it.

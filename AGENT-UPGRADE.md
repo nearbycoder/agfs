@@ -24,6 +24,7 @@ The updated CLI is version 0.2.0 in this checkout. npm publication is a separate
 - `node scripts/security-smoke.mjs`: 30 local HTTP regression checks.
 - `node scripts/features-smoke.mjs`: 54 local integration checks, including real D1/R2 multipart resume, ownership/scope isolation, recovery, preview integrity, and the official MCP client in both protocol generations.
 - `node scripts/cleanup-smoke.mjs`: recursive permanent deletion, R2 garbage collection, expired multipart abort, and unused device-token revocation.
+- A real 105 MiB CLI upload verified the path beyond the legacy single-request cap.
 - Signed-in browser inspection of token scope controls, recovery, activity, and navigation.
 
 All test fixtures and destructive verification are local only. Production deployment requires additive migrations `0002_agent_filesystem.sql` and `0003_object_gc.sql`, the shared preview signing secret on both Workers, and deployment of the preview Worker before enabling the new application build.
