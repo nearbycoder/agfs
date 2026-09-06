@@ -1,9 +1,5 @@
 import { z } from "zod";
 import { parseJson } from "./lib/http";
-import { extendedApi } from "./lib/extended-api";
-import { serveMcp } from "./lib/mcp";
-import { cleanupExpired } from "./lib/cleanup";
-import { recordActivity } from "./lib/activity";
 import { requestContext } from "./lib/request-context";
 import { handleRouteError } from "./lib/http";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
@@ -43,8 +39,8 @@ const app = createServerEntry({
       }
       response =
         securityPath === "/mcp"
-          ? await serveMcp(request, (nested) => fetchRequest(nested, ...args))
-          : ((await extendedApi(request)) ?? (await handler(request, ...args)));
+          ? await (await import("./lib/mcp")).serveMcp(request, (nested) => fetchRequest(nested, ...args))
+          : ((await (await import("./lib/extended-api")).extendedApi(request)) ?? (await handler(request, ...args)));
     } catch (error) {
       response = handleRouteError(error);
     }
@@ -77,7 +73,7 @@ async function fetchRequest(
     const context = requestContext.getStore();
     if (response.ok && context?.auth && context.action) {
       try {
-        await recordActivity(context.auth, context.action, context.path);
+        await (await import("./lib/activity")).recordActivity(context.auth, context.action, context.path);
       } catch (error) {
         console.error("Activity recording failed", error);
       }
@@ -88,6 +84,6 @@ async function fetchRequest(
 export default {
   fetch: fetchRequest,
   scheduled(_controller: unknown, _env: unknown, context: { waitUntil(promise: Promise<unknown>): void }) {
-    context.waitUntil(cleanupExpired());
+    context.waitUntil(import("./lib/cleanup").then(({cleanupExpired}) => cleanupExpired()));
   },
 };
