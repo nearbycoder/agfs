@@ -1,6 +1,6 @@
 {
   "name": "@agfs/cli",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "bin": {
     "agfs": "./dist/index.js"
@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "mime-types": "^3.0.2",
     "zod": "^4.5.4"
   },
@@ -25,6 +25,9 @@
     "@agfs/contracts": "workspace:*",
     "@types/mime-types": "^3.0.1",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

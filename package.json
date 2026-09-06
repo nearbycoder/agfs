@@ -15,8 +15,8 @@
     "security:check": "pnpm audit --audit-level low && pnpm test && pnpm build && pnpm check"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "@types/node": "^26.4.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   }
 }

@@ -1,3 +1,4 @@
+import { storageUsageSql } from "./storage-usage";
 import { and, eq, sql } from "drizzle-orm";
 import type { AccountSummary, SessionUser } from "@agfs/contracts";
 import { entries } from "@agfs/db";
@@ -12,14 +13,8 @@ function getStoragePlanOverridesByEmail() {
 }
 
 export async function getCommittedStorageBytes(ownerId: string) {
-  const [row] = await db
-    .select({
-      storageUsedBytes: sql<number>`coalesce(sum(${entries.size}), 0)`,
-    })
-    .from(entries)
-    .where(and(eq(entries.ownerId, ownerId), eq(entries.kind, "file")));
-
-  return Number(row?.storageUsedBytes ?? 0);
+  const result = await db.run(sql`SELECT ${storageUsageSql(ownerId)} AS bytes`);
+  return Number(result.results[0]?.bytes ?? 0);
 }
 
 export async function getAccountSummaryForUser(user: AccountUser): Promise<AccountSummary> {
@@ -48,7 +43,7 @@ export async function getStorageWriteDecisionForUser(input: {
   return evaluateStorageWrite({
     plan,
     usedBytes,
-    existingFileSizeBytes: input.existingFileSizeBytes,
+    existingFileSizeBytes: 0, // Overwrites retain the previous object.
     incomingSizeBytes: input.incomingSizeBytes,
   });
 }

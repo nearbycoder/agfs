@@ -3,10 +3,7 @@ import { Command } from "commander";
 import { registerAuthCommands } from "./commands/auth";
 import { registerFsCommands } from "./commands/fs";
 
-const program = new Command()
-  .name("agfs")
-  .description("AgentFilesystem CLI")
-  .version("0.1.0");
+const program = new Command().name("agfs").description("AgentFilesystem CLI").version("0.2.0");
 
 registerAuthCommands(program);
 registerFsCommands(program);

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { authorizeUpload } from "~/lib/uploads";
+import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { uploadCommitRequestSchema } from "@agfs/contracts";
 import { commitUpload } from "~/lib/fs";
@@ -12,6 +14,8 @@ export const Route = createFileRoute("/api/v1/fs/uploads/$id/commit")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, uploadCommitRequestSchema);
+          const upload = await authorizeUpload(auth, params.id);
+          auditOperation("upload.commit", upload.path);
           return json({ entry: await commitUpload(auth.user, params.id, body.etag) });
         } catch (error) {
           return handleRouteError(error);

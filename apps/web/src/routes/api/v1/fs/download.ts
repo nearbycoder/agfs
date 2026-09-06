@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { authorize } from "~/lib/scope";
+import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { listEntriesRequestSchema } from "@agfs/contracts";
 import { getEntryByPath } from "~/lib/fs";
@@ -13,6 +15,8 @@ export const Route = createFileRoute("/api/v1/fs/download")({
         try {
           const auth = await requireRequestAuth(request);
           const query = parseSearch(request, listEntriesRequestSchema);
+          authorize(auth, "read", query.path);
+          auditOperation("download", query.path);
           const entry = await getEntryByPath(auth.user.id, query.path);
           if (!entry || entry.kind !== "file" || !entry.r2Key) {
             return errorResponse(404, "File not found");

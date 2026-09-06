@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 
 export interface AppBindings {
   APP_URL: string;
+  PREVIEW_URL: string;
+  PREVIEW_SIGNING_SECRET: string;
   AUTH_RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
   BETTER_AUTH_SECRET: string;
   DB: D1Database;

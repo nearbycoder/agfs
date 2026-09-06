@@ -30,3 +30,26 @@ interface R2Bucket {
     etag?: string;
   } | null>;
 }
+interface R2UploadedPart {
+  partNumber: number;
+  etag: string;
+}
+interface R2MultipartUpload {
+  uploadId: string;
+  uploadPart(partNumber: number, value: ArrayBuffer): Promise<R2UploadedPart>;
+  complete(parts: R2UploadedPart[]): Promise<R2Object>;
+  abort(): Promise<void>;
+}
+interface R2Bucket {
+  createMultipartUpload(key: string, options?: { httpMetadata?: { contentType?: string } }): Promise<R2MultipartUpload>;
+  resumeMultipartUpload(key: string, uploadId: string): R2MultipartUpload;
+}
+interface D1PreparedStatement {
+  bind(...values: unknown[]): D1PreparedStatement;
+}
+interface D1Database {
+  prepare(query: string): D1PreparedStatement;
+  batch(
+    statements: D1PreparedStatement[],
+  ): Promise<Array<{ results: Record<string, unknown>[]; meta: { changes: number } }>>;
+}

@@ -1,9 +1,10 @@
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, stat } from "node:fs/promises";
+import { mkdir, stat, open } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { lookup as lookupMime } from "mime-types";
 import {
+  uploadResumable,
   accountSummarySchema,
   devicePollResponseSchema,
   deviceStartResponseSchema,
@@ -18,7 +19,13 @@ import {
   whoAmIResponseSchema,
 } from "@agfs/contracts";
 import { getResolvedBaseUrl, getResolvedToken, readConfig } from "./config";
-import { flattenTree, getRemoteLeafName, joinRelativeDestination, resolveFileDestination, resolveFolderDestination } from "./download";
+import {
+  flattenTree,
+  getRemoteLeafName,
+  joinRelativeDestination,
+  resolveFileDestination,
+  resolveFolderDestination,
+} from "./download";
 import { summarizeFolderDownload, TransferProgress } from "./progress";
 
 async function parseError(response: Response) {
@@ -41,7 +48,7 @@ export class AgfsClient {
     return new AgfsClient(getResolvedBaseUrl(config), getResolvedToken(config));
   }
 
-  private async request(pathname: string, init?: RequestInit) {
+  async request(pathname: string, init?: RequestInit) {
     const headers = new Headers(init?.headers);
     if (this.token) {
       headers.set("authorization", `Bearer ${this.token}`);
@@ -127,6 +134,32 @@ export class AgfsClient {
   async upload(localPath: string, remotePath: string) {
     const fileStat = await stat(localPath);
     const fileSize = fileStat.size;
+    if (fileSize > 0) {
+      const file = await open(localPath, "r");
+      const progress = new TransferProgress(`Upload ${path.basename(localPath)}`, fileSize);
+      try {
+        const result = await uploadResumable({
+          path: remotePath,
+          contentType: lookupMime(localPath) || "application/octet-stream",
+          size: fileSize,
+          fingerprint: `${fileSize}:${fileStat.mtimeMs}:${path.basename(localPath)}`,
+          request: (url, init) => this.request(url, init),
+          read: async (start, end) => {
+            const buffer = new Uint8Array(end - start);
+            const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
+            return buffer.buffer.slice(0, bytesRead);
+          },
+          progress: (bytes) => progress.update(bytes),
+        });
+        progress.complete();
+        return result;
+      } catch (error) {
+        progress.fail();
+        throw error;
+      } finally {
+        await file.close();
+      }
+    }
     const contentType = lookupMime(localPath) || "application/octet-stream";
     const intentResponse = await this.request("/api/v1/fs/upload-intents", {
       method: "POST",
@@ -298,11 +331,11 @@ export class AgfsClient {
     return tokenListResponseSchema.parse(await response.json());
   }
 
-  async createToken(label: string, ttl?: string) {
+  async createToken(label: string, ttl?: string, pathPrefix = "/", permissions = ["read", "write", "delete", "share"]) {
     const response = await this.request("/api/v1/tokens", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ label, ttl }),
+      body: JSON.stringify({ label, ttl, pathPrefix, permissions }),
     });
     return tokenCreateResponseSchema.parse(await response.json());
   }

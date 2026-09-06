@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { authorize } from "~/lib/scope";
+import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { mkdirRequestSchema, successResponseSchema } from "@agfs/contracts";
 import { mkdir } from "~/lib/fs";
@@ -12,6 +14,8 @@ export const Route = createFileRoute("/api/v1/fs/mkdir")({
         try {
           const auth = await requireRequestAuth(request);
           const body = await parseJson(request, mkdirRequestSchema);
+          authorize(auth, "write", body.path);
+          auditOperation("mkdir", body.path);
           await mkdir(auth.user.id, body.path);
           return json(successResponseSchema.parse({ ok: true }));
         } catch (error) {

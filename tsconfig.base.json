@@ -20,17 +20,17 @@
     "types": [
       "node"
     ],
-    "baseUrl": ".",
     "paths": {
       "@agfs/contracts": [
-        "packages/contracts/src/index.ts"
+        "./packages/contracts/src/index.ts"
       ],
       "@agfs/db": [
-        "packages/db/src/index.ts"
+        "./packages/db/src/index.ts"
       ],
       "~/*": [
-        "apps/web/src/*"
+        "./apps/web/src/*"
       ]
-    }
+    },
+    "rootDir": "."
   }
 }
