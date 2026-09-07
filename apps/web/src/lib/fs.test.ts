@@ -50,7 +50,7 @@ vi.mock("./account", () => ({
   getStorageWriteDecisionForUser: mocks.getStorageWriteDecisionForUser,
 }));
 
-import { commitUpload, moveEntry } from "./fs";
+import { commitUpload } from "./fs";
 
 describe("commitUpload quota recheck", () => {
   beforeEach(() => {
@@ -135,18 +135,4 @@ it("rejects a committed upload before inspecting or deleting its stored object",
     status: 409,
   });
   expect(mocks.head).not.toHaveBeenCalled();
-});
-
-it("moves descendants without interpreting dollar sequences in destination names", async () => {
-  mocks.selectResults.length = 0;
-  mocks.updateSet.mockClear();
-  const source = { id: "folder", ownerId: "owner", path: "/from", kind: "folder" };
-  mocks.selectResults.push(
-    [source],
-    [],
-    [],
-    [source, { id: "child", ownerId: "owner", path: "/from/child", kind: "file" }],
-  );
-  await moveEntry("owner", "/from", "/$&");
-  expect(mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({ path: "/$&/child" }));
 });

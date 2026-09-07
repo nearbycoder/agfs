@@ -1,4 +1,5 @@
 import { atomicBatch } from "./atomic-batch";
+import { moveStatement } from "./move-statement";
 import { storageUsageSql } from "./storage-usage";
 import { trashEntry } from "./recovery";
 import { and, asc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
@@ -356,33 +357,8 @@ export async function moveEntry(ownerId: string, from: string, to: string) {
     throw errorResponse(400, "Destination subtree already exists");
   }
 
-  const affected =
-    source.kind === "folder"
-      ? await db
-          .select()
-          .from(entries)
-          .where(
-            and(eq(entries.ownerId, ownerId), or(eq(entries.path, sourcePath), descendantPathCondition(sourcePath))),
-          )
-      : [source];
-
-  await atomicBatch(
-    affected
-      .sort((left, right) => left.path.length - right.path.length)
-      .map((row) => {
-        const nextPath =
-          row.path === sourcePath ? destinationPath : `${destinationPath}${row.path.slice(sourcePath.length)}`;
-        return db
-          .update(entries)
-          .set({
-            path: nextPath,
-            parentPath: getParentPath(nextPath),
-            name: getBaseName(nextPath),
-            updatedAt: now(),
-          })
-          .where(and(eq(entries.ownerId, ownerId), eq(entries.id, row.id)));
-      }),
-  );
+  const result = await db.run(moveStatement(ownerId, source, destinationPath));
+  if (!result.results.length) throw errorResponse(409, "Source or destination changed; retry the move");
 }
 
 export async function deleteEntry(ownerId: string, path: string, recursive = false) {
