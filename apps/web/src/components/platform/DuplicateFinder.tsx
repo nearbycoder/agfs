@@ -31,7 +31,7 @@ export function DuplicateFinder({ initialPath }: { initialPath: string }) {
       aria-label="Duplicate finder"
     >
       <h2 className="font-semibold">Duplicate finder</h2>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Find nonempty files with matching stored checksums and byte sizes. These
         are duplicate candidates; review contents before deleting. Extra live
         bytes exclude one copy per group; retained versions and snapshots may
@@ -61,7 +61,7 @@ export function DuplicateFinder({ initialPath }: { initialPath: string }) {
         </p>
       ) : null}
       {searchedPath && !groups.length ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           No matching checksum groups found.
         </p>
       ) : null}

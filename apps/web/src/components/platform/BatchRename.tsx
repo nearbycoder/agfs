@@ -29,7 +29,7 @@ export function BatchRename({
         Rename selected files ({entries.length})
       </summary>
       <div className="mt-4 space-y-4">
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Preview up to 50 files in this folder. Existing names and swaps are
           rejected. The whole batch succeeds or no files change.
         </p>

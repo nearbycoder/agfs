@@ -50,7 +50,7 @@ export function OperationsPage() {
               ],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border p-5">
-                <p className="text-sm text-zinc-500">{label}</p>
+                <p className="text-sm text-muted-foreground">{label}</p>
                 <p className="mt-2 font-mono text-3xl">{value}</p>
               </div>
             ))}
@@ -176,7 +176,7 @@ export function OperationsPage() {
       )}
       <section className="space-y-4 border-t pt-6">
         <h2 className="text-lg font-semibold">Snapshots</h2>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Preserve a folder’s current files for 1–90 days. Retained versions
           count toward storage. Restoring revokes existing shares in that
           folder.
@@ -228,7 +228,7 @@ export function OperationsPage() {
               >
                 <div>
                   <strong>{s.name}</strong>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-muted-foreground">
                     {s.path_prefix} · expires{" "}
                     {new Date(s.expires_at).toLocaleDateString()}
                   </p>

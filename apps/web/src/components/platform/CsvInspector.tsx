@@ -30,7 +30,7 @@ export function CsvInspector() {
     current = Math.min(page, pageCount - 1);
   return (
     <section className="space-y-4" aria-label="CSV inspector">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Read UTF-8 CSV up to 256 KiB, 5,000 rows and 200 columns. Quoted fields
         and multiline cells are supported. Filtering never changes the source
         file.

@@ -22,7 +22,7 @@ export function Collections() {
       aria-label="Collections"
     >
       <h2 className="font-semibold">Collections</h2>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Group files and folders without moving or copying them. Collections are
         personal to you in this workspace.
       </p>

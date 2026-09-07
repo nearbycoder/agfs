@@ -61,15 +61,6 @@ export function SearchPage() {
       error={action.error}
       notice={action.notice}
     >
-      <SavedSearches
-        filters={filters}
-        busy={action.busy}
-        onApply={(saved) => {
-          const values = { ...empty, ...saved };
-          setFilters(values);
-          void action.run(() => search(undefined, values));
-        }}
-      />
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -103,51 +94,57 @@ export function SearchPage() {
             onChange={(e) => change("tag", e.target.value)}
           />
         </div>
-        <fieldset className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
-          <legend className="px-2 text-sm font-semibold">
+        <details className="rounded-lg border p-4">
+          <summary className="cursor-pointer text-sm font-medium">
             Advanced filters
-          </legend>
-          <label className="grid gap-2 text-sm">
-            Entry kind
-            <select
-              className={selectClass}
-              value={filters.kind ?? ""}
-              onChange={(e) => change("kind", e.target.value)}
-            >
-              <option value="">Files and folders</option>
-              <option value="file">Files only</option>
-              <option value="folder">Folders only</option>
-            </select>
-          </label>
-          <Field
-            label="Minimum bytes"
-            type="number"
-            min="0"
-            step="1"
-            value={filters.minSize ?? ""}
-            onChange={(e) => change("minSize", e.target.value)}
-          />
-          <Field
-            label="Maximum bytes"
-            type="number"
-            min="0"
-            step="1"
-            value={filters.maxSize ?? ""}
-            onChange={(e) => change("maxSize", e.target.value)}
-          />
-          <Field
-            label="Modified on/after (UTC)"
-            type="date"
-            value={filters.after ?? ""}
-            onChange={(e) => change("after", e.target.value)}
-          />
-          <Field
-            label="Modified on/before (UTC)"
-            type="date"
-            value={filters.before ?? ""}
-            onChange={(e) => change("before", e.target.value)}
-          />
-        </fieldset>
+          </summary>
+          <div className="mt-4">
+            {" "}
+            <fieldset className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
+              <legend className="sr-only">Advanced filters</legend>
+              <label className="grid gap-2 text-sm">
+                Entry kind
+                <select
+                  className={selectClass}
+                  value={filters.kind ?? ""}
+                  onChange={(e) => change("kind", e.target.value)}
+                >
+                  <option value="">Files and folders</option>
+                  <option value="file">Files only</option>
+                  <option value="folder">Folders only</option>
+                </select>
+              </label>
+              <Field
+                label="Minimum bytes"
+                type="number"
+                min="0"
+                step="1"
+                value={filters.minSize ?? ""}
+                onChange={(e) => change("minSize", e.target.value)}
+              />
+              <Field
+                label="Maximum bytes"
+                type="number"
+                min="0"
+                step="1"
+                value={filters.maxSize ?? ""}
+                onChange={(e) => change("maxSize", e.target.value)}
+              />
+              <Field
+                label="Modified on/after (UTC)"
+                type="date"
+                value={filters.after ?? ""}
+                onChange={(e) => change("after", e.target.value)}
+              />
+              <Field
+                label="Modified on/before (UTC)"
+                type="date"
+                value={filters.before ?? ""}
+                onChange={(e) => change("before", e.target.value)}
+              />
+            </fieldset>
+          </div>
+        </details>
         <div className="flex gap-3">
           <Button disabled={action.busy}>Search</Button>
           <Button
@@ -166,8 +163,17 @@ export function SearchPage() {
           </Button>
         </div>
       </form>
+      <SavedSearches
+        filters={filters}
+        busy={action.busy}
+        onApply={(saved) => {
+          const values = { ...empty, ...saved };
+          setFilters(values);
+          void action.run(() => search(undefined, values));
+        }}
+      />
       {active && JSON.stringify(active) !== JSON.stringify(filters) ? (
-        <p role="status" className="text-sm text-zinc-500">
+        <p role="status" className="text-sm text-muted-foreground">
           Showing the last search. Press Search to apply your changed filters.
         </p>
       ) : null}
@@ -186,13 +192,13 @@ export function SearchPage() {
               >
                 {item.path}
               </a>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 {item.contentType ?? item.kind} · {item.size ?? 0} bytes ·{" "}
                 {new Date(item.updatedAt).toLocaleString()} ·{" "}
                 {item.tags.join(", ")}
               </p>
               {item.excerpt ? (
-                <p className="whitespace-pre-wrap break-words text-sm text-zinc-500">
+                <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
                   {item.excerpt}
                 </p>
               ) : null}

@@ -117,7 +117,7 @@ export function FolderUpload({
         Upload a folder
       </summary>
       <section className="mt-4 space-y-4" aria-label="Folder upload">
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Choose up to 500 files in one folder. The selected folder and
           subfolders are preserved under {destination}. Existing files are never
           replaced. Empty directories are not included by the browser. Keep this

@@ -72,60 +72,16 @@ function SharesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_320px]">
-        <Card>
-          <CardHeader>
-            <Badge className="w-fit" variant="secondary">
-              Share links
-            </Badge>
-            <CardTitle className="dashboard-title">
-              Preview URLs issued by AGFS.
-            </CardTitle>
-            <CardDescription>
-              Review what has been shared recently, open a preview in a new tab,
-              or revoke links once they’ve served their purpose.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-              <div className="flex items-center gap-3">
-                <Link2 className="size-4 text-zinc-600 dark:text-zinc-300" />
-                <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
-                  Active links
-                </p>
-              </div>
-              <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
-                {activeCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-              <div className="flex items-center gap-3">
-                <ShieldOff className="size-4 text-zinc-600 dark:text-zinc-300" />
-                <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
-                  Revocation
-                </p>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                Revoked links stop resolving immediately, even if their original
-                expiry has not elapsed.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <Badge className="w-fit" variant="secondary">
-              Behavior
-            </Badge>
-            <CardTitle>Inline previews, not bucket URLs.</CardTitle>
-            <CardDescription>
-              AGFS streams shared files through the Worker so screenshots and
-              images open directly while remaining revocable.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <header className="workspace-page-heading">
+        <h1 className="dashboard-title">Shares</h1>
+        <p className="section-copy mt-2">
+          Manage the links you've shared. Revoke access at any time.
+        </p>
+        <p className="mt-5 inline-flex items-center gap-2 text-sm font-medium">
+          <span className="size-2 rounded-full bg-primary" />
+          {activeCount} active links
+        </p>
+      </header>
 
       {error ? (
         <Alert variant="destructive">
@@ -138,7 +94,8 @@ function SharesPage() {
         <CardHeader>
           <CardTitle>Issued shares</CardTitle>
           <CardDescription>
-            Each row maps a private file path to a signed AGFS preview URL.
+            Find a link by file path, check its expiry, or revoke selected
+            links.
           </CardDescription>
         </CardHeader>
         <CardContent>

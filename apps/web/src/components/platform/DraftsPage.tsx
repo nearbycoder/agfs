@@ -70,7 +70,8 @@ export function DraftsPage() {
           {data.items.map((d) => (
             <li key={d.id} className="flex justify-between gap-3 py-3">
               <span>
-                {d.name} <span className="text-zinc-500">· {d.status}</span>
+                {d.name}{" "}
+                <span className="text-muted-foreground">· {d.status}</span>
               </span>
               <Button
                 size="sm"
@@ -159,7 +160,7 @@ export function DraftsPage() {
                 </summary>
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div>
-                    <h4 className="mb-2 text-xs uppercase text-zinc-500">
+                    <h4 className="mb-2 text-xs uppercase text-muted-foreground">
                       Before{c.base_exists ? "" : " · new file"}
                     </h4>
                     <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100">
@@ -167,7 +168,7 @@ export function DraftsPage() {
                     </pre>
                   </div>
                   <div>
-                    <h4 className="mb-2 text-xs uppercase text-zinc-500">
+                    <h4 className="mb-2 text-xs uppercase text-muted-foreground">
                       After
                     </h4>
                     <pre className="max-h-64 overflow-auto rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-950 dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
@@ -228,7 +229,7 @@ export function DraftsPage() {
             <h3 className="font-semibold">Review discussion</h3>
             {draft.comments?.map((c: any) => (
               <div key={c.id} className="rounded-lg border p-3">
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   {c.author} · {new Date(c.created_at).toLocaleString()}
                 </p>
                 <p className="whitespace-pre-wrap">{c.body}</p>

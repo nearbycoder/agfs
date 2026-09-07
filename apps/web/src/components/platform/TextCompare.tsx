@@ -16,7 +16,7 @@ export function TextCompare() {
   const action = useAction();
   return (
     <section aria-label="Text comparison" className="space-y-4">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Compare two UTF-8 files up to 256 KiB each. Limit: 1,500 lines per file
         and one million line pairs. Files remain unchanged.
       </p>

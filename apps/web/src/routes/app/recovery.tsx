@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { formatBytes } from "~/lib/format";
@@ -61,17 +67,27 @@ function RecoveryPage() {
     return () => controller.abort();
   }, [reason, path, refresh, cursor]);
   async function act(item: Item, purge = false) {
-    if (purge && !window.confirm(`Permanently remove ${item.path} from recovery? This cannot be undone.`)) return;
+    if (
+      purge &&
+      !window.confirm(
+        `Permanently remove ${item.path} from recovery? This cannot be undone.`,
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       const response = await fetch(
-        purge ? `/api/v1/recovery?id=${encodeURIComponent(item.id)}` : "/api/v1/recovery/restore",
+        purge
+          ? `/api/v1/recovery?id=${encodeURIComponent(item.id)}`
+          : "/api/v1/recovery/restore",
         {
           method: purge ? "DELETE" : "POST",
           headers: { "content-type": "application/json" },
-          body: purge ? undefined : JSON.stringify({ id: item.id, path: destination }),
+          body: purge
+            ? undefined
+            : JSON.stringify({ id: item.id, path: destination }),
         },
       );
       const value = await response.json();
@@ -87,15 +103,16 @@ function RecoveryPage() {
     }
   }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="dashboard-title">Trash & versions</CardTitle>
+    <section className="workspace-page">
+      <header className="workspace-page-heading">
+        <h1 className="dashboard-title">Trash & versions</h1>
         <CardDescription>
-          Restore deleted files or earlier versions for 30 days. Retained files count toward storage. Restoring uses a
-          vacant path and leaves existing files intact.
+          Restore deleted files or earlier versions for 30 days. Retained files
+          count toward storage. Restoring uses a vacant path and leaves existing
+          files intact.
         </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+      </header>
+      <div className="workspace-page-body">
         <div className="flex flex-wrap gap-3">
           <Button
             variant={reason === "trash" ? "default" : "outline"}
@@ -143,13 +160,21 @@ function RecoveryPage() {
             <p className="font-medium">Restore {selected.path}</p>
             <label className="block space-y-2">
               <span className="section-label">Restore to vacant path</span>
-              <Input required value={destination} onChange={(event) => setDestination(event.target.value)} />
+              <Input
+                required
+                value={destination}
+                onChange={(event) => setDestination(event.target.value)}
+              />
             </label>
             <div className="flex gap-2">
               <Button disabled={busy} type="submit">
                 Restore
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setSelected(null)}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSelected(null)}
+              >
                 Cancel
               </Button>
             </div>
@@ -157,16 +182,21 @@ function RecoveryPage() {
         ) : null}
         {!items.length ? (
           <p className="rounded-xl border border-dashed p-10 text-center text-zinc-500">
-            No retained {reason === "trash" ? "deleted files" : "versions"} at this path.
+            No retained {reason === "trash" ? "deleted files" : "versions"} at
+            this path.
           </p>
         ) : (
           <div className="divide-y">
             {items.map((item) => (
-              <div key={item.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-4 py-4"
+              >
                 <div className="min-w-0">
                   <p className="font-mono text-sm break-all">{item.path}</p>
                   <p className="section-copy">
-                    {formatBytes(item.size)} · Saved {new Date(item.retainedAt).toLocaleString()} · Expires{" "}
+                    {formatBytes(item.size)} · Saved{" "}
+                    {new Date(item.retainedAt).toLocaleString()} · Expires{" "}
                     {new Date(item.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -176,12 +206,20 @@ function RecoveryPage() {
                     variant="outline"
                     onClick={() => {
                       setSelected(item);
-                      setDestination(item.reason === "version" ? `${item.path}.restored` : item.path);
+                      setDestination(
+                        item.reason === "version"
+                          ? `${item.path}.restored`
+                          : item.path,
+                      );
                     }}
                   >
                     Restore…
                   </Button>
-                  <Button disabled={busy} variant="ghost" onClick={() => void act(item, true)}>
+                  <Button
+                    disabled={busy}
+                    variant="ghost"
+                    onClick={() => void act(item, true)}
+                  >
                     Delete forever
                   </Button>
                 </div>
@@ -194,7 +232,7 @@ function RecoveryPage() {
             Load older items
           </Button>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

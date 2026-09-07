@@ -2,7 +2,13 @@ import { Link } from "@tanstack/react-router";
 import { Compass } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 
 export function NotFound() {
   return (
@@ -10,13 +16,16 @@ export function NotFound() {
       <Card className="max-w-xl">
         <CardHeader>
           <Badge className="w-fit" variant="secondary">
-            Route missing
+            404 · Page not found
           </Badge>
-          <CardTitle className="flex items-center gap-3">
+          <h1 className="flex items-center gap-3 text-xl font-semibold">
             <Compass className="size-5 text-zinc-500 dark:text-zinc-400" />
             Nothing lives at this address
-          </CardTitle>
-          <CardDescription>Jump back to the AGFS control plane and keep moving.</CardDescription>
+          </h1>
+          <CardDescription>
+            This link may have moved. Head home to find your workspace or the
+            setup guide.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild>

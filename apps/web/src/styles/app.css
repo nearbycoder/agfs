@@ -2,54 +2,50 @@
 @import "@fontsource/jetbrains-mono";
 @import "tailwindcss";
 @import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
-
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.19 0.004 286);
-  --card: oklch(1 0 0 / 0.92);
-  --card-foreground: oklch(0.19 0.004 286);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.004 286);
-  --primary: oklch(0.18 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.23 0.003 286);
-  --muted: oklch(0.967 0.001 286);
-  --muted-foreground: oklch(0.52 0.01 286);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.2 0.004 286);
-  --destructive: oklch(0.62 0.24 28);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.003 286);
-  --input: oklch(0.92 0.003 286);
-  --ring: oklch(0.71 0 0);
-  --radius: 1rem;
+  --background: #f8f9f7;
+  --foreground: #202a29;
+  --card: #fff;
+  --card-foreground: #202a29;
+  --popover: #fff;
+  --popover-foreground: #202a29;
+  --primary: #126b5b;
+  --primary-foreground: #fff;
+  --secondary: #edf2ef;
+  --secondary-foreground: #29443b;
+  --muted: #f0f3f0;
+  --muted-foreground: #61706a;
+  --accent: #e1eee7;
+  --accent-foreground: #125a49;
+  --destructive: #bd3232;
+  --destructive-foreground: #fff;
+  --border: #dfe5df;
+  --input: #d6ded7;
+  --ring: #388675;
+  --radius: 0.65rem;
 }
-
 .dark {
-  --background: oklch(0.145 0.004 286);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.19 0.004 286 / 0.9);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.18 0.004 286);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.97 0 0);
-  --primary-foreground: oklch(0.16 0.004 286);
-  --secondary: oklch(0.24 0.004 286);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.22 0.004 286);
-  --muted-foreground: oklch(0.72 0.01 286);
-  --accent: oklch(0.24 0.004 286);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.68 0.2 24);
-  --destructive-foreground: oklch(0.97 0 0);
-  --border: oklch(0.28 0.004 286);
-  --input: oklch(0.28 0.004 286);
-  --ring: oklch(0.55 0 0);
+  --background: #111816;
+  --foreground: #e8efeb;
+  --card: #19221f;
+  --card-foreground: #e8efeb;
+  --popover: #1c2722;
+  --popover-foreground: #e8efeb;
+  --primary: #8cdbbd;
+  --primary-foreground: #102e23;
+  --secondary: #23332b;
+  --secondary-foreground: #d6e9df;
+  --muted: #202c26;
+  --muted-foreground: #a5b4ac;
+  --accent: #263e32;
+  --accent-foreground: #a1e5c8;
+  --destructive: #ee7777;
+  --destructive-foreground: #231111;
+  --border: #304038;
+  --input: #3b4b42;
+  --ring: #8cdbbd;
 }
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -82,138 +78,271 @@
   * {
     @apply border-border;
   }
-
   html {
     min-height: 100%;
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
     color-scheme: light;
   }
-
   html.dark {
     color-scheme: dark;
   }
-
   body {
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
-    background-image:
-      radial-gradient(circle at top center, rgba(24, 24, 27, 0.06), transparent 24rem),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 244, 245, 0.92));
-    transition:
-      background-color 180ms ease,
-      color 180ms ease,
-      border-color 180ms ease;
   }
-
-  .dark body {
-    background-image:
-      radial-gradient(circle at top center, rgba(244, 244, 245, 0.08), transparent 24rem),
-      linear-gradient(180deg, rgba(10, 10, 11, 0.98), rgba(17, 17, 19, 0.96));
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(24, 24, 27, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(24, 24, 27, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 85%);
-    z-index: -1;
-  }
-
-  .dark body::before {
-    background-image:
-      linear-gradient(rgba(244, 244, 245, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(244, 244, 245, 0.04) 1px, transparent 1px);
-  }
-
   a {
     color: inherit;
     text-decoration: none;
   }
-
   button,
   input,
-  textarea {
+  textarea,
+  select {
     font: inherit;
   }
-
+  button,
+  summary,
+  select {
+    touch-action: manipulation;
+  }
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--primary);
+  }
+  select {
+    background: var(--card);
+    color: var(--foreground);
+  }
   code,
   pre {
     font-family: var(--font-mono);
   }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+  dialog::backdrop {
+    background: #071b15a6;
+    backdrop-filter: blur(3px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
-
 @layer components {
   .page-shell {
-    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
   }
-
   .surface-panel {
-    @apply rounded-2xl border border-zinc-200/80 bg-white/88 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_18px_44px_rgba(15,23,42,0.06)] backdrop-blur dark:border-zinc-800/80 dark:bg-zinc-950/75 dark:shadow-[0_1px_2px_rgba(0,0,0,0.25),0_24px_64px_rgba(0,0,0,0.35)];
+    @apply rounded-xl border bg-card shadow-sm;
   }
-
   .section-label {
-    @apply text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400;
+    @apply text-[11px] font-semibold uppercase tracking-[.13em] text-muted-foreground;
   }
-
   .section-copy {
-    @apply text-sm leading-6 text-zinc-500 dark:text-zinc-400;
+    @apply text-sm leading-6 text-muted-foreground;
   }
-
   .hero-title {
-    @apply text-balance text-4xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50 sm:text-5xl lg:text-6xl;
+    @apply text-balance text-4xl font-semibold leading-[1.07] tracking-[-.055em] sm:text-6xl lg:text-7xl;
   }
-
   .dashboard-title {
-    @apply text-balance text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-3xl;
+    @apply text-balance text-2xl font-semibold tracking-[-.035em] sm:text-3xl;
   }
-
   .mini-grid {
-    @apply grid gap-3 sm:grid-cols-3;
+    @apply grid grid-cols-3 gap-3;
   }
-
   .mini-stat {
-    @apply rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/70;
+    @apply rounded-lg bg-muted/60 p-4;
   }
-
   .status-shell {
-    @apply mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-7xl items-center justify-center px-4 py-12 sm:px-6 lg:px-8;
+    @apply mx-auto flex min-h-[calc(100dvh-9rem)] w-full max-w-5xl items-center justify-center px-5 py-12;
   }
-
-  .app-preview-card {
-    isolation: isolate;
-    background-image:
-      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 22rem),
-      linear-gradient(180deg, rgba(20, 20, 23, 0.98), rgba(8, 8, 10, 0.98));
+  .skip-link {
+    @apply fixed left-4 top-3 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:translate-y-0;
   }
-
-  .app-preview-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-    background-size: 42px 42px;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.44), transparent 84%);
-    opacity: 0.55;
+  .brand {
+    @apply inline-flex items-center gap-2.5 text-xl font-bold tracking-[-.06em];
   }
-
-  .app-preview-card > * {
-    position: relative;
-    z-index: 1;
+  .brand-mark {
+    @apply flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground;
   }
-
-  .app-preview-chip {
-    @apply inline-flex items-center rounded-full border border-white/8 bg-white/[0.05] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-300/82;
+  .workspace-layout {
+    @apply min-h-dvh lg:pl-60;
   }
+  .workspace-sidebar {
+    @apply fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card lg:flex;
+  }
+  .workspace-nav {
+    @apply flex-1 space-y-4 overflow-y-auto px-3 py-4;
+  }
+  .workspace-nav-label {
+    @apply mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.14em] text-muted-foreground;
+  }
+  .workspace-link {
+    @apply flex min-h-8 items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+  }
+  .workspace-link[aria-current="page"] {
+    @apply bg-accent text-accent-foreground;
+  }
+  .workspace-topbar {
+    @apply sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-background/95 px-5 backdrop-blur sm:px-8;
+  }
+  .workspace-content {
+    @apply mx-auto min-w-0 max-w-[1500px] px-5 py-7 sm:px-8 sm:py-9;
+  }
+  .workspace-content > * {
+    min-width: 0;
+  }
+  .workspace-content details {
+    scroll-margin-top: 5rem;
+  }
+  .workspace-content details > summary {
+    @apply text-sm;
+  }
+  .workspace-content details[open] > summary {
+    @apply mb-2 text-primary;
+  }
+  .workspace-page {
+    @apply space-y-7;
+  }
+  .workspace-page-heading {
+    @apply space-y-2 border-b pb-6;
+  }
+  .workspace-page-body {
+    @apply space-y-6 rounded-xl border bg-card p-5 sm:p-6;
+  }
+  .tool-panel {
+    @apply overflow-hidden rounded-xl border bg-card;
+  }
+  .tool-panel > summary {
+    @apply flex items-center gap-3 p-4 sm:p-5;
+    list-style: none;
+  }
+  .tool-panel > summary::-webkit-details-marker {
+    display: none;
+  }
+  .tool-panel > summary::after {
+    content: "+";
+    margin-left: auto;
+    font-size: 1.25rem;
+  }
+  .tool-panel[open] > summary::after {
+    content: "−";
+  }
+  .tool-panel[open] > summary {
+    @apply border-b bg-muted/40;
+  }
+  .tool-panel-body {
+    @apply p-4 sm:p-6;
+  }
+  .file-row-actions {
+    @apply flex flex-wrap justify-end gap-1;
+  }
+  .file-row-actions button,
+  .file-row-actions a {
+    @apply px-2;
+  }
+  .marketing-section {
+    @apply border-t py-16 sm:py-24;
+  }
+  .marketing-kicker {
+    @apply mb-5 flex items-center gap-2 font-mono text-xs uppercase tracking-[.15em] text-primary;
+  }
+  .marketing-heading {
+    @apply text-balance text-3xl font-semibold leading-tight tracking-[-.045em] sm:text-4xl;
+  }
+  .product-shot {
+    @apply overflow-hidden rounded-xl border bg-card shadow-[0_24px_70px_-30px_#12392d66];
+  }
+}
 
-  .app-preview-label {
-    @apply font-mono text-[11px] uppercase tracking-[0.24em] text-zinc-500;
+@media (max-width: 640px) {
+  .file-table {
+    table-layout: fixed;
+  }
+  .file-table th,
+  .file-table td {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+  .file-table th:first-child {
+    width: 2rem;
+  }
+  .file-table th:last-child {
+    width: 5rem;
+  }
+  .file-table th:nth-child(3),
+  .file-table td:nth-child(3),
+  .file-table th:nth-child(4),
+  .file-table td:nth-child(4) {
+    display: none;
+  }
+  .file-table td:nth-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .file-table td:nth-child(2) > a > span:first-child,
+  .file-table td:nth-child(2) > button > span:first-child {
+    display: none;
+  }
+  .file-table td:nth-child(2) .entry-path {
+    display: none;
+  }
+  .file-row-actions {
+    flex-direction: column;
+  }
+  .file-row-actions button,
+  .file-row-actions a {
+    white-space: normal;
+    height: auto;
+    min-height: 2.5rem;
+  }
+}
+@media (max-width: 640px) {
+  .file-table thead tr,
+  .file-table tbody tr {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) 5rem;
+    align-items: center;
+  }
+  .file-table thead th {
+    display: flex;
+    align-items: center;
+  }
+  .file-table thead th:nth-child(3),
+  .file-table thead th:nth-child(4) {
+    display: none;
+  }
+  .file-table td:nth-child(2) {
+    grid-column: 2;
+  }
+  .file-table tr:has(details[open]) td:last-child {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .file-table tr:has(details[open]) td:last-child .file-row-actions {
+    max-width: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+  .file-table tr:has(details[open]) td:last-child .file-row-actions button,
+  .file-table tr:has(details[open]) td:last-child .file-row-actions a {
+    min-width: 0;
+    white-space: nowrap;
   }
 }

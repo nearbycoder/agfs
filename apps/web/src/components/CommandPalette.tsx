@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
@@ -75,8 +76,17 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
   }
   return (
     <>
-      <Button variant="outline" className="justify-between" onClick={open}>
-        Find a command <kbd className="text-xs opacity-60">⌘ / Ctrl K</kbd>
+      <Button
+        variant="outline"
+        aria-label="Find a command"
+        className="gap-3 px-3"
+        onClick={open}
+      >
+        <Search />
+        <span className="hidden md:inline">Find a command</span>
+        <kbd className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
+          ⌘ / Ctrl K
+        </kbd>
       </Button>
       <dialog
         ref={dialog}

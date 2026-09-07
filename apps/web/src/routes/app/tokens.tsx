@@ -114,15 +114,17 @@ function TokensPage() {
 
   return (
     <div className="space-y-6">
+      <header className="workspace-page-heading">
+        <h1 className="dashboard-title">Tokens</h1>
+        <p className="section-copy mt-2">
+          Give each agent the access it needs, and keep control of every
+          connection.
+        </p>
+      </header>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
         <Card>
           <CardHeader>
-            <Badge className="w-fit" variant="secondary">
-              Agent tokens
-            </Badge>
-            <CardTitle className="dashboard-title">
-              Headless access for remote workers.
-            </CardTitle>
+            <CardTitle>Create a token</CardTitle>
             <CardDescription>
               Limit each agent to the access it needs. Tokens expire after 30
               days by default, with a maximum of 90 days.
@@ -186,21 +188,21 @@ function TokensPage() {
             </form>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div className="rounded-xl border border-border bg-muted/40 p-4">
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="size-4 text-zinc-600 dark:text-zinc-300" />
-                  <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                  <ShieldCheck className="size-4 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">
                     Token hygiene
                   </p>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   AGFS stores token hashes in D1 and only reveals the raw token
                   once at creation time.
                 </p>
               </div>
-              <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div className="rounded-xl border border-border bg-muted/40 p-4">
                 <p className="section-label">Current count</p>
-                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+                <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">
                   {tokens.length}
                 </p>
               </div>
@@ -222,7 +224,7 @@ function TokensPage() {
           <CardContent>
             {secret ? (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 font-mono text-sm leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-200">
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 font-mono text-sm leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-200">
                   {secret}
                 </div>
                 <Button onClick={handleCopy} type="button" variant="outline">
@@ -231,7 +233,7 @@ function TokensPage() {
                 </Button>
               </div>
             ) : (
-              <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Create a token and the latest value will appear here for a
                 one-time copy.
               </p>
@@ -257,7 +259,7 @@ function TokensPage() {
         </CardHeader>
         <CardContent>
           {tokens.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
               No tokens issued yet. Create one above for CI, remote agents, or
               personal scripts.
             </div>
@@ -274,10 +276,10 @@ function TokensPage() {
               <TableBody>
                 {tokens.map((token) => (
                   <TableRow key={token.id}>
-                    <TableCell className="font-medium text-zinc-950 dark:text-zinc-50">
+                    <TableCell className="font-medium text-foreground">
                       {token.label}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                    <TableCell className="font-mono text-xs text-muted-foreground">
                       {token.pathPrefix}
                       <br />
                       {token.permissions.join(", ")}

@@ -1,27 +1,27 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
-import { AlertTriangle } from "lucide-react";
-import { Badge } from "~/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-
+import { AlertTriangle, RotateCw } from "lucide-react";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardDescription } from "./ui/card";
 export function DefaultCatchBoundary(props: ErrorComponentProps) {
   return (
     <main className="status-shell">
-      <Card className="max-w-2xl">
+      <Card className="w-full max-w-md p-3">
         <CardHeader>
-          <Badge className="w-fit" variant="warning">
-            System fault
-          </Badge>
-          <CardTitle className="flex items-center gap-3">
-            <AlertTriangle className="size-5 text-amber-600" />
-            {props.error instanceof Error ? props.error.message : "Request failed"}
-          </CardTitle>
+          <AlertTriangle className="mb-4 size-7 text-destructive" />
+          <h1 className="dashboard-title">Something went wrong</h1>
           <CardDescription>
-            The request did not complete cleanly. Refresh the page or inspect the Worker logs.
+            We couldn't finish loading this page. Try again, or return to your
+            workspace.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-          AGFS is designed to stream files and metadata through the same control plane, so deployment mismatches and
-          missing bindings usually surface quickly here.
+        <CardContent className="flex flex-wrap gap-3">
+          <Button onClick={() => props.reset()}>
+            <RotateCw />
+            Try again
+          </Button>
+          <Button asChild variant="outline">
+            <a href="/app/files">Go to workspace</a>
+          </Button>
         </CardContent>
       </Card>
     </main>

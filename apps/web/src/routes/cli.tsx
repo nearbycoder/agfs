@@ -1,10 +1,14 @@
 // @ts-nocheck
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, FolderTree, KeyRound, Link2, TerminalSquare } from "lucide-react";
+import {
+  ArrowRight,
+  FolderTree,
+  KeyRound,
+  Link2,
+  TerminalSquare,
+} from "lucide-react";
 import { CodeWindow } from "~/components/CodeWindow";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { buildSeoHead } from "~/lib/seo";
 
 const CLI_DESCRIPTION =
@@ -22,144 +26,149 @@ export const Route = createFileRoute("/cli")({
 
 function CliPage() {
   return (
-    <main className="page-shell space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,1.05fr)]">
-        <Card>
-          <CardHeader className="space-y-5">
-            <Badge className="w-fit" variant="secondary">
-              CLI workflow
-            </Badge>
-            <div className="space-y-4">
-              <h1 className="hero-title text-4xl sm:text-5xl">
-                Use AGFS from a laptop, a CI job, or a remote agent host.
-              </h1>
-              <p className="max-w-xl text-base leading-7 text-zinc-500 dark:text-zinc-400">
-                The v1 CLI is a Node package with device auth, token auth, upload/download, folder management, and share
-                link generation built on the same `/api/v1` contract as the web app.
+    <main className="page-shell py-12 sm:py-20">
+      <div className="grid gap-10 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-16">
+        <aside className="lg:sticky lg:top-26 lg:h-fit">
+          <p className="section-label mb-4">Getting started</p>
+          <nav
+            aria-label="Documentation sections"
+            className="flex flex-wrap gap-2 lg:flex-col"
+          >
+            {[
+              ["install", "Install & connect"],
+              ["files", "Working with files"],
+              ["mcp", "Connect via MCP"],
+              ["recovery", "Recover your work"],
+              ["automation", "Automation"],
+            ].map(([id, label]) => (
+              <a key={id} className="workspace-link" href={"#" + id}>
+                {label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+        <div className="min-w-0 space-y-14">
+          <header>
+            <p className="marketing-kicker">CLI & MCP</p>
+            <h1 className="hero-title text-4xl sm:text-5xl">
+              Your files. Your workflow.
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
+              Connect your laptop, CI job, or agent to the same private
+              workspace. Start with the CLI, or connect an MCP client directly.
+            </p>
+          </header>
+          <section id="install" className="space-y-5">
+            <div>
+              <p className="section-label mb-2">01 / Set up</p>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Install and connect
+              </h2>
+              <p className="section-copy mt-3">
+                Install the Node package, then approve device login in your
+                browser. Run whoami to confirm the connected account.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link to="/app/files">
-                  Open workspace
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link to="/">Back to overview</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            {[
-              {
-                icon: TerminalSquare,
-                title: "Device auth",
-                copy: "Approve once in the browser and keep moving in the terminal.",
-              },
-              {
-                icon: FolderTree,
-                title: "Folder-aware",
-                copy: "Upload, move, remove, and recursively download remote trees.",
-              },
-              { icon: Link2, title: "Share links", copy: "Generate download URLs directly from agent workflows." },
-            ].map((item) => (
-              <div
-                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60"
-                key={item.title}
-              >
-                <item.icon className="size-4 text-zinc-700 dark:text-zinc-300" />
-                <p className="mt-3 text-sm font-semibold text-zinc-950 dark:text-zinc-50">{item.title}</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{item.copy}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <CodeWindow title="Install and connect">
-          {`npm install -g @agfs/cli
+            <CodeWindow title="Terminal">{`npm install -g @agfs/cli
 agfs login
-agfs whoami
-
-# if you're scripting:
-export AGFS_BASE_URL=https://agfs.dev
-export AGFS_TOKEN=agfs_pat_...`}
-        </CodeWindow>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <Badge className="w-fit" variant="secondary">
-              MCP
-            </Badge>
-            <CardTitle>Connect an agent directly.</CardTitle>
-            <CardDescription>
-              Use https://agfs.dev/mcp with a scoped AGFS bearer token. The endpoint supports the July 2026 stateless
-              protocol and older Streamable HTTP clients.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link className="underline" to="/app/tokens">
-              Create a scoped token
-            </Link>
+agfs whoami`}</CodeWindow>
+          </section>
+          <section id="files" className="space-y-5">
+            <div>
+              <p className="section-label mb-2">02 / Create & share</p>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Work with familiar commands
+              </h2>
+              <p className="section-copy mt-3">
+                Browse directories, upload artifacts, and download a whole
+                folder. Add --share to return an expiring download link.
+              </p>
+            </div>
+            <CodeWindow title="File commands">{`agfs ls /
+agfs tree /screenshots
+agfs mkdir /sessions/run-42
+agfs upload ./shot.png /sessions/run-42/shot.png --share 1h
+agfs download /sessions/run-42 ./run-42
+agfs rm /sessions/run-42 --recursive`}</CodeWindow>
+          </section>
+          <section id="mcp" className="rounded-xl border bg-card p-6 sm:p-8">
+            <p className="section-label mb-2">03 / Connect an agent</p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Use AGFS over MCP
+            </h2>
             <p className="section-copy mt-3">
-              Give the token only the folders and permissions your agent needs. New tokens expire in 30 days by default.
+              Add the endpoint below to your MCP client with a scoped AGFS
+              bearer token. AGFS supports the July 2026 stateless protocol and
+              older Streamable HTTP clients.
             </p>
-          </CardContent>
-        </Card>
-        <CodeWindow title="Recovery and resumable uploads (CLI from this repo)">{`agfs upload ./artifact.zip /project/artifact.zip
-# Repeat the upload command to resume within 24 hours.
+            <div className="my-6 overflow-x-auto rounded-lg border bg-muted p-4 font-mono text-sm">
+              https://agfs.dev/mcp
+            </div>
+            <p className="section-copy">
+              Give each token only the folders and permissions it needs. New
+              tokens expire in 30 days by default.
+            </p>
+            <Button asChild className="mt-5" variant="outline">
+              <Link to="/app/tokens">
+                <KeyRound />
+                Create a scoped token
+                <ArrowRight />
+              </Link>
+            </Button>
+          </section>
+          <section id="recovery" className="space-y-5">
+            <div>
+              <p className="section-label mb-2">
+                04 / Pick up where you left off
+              </p>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Resume uploads. Recover files.
+              </h2>
+              <p className="section-copy mt-3">
+                Repeat an upload command within 24 hours to resume. Browse
+                retained versions and trash before restoring a file.
+              </p>
+            </div>
+            <CodeWindow title="Recovery">{`agfs upload ./artifact.zip /project/artifact.zip
 agfs versions /project/artifact.zip
 agfs trash /project
 agfs restore <id> /project/restored.zip
 agfs preview /project/log.txt
 agfs activity`}</CodeWindow>
-        <CodeWindow title="Core commands">
-          {`agfs ls /
-agfs tree /screenshots
-agfs mkdir /sessions/run-42
-agfs upload ./shot.png /sessions/run-42/shot.png --share 1h
-agfs download /sessions/run-42 ./run-42
-agfs rm /sessions/run-42 --recursive`}
-        </CodeWindow>
-
-        <Card>
-          <CardHeader>
-            <Badge className="w-fit" variant="secondary">
-              Designed for automation
-            </Badge>
-            <CardTitle>Readable output for humans, stable behavior for agents.</CardTitle>
-            <CardDescription>
-              The CLI mirrors the web app contract, so uploads, shares, device auth, and token auth all stay in one
-              mental model.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/70">
-              <p className="section-label">Install</p>
-              <p className="mt-2 font-mono text-sm text-zinc-700 dark:text-zinc-200">npm install -g @agfs/cli</p>
-            </div>
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/70">
-              <p className="section-label">Authenticate</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                Use `agfs login` for device flow, or pass a long-lived agent token through `AGFS_TOKEN` in headless
-                environments.
+          </section>
+          <section id="automation" className="space-y-5">
+            <div>
+              <p className="section-label mb-2">05 / Run headlessly</p>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Connect your automation
+              </h2>
+              <p className="section-copy mt-3">
+                Use an agent token in your environment when a browser is
+                unavailable. Keep the token in your environment's secret store.
               </p>
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/70">
-              <p className="section-label">Generate download links</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                `agfs upload ./shot.png /shots/shot.png --share 15m` prints the download URL directly in the terminal.
-              </p>
+            <CodeWindow title="Environment">{`export AGFS_BASE_URL=https://agfs.dev
+export AGFS_TOKEN=agfs_pat_...`}</CodeWindow>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild>
+                <Link to="/app/files">
+                  Open workspace
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <a
+                  href="https://github.com/nearbycoder/agfs"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Browse the source ↗
+                </a>
+              </Button>
             </div>
-            <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-              <KeyRound className="size-4" />
-              Tokens created in the app appear immediately in CLI auth flows.
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

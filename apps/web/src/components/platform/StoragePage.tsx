@@ -61,7 +61,7 @@ export function StoragePage() {
       {loading ? <p role="status">Loading storage insights…</p> : null}
       {data ? (
         <div className="space-y-6">
-          <p className="text-sm text-zinc-500 break-all">
+          <p className="text-sm text-muted-foreground break-all">
             {data.path} · Updated {new Date(data.generatedAt).toLocaleString()}
           </p>
           <dl className="grid gap-3 sm:grid-cols-3">
@@ -71,7 +71,7 @@ export function StoragePage() {
               ["Folders", data.summary.folders],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border p-4">
-                <dt className="text-sm text-zinc-500">{label}</dt>
+                <dt className="text-sm text-muted-foreground">{label}</dt>
                 <dd className="mt-2 text-2xl font-semibold">{value}</dd>
               </div>
             ))}
@@ -88,7 +88,7 @@ export function StoragePage() {
                 </div>
                 <div className="h-2 rounded bg-zinc-200 dark:bg-zinc-800">
                   <div
-                    className="h-2 rounded bg-zinc-700 dark:bg-zinc-300"
+                    className="h-2 rounded bg-primary"
                     style={{
                       width: `${Math.min(100, (100 * t.bytes) / Math.max(1, data.summary.bytes))}%`,
                     }}
@@ -97,7 +97,9 @@ export function StoragePage() {
               </div>
             ))}
             {!data.types.length ? (
-              <p className="text-sm text-zinc-500">No files in this folder.</p>
+              <p className="text-sm text-muted-foreground">
+                No files in this folder.
+              </p>
             ) : null}
           </section>
           <section>
@@ -125,7 +127,7 @@ export function StoragePage() {
             <h2 className="font-semibold">
               Folders · top 20 by directly stored bytes
             </h2>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               Each file counts toward its immediate parent folder.
             </p>
             <ul className="divide-y">
