@@ -1,3 +1,4 @@
+import { WorkspaceAdmin } from "./WorkspaceAdmin";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -17,7 +18,8 @@ export function WorkspacesPage() {
     [members, setMembers] = useState<any[]>([]),
     [email, setEmail] = useState(""),
     [role, setRole] = useState("viewer"),
-    [invite, setInvite] = useState("");
+    [invite, setInvite] = useState(""),
+    [sendEmail, setSendEmail] = useState(false);
   useEffect(() => {
     const c = new AbortController();
     fetch("/api/v1/whoami", { signal: c.signal })
@@ -99,6 +101,7 @@ export function WorkspacesPage() {
           text="No team workspaces yet. Your personal files are available in the workspace selector."
         />
       )}
+      {active ? <WorkspaceAdmin owner={active.role === "owner"} /> : null}
       {active?.role === "owner" ? (
         <section className="space-y-4 border-t pt-5">
           <h2 className="text-lg font-semibold">Manage {active.name}</h2>
@@ -115,12 +118,18 @@ export function WorkspacesPage() {
                 const result = await platform("/invites", "POST", {
                   email,
                   role,
+                  sendEmail,
                 });
                 action.setNotice(
                   "Invitation link (valid 7 days): " +
                     window.location.origin +
                     "/app/workspaces?invite=" +
-                    result.token,
+                    result.token +
+                    (result.emailSent
+                      ? " · Email sent."
+                      : result.emailError
+                        ? " · " + result.emailError
+                        : ""),
                 );
               });
             }}
@@ -142,6 +151,14 @@ export function WorkspacesPage() {
                 <option value="viewer">Viewer</option>
                 <option value="editor">Editor</option>
               </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+              />
+              Also send invitation by email
             </label>
             <Button className="self-end" disabled={action.busy}>
               Create invite link

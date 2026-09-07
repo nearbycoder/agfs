@@ -1,3 +1,4 @@
+import { encodeCursor, decodeCursor } from "./cursor";
 import { sql } from "drizzle-orm";
 import { normalizeAgfsPath } from "@agfs/db";
 import { rows, first } from "./platform-db";
@@ -12,9 +13,9 @@ export function searchTerms(input: string) {
     .map((t) => '"' + t.replaceAll('"', '""') + '"*')
     .join(" AND ");
 }
-export async function indexFiles(limit = 20) {
+export async function indexFiles(limit = 20, entryId?: string) {
   const jobs = await rows(
-    sql`SELECT e.* FROM index_jobs j JOIN entries e ON e.id=j.entry_id LIMIT ${limit}`,
+    sql`SELECT e.* FROM index_jobs j JOIN index_job_status s ON s.entry_id=j.entry_id JOIN entries e ON e.id=j.entry_id WHERE (${entryId ?? null} IS NULL OR e.id=${entryId ?? null}) AND s.next_attempt<=${Date.now()} ORDER BY s.queued_at LIMIT ${limit}`,
   );
   for (const e of jobs) {
     try {
@@ -42,6 +43,10 @@ export async function indexFiles(limit = 20) {
         sql`DELETE FROM index_jobs WHERE entry_id=${e.id} AND EXISTS(SELECT 1 FROM entries WHERE id=${e.id} AND r2_key IS ${e.r2_key} AND updated_at=${e.updated_at})`,
       ]);
     } catch (error) {
+      await rows(
+        sql`UPDATE index_job_status SET attempts=attempts+1,last_error='Object could not be indexed',next_attempt=${Date.now() + 60000} WHERE entry_id=${e.id}`,
+      );
+      if (entryId) throw error;
       console.error(
         "Search indexing will retry",
         e.id,
@@ -59,12 +64,24 @@ export async function searchFiles(
     type?: string;
     tag?: string;
     offset?: number;
+    cursor?: string;
   },
 ) {
   const path = normalizeAgfsPath(input.path ?? auth.pathPrefix ?? "/"),
     prefix = path === "/" ? "/" : path + "/";
   authorize(auth, "read", path);
   const terms = searchTerms(input.q);
+  const scope = JSON.stringify([
+    auth.user.id,
+    path,
+    input.q,
+    input.type,
+    input.tag,
+  ]);
+  const cursor = decodeCursor<{ path: string; scope: string }>(
+    input.cursor,
+    (v) => typeof v?.path === "string" && v.scope === scope,
+  );
   const matches =
     await rows(sql`SELECT e.id,e.path,e.name,e.kind,e.size,e.content_type AS contentType,e.etag,
     d.tags,substr(d.content,1,240) AS excerpt,d.indexed_at AS indexedAt
@@ -74,10 +91,17 @@ export async function searchFiles(
     AND (${input.tag ?? null} IS NULL OR EXISTS(SELECT 1 FROM json_each(coalesce(d.tags,'[]')) WHERE value=${input.tag ?? null}))
     AND (${input.q}='' OR instr(lower(e.name),lower(${input.q}))>0
       OR e.id IN (SELECT entry_id FROM file_search WHERE file_search MATCH ${terms || '"__no_terms__"'}))
-    ORDER BY e.path LIMIT 50 OFFSET ${input.offset ?? 0}`);
+    AND e.path>${cursor?.path ?? ""}
+    ORDER BY e.path LIMIT 51 OFFSET ${cursor ? 0 : (input.offset ?? 0)}`);
   return {
-    results: matches.map((r) => ({ ...r, tags: JSON.parse(r.tags ?? "[]") })),
-    nextOffset: matches.length === 50 ? (input.offset ?? 0) + 50 : null,
+    results: matches
+      .slice(0, 50)
+      .map((r) => ({ ...r, tags: JSON.parse(r.tags ?? "[]") })),
+    nextOffset: matches.length > 50 ? (input.offset ?? 0) + 50 : null,
+    nextCursor:
+      matches.length > 50
+        ? encodeCursor({ path: matches[49].path, scope })
+        : null,
   };
 }
 export async function tagFile(auth: RequestAuth, path: string, tags: string[]) {
@@ -90,7 +114,7 @@ export async function tagFile(auth: RequestAuth, path: string, tags: string[]) {
   await atomicBatch([
     sql`INSERT INTO search_documents(entry_id,object_key,tags,indexed_at) VALUES (${e.id},${e.r2_key},${JSON.stringify([...new Set(tags)])},0)
       ON CONFLICT(entry_id) DO UPDATE SET tags=excluded.tags`,
-    sql`INSERT OR IGNORE INTO index_jobs VALUES (${e.id})`,
+    sql`INSERT OR IGNORE INTO index_jobs(entry_id) VALUES (${e.id})`,
   ]);
   return { ok: true };
 }

@@ -7,12 +7,12 @@ export function SearchPage() {
     [type, setType] = useState(""),
     [tag, setTag] = useState(""),
     [items, setItems] = useState<any[]>([]),
-    [next, setNext] = useState<number | null>(null),
+    [next, setNext] = useState<string | null>(null),
     [searched, setSearched] = useState(false),
     [tagPath, setTagPath] = useState(""),
     [tags, setTags] = useState("");
   const action = useAction();
-  async function search(offset = 0) {
+  async function search(cursor?: string) {
     const data = await platform(
       "/search?" +
         new URLSearchParams({
@@ -20,11 +20,11 @@ export function SearchPage() {
           path,
           ...(type ? { type } : {}),
           ...(tag ? { tag } : {}),
-          offset: String(offset),
+          ...(cursor ? { cursor } : {}),
         }),
     );
-    setItems((old) => (offset ? [...old, ...data.results] : data.results));
-    setNext(data.nextOffset);
+    setItems((old) => (cursor ? [...old, ...data.results] : data.results));
+    setNext(data.nextCursor);
     setSearched(true);
   }
   return (

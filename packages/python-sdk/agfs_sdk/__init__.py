@@ -1,4 +1,5 @@
 """AGFS client: standard-library only, bounded-memory uploads, explicit conditional writes."""
+from __future__ import annotations
 import hashlib
 import json
 import time
@@ -32,10 +33,10 @@ class AgfsClient:
             raise ValueError('Invalid AGFS API path')
         request_headers = dict(headers or {})
         if authenticated:
-            request_headers['Authorization'] = 'Bearer ' + self.token
+            request_headers['Authorization'] = 'Bearer ' + (self.token() if callable(self.token) else self.token)
             if self.workspace:
                 request_headers['X-AGFS-Workspace'] = self.workspace
-        retries = self.retries if method in ('GET', 'HEAD', 'PUT') else 0
+        retries = self.retries if method in ('GET', 'HEAD', 'PUT') or 'Idempotency-Key' in request_headers else 0
         for attempt in range(retries + 1):
             try:
                 return self._opener.open(urllib.request.Request(self.base_url + path, data=body, headers=request_headers, method=method), timeout=30)
@@ -58,8 +59,8 @@ class AgfsClient:
                     raise
                 time.sleep(.25 * 2 ** attempt)
 
-    def json(self, path: str, method: str = 'GET', body: Any = _UNSET):
-        with self.request('/api/v1' + path, method, None if body is _UNSET else json.dumps(body).encode(), {} if body is _UNSET else {'Content-Type': 'application/json'}) as response:
+    def json(self, path: str, method: str = 'GET', body: Any = _UNSET, *, idempotency_key=None):
+        with self.request('/api/v1' + path, method, None if body is _UNSET else json.dumps(body).encode(), {**({} if body is _UNSET else {'Content-Type': 'application/json'}), **({'Idempotency-Key':idempotency_key} if idempotency_key else {})}) as response:
             return json.load(response)
 
     def list(self, path: str = '/'):
@@ -80,16 +81,24 @@ class AgfsClient:
         return self.json('/platform/search?' + urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None}))
 
     def search_all(self, **filters) -> Iterator[dict]:
-        offset = 0
+        cursor = None
         while True:
-            page = self.search(**{**filters, 'offset': offset})
+            page = self.search(**{**filters, 'cursor': cursor})
             yield from page['results']
-            next_offset = page['nextOffset']
-            if next_offset is None:
-                return
-            if next_offset <= offset:
-                raise ValueError('Invalid pagination cursor')
-            offset = next_offset
+            next_cursor = page.get('nextCursor')
+            if next_cursor is None:return
+            if next_cursor == cursor:raise ValueError('Invalid pagination cursor')
+            cursor = next_cursor
+
+    def pages(self, resource):
+        if resource not in ('runs','drafts','snapshots'):raise ValueError('Unknown resource')
+        cursor=None
+        while True:
+            page=self.json('/platform/'+resource+('?' + urllib.parse.urlencode({'cursor':cursor}) if cursor else ''))
+            yield from page[resource]
+            if not page.get('nextCursor'):return
+            if cursor==page['nextCursor']:raise ValueError('Invalid cursor')
+            cursor=page['nextCursor']
 
     def tags(self, path: str, tags: list[str]):
         return self.json('/platform/tags', 'PUT', {'path': path, 'tags': tags})

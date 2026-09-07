@@ -13,3 +13,5 @@ apps/web/worker-configuration.d.ts
 !.env.example
 .env.local
 .dev.vars
+
+/release/

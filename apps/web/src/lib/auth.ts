@@ -1,3 +1,5 @@
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "./cimd-network";
 import { mcp } from "@better-auth/mcp";
 import { jwt } from "better-auth/plugins";
 import { requestContext } from "./request-context";
@@ -12,7 +14,7 @@ import {
   oauthSchema,
 } from "@agfs/db";
 import { db } from "./db";
-import { requireStringBindings } from "./bindings";
+import { getBindings, requireStringBindings } from "./bindings";
 
 const bindings = requireStringBindings(
   "APP_URL",
@@ -44,6 +46,22 @@ function createAuth() {
     },
     plugins: [
       jwt(),
+      ...(getBindings().CIMD_EGRESS
+        ? [
+            cimd({
+              fetchClientMetadataResource,
+              metadataProfile: "mcp-2026-07-28",
+              maxCacheEntries: 200,
+              metadataRevalidationInterval: 300,
+              metadataFetchPolicy: {
+                maximumConcurrentFetches: 4,
+                maximumConcurrentFetchesPerOrigin: 2,
+                maximumFetchesPerMinute: 60,
+                maximumFetchesPerOriginPerMinute: 10,
+              },
+            }),
+          ]
+        : []),
       mcp({
         loginPage: "/oauth/consent",
         consentPage: "/oauth/consent",

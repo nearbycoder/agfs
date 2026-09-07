@@ -32,6 +32,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     "/oauth/consent",
   ].includes(path);
   const auth = await requireRequestAuth(request, personal);
+  const extra = await (
+    await import("./reliability-api")
+  ).reliabilityApi(request, auth, path);
+  if (extra) return extra;
   if (path === "/oauth/consent" && method === "POST") {
     const input = await parseJson(
       request,
@@ -109,11 +113,23 @@ export async function platformApi(request: Request): Promise<Response | null> {
       z.object({
         email: z.email().max(254),
         role: z.enum(["editor", "viewer"]),
+        sendEmail: z.boolean().default(false),
       }),
     );
-    return json(await workspaces.inviteMember(auth, v.email, v.role), {
-      status: 201,
-    });
+    const invite = await workspaces.inviteMember(auth, v.email, v.role);
+    let emailSent = false,
+      emailError: string | undefined;
+    if (v.sendEmail) {
+      try {
+        await (
+          await import("./workspace-admin")
+        ).emailInvite(auth, v.email, invite.token);
+        emailSent = true;
+      } catch {
+        emailError = "Email could not be sent; share the invitation link.";
+      }
+    }
+    return json({ ...invite, emailSent, emailError }, { status: 201 });
   }
   if (path === "/invites/accept" && method === "POST")
     return json(
@@ -132,6 +148,7 @@ export async function platformApi(request: Request): Promise<Response | null> {
             path: pathSchema.optional(),
             type: z.string().max(255).optional(),
             tag: z.string().max(40).optional(),
+            cursor: z.string().max(4096).optional(),
             offset: z.coerce.number().int().min(0).max(100000).optional(),
           })
           .parse(Object.fromEntries(url.searchParams)),
@@ -149,7 +166,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     return json(await search.tagFile(auth, v.path, v.tags));
   }
   if (path === "/runs") {
-    if (method === "GET") return json({ runs: await runs.listRuns(auth) });
+    if (method === "GET")
+      return json(
+        await runs.listRuns(auth, url.searchParams.get("cursor") ?? undefined),
+      );
     if (method === "POST") {
       const v = await parseJson(
         request,
@@ -159,6 +179,7 @@ export async function platformApi(request: Request): Promise<Response | null> {
           metadata: z
             .record(z.string().max(80), z.string().max(1000))
             .default({}),
+          retentionDays: z.number().int().min(1).max(90).default(30),
           inputs: z.array(pathSchema).max(50).default([]),
         }),
       );
@@ -178,7 +199,12 @@ export async function platformApi(request: Request): Promise<Response | null> {
   }
   if (path === "/drafts") {
     if (method === "GET")
-      return json({ drafts: await drafts.listDrafts(auth) });
+      return json(
+        await drafts.listDrafts(
+          auth,
+          url.searchParams.get("cursor") ?? undefined,
+        ),
+      );
     if (method === "POST") {
       const v = await parseJson(request, z.object({ name, path: pathSchema }));
       auditOperation("draft.create", v.path);

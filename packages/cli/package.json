@@ -1,9 +1,9 @@
 {
   "name": "@agfs/cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "bin": {
-    "agfs": "./dist/index.js"
+    "agfs": "dist/index.js"
   },
   "files": [
     "dist"
@@ -30,5 +30,10 @@
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nearbycoder/agfs.git",
+    "directory": "packages/cli"
   }
 }

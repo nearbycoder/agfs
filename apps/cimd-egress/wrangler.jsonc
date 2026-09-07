@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agfs-cimd-egress",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "rules": [{ "type": "Text", "globs": ["**/*.txt"], "fallthrough": true }],
+  "containers": [
+    {
+      "class_name": "MetadataContainer",
+      "image": "docker.io/library/node@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e",
+      "max_instances": 1,
+      "instance_type": "lite",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "METADATA", "class_name": "MetadataContainer" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MetadataContainer"] }],
+}

@@ -1,3 +1,4 @@
+import { waitUntil } from "cloudflare:workers";
 import { z } from "zod";
 import { parseJson } from "./lib/http";
 import { requestContext } from "./lib/request-context";
@@ -53,16 +54,22 @@ const app = createServerEntry({
           400,
           "Approve connections through the AGFS consent page",
         );
-      response = pathname.startsWith("/.well-known/")
-        ? await (await import("./lib/auth")).auth.handler(request)
-        : ((await (await import("./lib/platform-api")).platformApi(request)) ??
-          (securityPath === "/mcp"
-            ? await (
-                await import("./lib/mcp")
-              ).serveMcp(request, (nested) => fetchRequest(nested, ...args))
-            : ((await (
-                await import("./lib/extended-api")
-              ).extendedApi(request)) ?? (await handler(request, ...args)))));
+      response = await (
+        await import("./lib/idempotency")
+      ).idempotent(request, async () =>
+        pathname.startsWith("/.well-known/")
+          ? await (await import("./lib/auth")).auth.handler(request)
+          : ((await (
+              await import("./lib/platform-api")
+            ).platformApi(request)) ??
+            (securityPath === "/mcp"
+              ? await (
+                  await import("./lib/mcp")
+                ).serveMcp(request, (nested) => fetchRequest(nested, ...args))
+              : ((await (
+                  await import("./lib/extended-api")
+                ).extendedApi(request)) ?? (await handler(request, ...args))))),
+      );
     } catch (error) {
       response = handleRouteError(error);
     }
@@ -102,6 +109,7 @@ async function fetchRequest(
   return requestContext.run(
     { verifiedOAuth: requestContext.getStore()?.verifiedOAuth },
     async () => {
+      const started = Date.now();
       const response = await app.fetch(request, ...args);
       const context = requestContext.getStore();
       if (response.ok && context?.auth && context.action) {
@@ -113,12 +121,40 @@ async function fetchRequest(
           console.error("Activity recording failed", error);
         }
       }
+      waitUntil(
+        (async () => {
+          if (context?.auth) {
+            try {
+              await (
+                await import("./lib/operations")
+              ).recordMetric(
+                context.auth,
+                new URL(request.url).pathname,
+                response.status,
+                Date.now() - started,
+              );
+            } catch {
+              console.error("Metric recording failed");
+            }
+          }
+          if (response.ok && context?.action) {
+            try {
+              await (await import("./lib/background")).dispatchBackground();
+            } catch {
+              console.error("Background dispatch deferred to cron");
+            }
+          }
+        })(),
+      );
       return response;
     },
   );
 }
 export default {
   fetch: fetchRequest,
+  async queue(batch: MessageBatch<{ id: string; kind: string }>) {
+    await (await import("./lib/background")).consumeBackground(batch);
+  },
   scheduled(
     controller: { scheduledTime: number; cron?: string },
     _env: unknown,
@@ -126,8 +162,13 @@ export default {
   ) {
     context.waitUntil(
       (async () => {
-        await (await import("./lib/search")).indexFiles(30);
-        await (await import("./lib/webhooks")).deliverWebhooks();
+        if (getBindings().BACKGROUND_QUEUE)
+          await (await import("./lib/background")).dispatchBackground();
+        else {
+          await (await import("./lib/search")).indexFiles(30);
+          await (await import("./lib/webhooks")).deliverWebhooks();
+        }
+        await (await import("./lib/operations")).evaluateHealth();
         if (
           controller.cron === "17 * * * *" ||
           new Date(controller.scheduledTime).getUTCMinutes() === 17

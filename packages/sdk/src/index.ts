@@ -1,3 +1,4 @@
+export { mapConcurrent } from "./concurrency.js";
 export type Permission = "read" | "write" | "delete" | "share" | "manage";
 export interface Entry {
   id: string;
@@ -26,6 +27,7 @@ export interface ClientOptions {
   workspace?: string;
   fetch?: typeof fetch;
   retries?: number;
+  signal?: AbortSignal;
 }
 export class AgfsError extends Error {
   constructor(
@@ -44,7 +46,19 @@ const digest = async (bytes: Uint8Array) =>
   )
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number, signal?: AbortSignal | null) =>
+  new Promise<void>((resolve, reject) => {
+    signal?.throwIfAborted();
+    const cancel = () => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new Error("Cancelled"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", cancel);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", cancel, { once: true });
+  });
 export class AgfsClient {
   readonly baseUrl: string;
   private readonly transport: typeof fetch;
@@ -74,10 +88,14 @@ export class AgfsClient {
       new URL(path, this.baseUrl).origin !== this.baseUrl
     )
       throw new Error("Invalid AGFS API path");
+    init = { ...init, signal: init.signal ?? this.options.signal };
+    init.signal?.throwIfAborted();
     const method = init.method ?? "GET",
-      retries = ["GET", "HEAD", "PUT"].includes(method)
-        ? Math.min(5, Math.max(0, this.options.retries ?? 2))
-        : 0;
+      retries =
+        ["GET", "HEAD", "PUT"].includes(method) ||
+        new Headers(init.headers).has("idempotency-key")
+          ? Math.min(5, Math.max(0, this.options.retries ?? 2))
+          : 0;
     for (let attempt = 0; ; attempt++) {
       const headers = new Headers(init.headers),
         token =
@@ -96,7 +114,7 @@ export class AgfsClient {
         });
       } catch (error) {
         if (attempt >= retries || init.signal?.aborted) throw error;
-        await delay(250 * 2 ** attempt);
+        await delay(250 * 2 ** attempt, init.signal);
         continue;
       }
       if (response.ok) return response;
@@ -105,12 +123,13 @@ export class AgfsClient {
         await response.body?.cancel();
         await delay(
           Math.min(
-            10000,
+            60000,
             Math.max(
               250 * 2 ** attempt,
               Number.isFinite(retry) ? retry * 1000 : 0,
             ),
           ),
+          init.signal,
         );
         continue;
       }
@@ -125,6 +144,7 @@ export class AgfsClient {
     path: string,
     method = "GET",
     body?: unknown,
+    idempotencyKey?: string,
   ): Promise<T> {
     return (
       await this.request("/api/v1" + path, {
@@ -132,7 +152,12 @@ export class AgfsClient {
         ...(body === undefined
           ? {}
           : {
-              headers: { "content-type": "application/json" },
+              headers: {
+                "content-type": "application/json",
+                ...(idempotencyKey
+                  ? { "idempotency-key": idempotencyKey }
+                  : {}),
+              },
               body: JSON.stringify(body),
             }),
       })
@@ -174,9 +199,14 @@ export class AgfsClient {
       type?: string;
       tag?: string;
       offset?: number;
+      cursor?: string;
     } = {},
   ) {
-    return this.json<{ results: SearchResult[]; nextOffset: number | null }>(
+    return this.json<{
+      results: SearchResult[];
+      nextOffset: number | null;
+      nextCursor: string | null;
+    }>(
       "/platform/search?" +
         new URLSearchParams(
           Object.entries(input)
@@ -188,16 +218,17 @@ export class AgfsClient {
   async *searchAll(
     input: { q?: string; path?: string; type?: string; tag?: string } = {},
   ) {
-    let offset = 0;
+    let cursor: string | undefined;
     for (;;) {
-      const page = await this.search({ ...input, offset });
+      const page = await this.search({ ...input, cursor });
       yield* page.results;
-      if (page.nextOffset === null) return;
-      if (page.nextOffset <= offset)
+      if (!page.nextCursor) return;
+      if (page.nextCursor === cursor)
         throw new Error("Invalid pagination cursor");
-      offset = page.nextOffset;
+      cursor = page.nextCursor;
     }
   }
+
   async *activity() {
     let cursor: string | null = null;
     for (;;) {
@@ -220,7 +251,11 @@ export class AgfsClient {
   startRun(
     name: string,
     path: string,
-    options: { inputs?: string[]; metadata?: Record<string, string> } = {},
+    options: {
+      inputs?: string[];
+      metadata?: Record<string, string>;
+      retentionDays?: number;
+    } = {},
   ) {
     return this.json<{ id: string; status: string }>("/platform/runs", "POST", {
       name,
@@ -235,9 +270,46 @@ export class AgfsClient {
       {},
     );
   }
-  runs() {
-    return this.json("/platform/runs");
+  runs(cursor?: string) {
+    return this.json(
+      "/platform/runs" +
+        (cursor ? "?cursor=" + encodeURIComponent(cursor) : ""),
+    );
   }
+  async *pages(resource: "runs" | "drafts" | "snapshots") {
+    let cursor: string | undefined;
+    for (;;) {
+      const p: any = await this.json(
+        "/platform/" +
+          resource +
+          (cursor ? "?cursor=" + encodeURIComponent(cursor) : ""),
+      );
+      yield* p[resource];
+      if (!p.nextCursor) return;
+      if (p.nextCursor === cursor) throw new Error("Invalid cursor");
+      cursor = p.nextCursor;
+    }
+  }
+  changes(path: string, since?: number, through?: number) {
+    return this.json<{
+      checkpoint: number;
+      nextCursor: number | null;
+      changes: {
+        seq: number;
+        path: string;
+        operation: string;
+        entry: Entry | null;
+      }[];
+    }>(
+      "/platform/changes?" +
+        new URLSearchParams({
+          path,
+          ...(since === undefined ? {} : { since: String(since) }),
+          ...(through === undefined ? {} : { through: String(through) }),
+        }),
+    );
+  }
+
   createDraft(name: string, path: string) {
     return this.json<{ id: string }>("/platform/drafts", "POST", {
       name,
@@ -327,6 +399,7 @@ export class AgfsClient {
         headers: intent.headers,
         body: new Uint8Array(),
         redirect: "error",
+        signal: this.options.signal,
       });
       if (!response.ok) throw new AgfsError(response.status, "Upload failed");
       return (

@@ -4,7 +4,15 @@ export interface AppBindings {
   APP_URL: string;
   PREVIEW_URL: string;
   PREVIEW_SIGNING_SECRET: string;
-  AUTH_RATE_LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  AUTH_RATE_LIMITER: {
+    limit(options: { key: string }): Promise<{ success: boolean }>;
+  };
+  OP_RATE_LIMITER: AppBindings["AUTH_RATE_LIMITER"];
+  SEARCH_RATE_LIMITER: AppBindings["AUTH_RATE_LIMITER"];
+  BACKGROUND_QUEUE?: Queue;
+  CIMD_EGRESS?: { fetch(input: string, init?: RequestInit): Promise<Response> };
+  RESEND_API_KEY?: string;
+  INVITE_FROM_EMAIL?: string;
   BETTER_AUTH_SECRET: string;
   DB: D1Database;
   FILES_BUCKET: R2Bucket;
@@ -17,16 +25,34 @@ export interface AppBindings {
   R2_SECRET_ACCESS_KEY: string;
 }
 
-type StringBindingKey = Exclude<keyof AppBindings, "DB" | "FILES_BUCKET" | "AUTH_RATE_LIMITER">;
-type ResourceBindingKey = Extract<keyof AppBindings, "DB" | "FILES_BUCKET" | "AUTH_RATE_LIMITER">;
+type StringBindingKey = Exclude<
+  keyof AppBindings,
+  | "DB"
+  | "FILES_BUCKET"
+  | "AUTH_RATE_LIMITER"
+  | "OP_RATE_LIMITER"
+  | "SEARCH_RATE_LIMITER"
+  | "BACKGROUND_QUEUE"
+  | "CIMD_EGRESS"
+>;
+type ResourceBindingKey = Extract<
+  keyof AppBindings,
+  | "DB"
+  | "FILES_BUCKET"
+  | "AUTH_RATE_LIMITER"
+  | "OP_RATE_LIMITER"
+  | "SEARCH_RATE_LIMITER"
+  | "BACKGROUND_QUEUE"
+  | "CIMD_EGRESS"
+>;
 
 export function getBindings(): Partial<AppBindings> {
   return env as Partial<AppBindings>;
 }
 
-export function requireStringBindings<const Keys extends readonly StringBindingKey[]>(
-  ...keys: Keys
-): Pick<AppBindings, Keys[number]> {
+export function requireStringBindings<
+  const Keys extends readonly StringBindingKey[],
+>(...keys: Keys): Pick<AppBindings, Keys[number]> {
   const bindings = getBindings();
   const missing = keys.filter((key) => {
     const value = bindings[key];
@@ -41,14 +67,16 @@ export function requireStringBindings<const Keys extends readonly StringBindingK
   return bindings as Pick<AppBindings, Keys[number]>;
 }
 
-export function requireResourceBindings<const Keys extends readonly ResourceBindingKey[]>(
-  ...keys: Keys
-): Pick<AppBindings, Keys[number]> {
+export function requireResourceBindings<
+  const Keys extends readonly ResourceBindingKey[],
+>(...keys: Keys): Pick<AppBindings, Keys[number]> {
   const bindings = getBindings();
   const missing = keys.filter((key) => !bindings[key]);
 
   if (missing.length > 0) {
-    throw new Error(`Missing Cloudflare resource binding(s): ${missing.join(", ")}.`);
+    throw new Error(
+      `Missing Cloudflare resource binding(s): ${missing.join(", ")}.`,
+    );
   }
 
   return bindings as Pick<AppBindings, Keys[number]>;

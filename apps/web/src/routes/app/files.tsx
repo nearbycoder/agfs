@@ -216,14 +216,31 @@ function FilesPage() {
     });
   }
 
-  async function handleShare(targetPath: string) {
+  async function handleShare(targetPath: string, approvedEtag?: string) {
     const response = await fetch("/api/v1/shares", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path: targetPath, ttl: "15m" }),
+      body: JSON.stringify({ path: targetPath, ttl: "15m", approvedEtag }),
     });
     const payload = await response.json();
     if (!response.ok) {
+      if (payload.code === "secret_review_required") {
+        const findings = payload.findings
+          .map((f: any) => f.type + " at line " + f.line)
+          .join("\n");
+        if (
+          window.confirm(
+            "Potential secrets in " +
+              targetPath +
+              "\n" +
+              findings +
+              "\n\nReview the file first. Do you explicitly approve making this version public?",
+          )
+        ) {
+          await handleShare(targetPath, payload.etag);
+          return;
+        }
+      }
       setError(payload.error ?? "Failed to create share");
       return;
     }

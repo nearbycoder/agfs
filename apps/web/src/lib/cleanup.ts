@@ -54,6 +54,20 @@ export async function cleanupExpired() {
     .where(lt(recovery.expiresAt, new Date(at)))
     .limit(100);
   for (const row of expired) await removeExpiredRecovery(row);
+  await atomicBatch([
+    sql`INSERT OR IGNORE INTO object_gc SELECT object_key,${at} FROM object_pins WHERE expires_at<${at}`,
+    sql`DELETE FROM object_pins WHERE expires_at<${at}`,
+    sql`DELETE FROM snapshots WHERE expires_at<${at}`,
+    sql`DELETE FROM token_rotation_aliases WHERE expires_at<${at}`,
+    sql`UPDATE webhooks SET previous_secret=NULL,previous_secret_until=NULL WHERE previous_secret_until<${at}`,
+    sql`DELETE FROM idempotency WHERE created_at<${at - 86400000}`,
+    sql`INSERT INTO change_watermarks SELECT owner_id,max(seq) FROM change_log WHERE created_at<${at - 30 * 86400000} GROUP BY owner_id ON CONFLICT(owner_id) DO UPDATE SET floor=max(floor,excluded.floor)`,
+    sql`DELETE FROM change_log WHERE created_at<${at - 30 * 86400000}`,
+    sql`DELETE FROM operation_metrics WHERE minute<${Math.floor(at / 60000) - 7 * 1440}`,
+    sql`DELETE FROM ownership_transfers WHERE expires_at<${at}`,
+    sql`DELETE FROM queue_outbox WHERE created_at<${at - 7 * 86400000}`,
+    sql`DELETE FROM health_alerts WHERE resolved_at<${at - 30 * 86400000}`,
+  ]);
   await collectGarbage();
   await atomicBatch([
     sql`DELETE FROM webhook_deliveries WHERE id IN (SELECT id FROM webhook_deliveries WHERE created_at<${at - 30 * 86400000} LIMIT 1000)`,
