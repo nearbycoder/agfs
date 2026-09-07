@@ -1,11 +1,4 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 export async function platform(
   path: string,
@@ -108,27 +101,31 @@ export function Page({
   notice?: string;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="dashboard-title">
-          <h1>{title}</h1>
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {error ? (
-          <p role="alert" className="text-red-600">
-            {error}
-          </p>
-        ) : null}
-        {notice ? (
-          <p role="status" className="rounded-xl border p-4 break-all">
-            {notice}
-          </p>
-        ) : null}
-        {children}
-      </CardContent>
-    </Card>
+    <section className="workspace-page">
+      <header className="workspace-page-heading">
+        <h1 className="dashboard-title">{title}</h1>
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+      </header>
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p
+          role="status"
+          className="rounded-lg border border-primary/20 bg-accent p-4 text-sm break-all"
+        >
+          {notice}
+        </p>
+      ) : null}
+      <div className="workspace-page-body">{children}</div>
+    </section>
   );
 }
 export function Field({
@@ -146,7 +143,7 @@ export const selectClass =
   "h-10 w-full rounded-md border bg-transparent px-3 text-sm";
 export function Empty({ loading, text }: { loading: boolean; text: string }) {
   return (
-    <p className="rounded-xl border border-dashed p-8 text-center text-zinc-500">
+    <p className="rounded-lg border border-dashed bg-muted/40 px-6 py-12 text-center text-sm leading-6 text-muted-foreground">
       {loading ? "Loading…" : text}
     </p>
   );

@@ -1,15 +1,21 @@
+import { Brand } from "./Brand";
+import { ThemeToggle } from "./ThemeToggle";
 import { CommandPalette } from "./CommandPalette";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { accountSummarySchema, type AccountSummary } from "@agfs/contracts";
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import {
+  Menu,
+  X,
+  BookOpen,
+  Folder,
+  Star,
   Search,
   Users,
   Play,
   FileCheck,
   Webhook,
   Gauge,
-  FolderKanban,
   HardDrive,
   KeyRound,
   Link2,
@@ -17,27 +23,43 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { authClient } from "~/lib/auth-client";
-import { Button, buttonVariants } from "~/components/ui/button";
+import { Button } from "~/components/ui/button";
 import { formatBytes } from "~/lib/format";
-import { cn } from "~/lib/utils";
-const navigation = [
-  { href: "/app/library", icon: FolderKanban, label: "Library" },
-  { href: "/app/tools", icon: FileCheck, label: "File tools" },
-  { href: "/app/storage", icon: HardDrive, label: "Storage insights" },
-  { href: "/app/files", icon: FolderKanban, label: "Files" },
-  { href: "/app/search", icon: Search, label: "Search" },
-  { href: "/app/workspaces", icon: Users, label: "Workspaces" },
-  { href: "/app/runs", icon: Play, label: "Agent runs" },
-  { href: "/app/drafts", icon: FileCheck, label: "Draft changes" },
-  { href: "/app/tokens", icon: KeyRound, label: "Tokens" },
-  { href: "/app/operations", icon: Gauge, label: "Operations & recovery" },
-  { href: "/app/budgets", icon: Gauge, label: "Agent budgets" },
-  { href: "/app/webhooks", icon: Webhook, label: "Webhooks" },
-  { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },
-  { href: "/app/activity", icon: ShieldCheck, label: "Activity" },
-  { href: "/app/shares", icon: Link2, label: "Shares" },
+const groups = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/app/files", icon: Folder, label: "Files" },
+      { href: "/app/library", icon: Star, label: "Library" },
+      { href: "/app/search", icon: Search, label: "Search" },
+      { href: "/app/tools", icon: FileCheck, label: "File tools" },
+      { href: "/app/shares", icon: Link2, label: "Shares" },
+    ],
+  },
+  {
+    label: "Automation",
+    items: [
+      { href: "/app/runs", icon: Play, label: "Agent runs" },
+      { href: "/app/drafts", icon: FileCheck, label: "Draft changes" },
+      { href: "/app/tokens", icon: KeyRound, label: "Tokens" },
+      { href: "/app/budgets", icon: Gauge, label: "Agent budgets" },
+      { href: "/app/webhooks", icon: Webhook, label: "Webhooks" },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { href: "/app/workspaces", icon: Users, label: "Workspaces" },
+      { href: "/app/storage", icon: HardDrive, label: "Storage insights" },
+      { href: "/app/activity", icon: ShieldCheck, label: "Activity" },
+      { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },
+      { href: "/app/operations", icon: Gauge, label: "Operations & recovery" },
+    ],
+  },
 ];
+const navigation = groups.flatMap((group) => group.items);
 export function AppShell() {
+  const mobileNav = useRef<HTMLDialogElement>(null);
   const location = useLocation(),
     session = authClient.useSession();
   const [account, setAccount] = useState<AccountSummary | null>(null),
@@ -75,6 +97,17 @@ export function AppShell() {
       });
     return () => c.abort();
   }, [session.data?.user.id]);
+  useEffect(() => {
+    mobileNav.current?.close();
+  }, [location.pathname, location.hash]);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (desktop.matches) mobileNav.current?.close();
+    };
+    desktop.addEventListener("change", close);
+    return () => desktop.removeEventListener("change", close);
+  }, []);
   async function selectWorkspace(selected: string) {
     setSwitching(true);
     setError("");
@@ -98,105 +131,191 @@ export function AppShell() {
           Math.max(1, account.storageLimitBytes),
       )
     : 0;
-  return (
-    <div className="page-shell grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="surface-panel flex h-fit flex-col gap-5 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-        <label className="grid gap-2 text-sm font-medium">
-          Workspace
-          <select
-            aria-label="Active workspace"
-            className="w-full rounded-lg border bg-transparent p-2"
-            disabled={switching}
-            value={workspace}
-            onChange={(e) => void selectWorkspace(e.target.value)}
-          >
-            {workspace === "unavailable" ? (
-              <option value="unavailable" disabled>
-                Choose a workspace
-              </option>
-            ) : null}
-            <option value="personal">Personal</option>
-            {workspaces.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {error ? (
-          <p role="alert" className="text-sm text-red-600">
-            {error}
-          </p>
-        ) : null}
-        <CommandPalette
-          navigation={navigation.map((item) => ({
-            label: item.label,
-            href: item.href,
-          }))}
-        />
-        <nav
-          aria-label="Workspace navigation"
-          className="grid grid-cols-2 gap-1 lg:grid-cols-1"
-        >
-          {navigation.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={cn(
-                buttonVariants({
-                  variant: location.pathname.startsWith(item.href)
-                    ? "secondary"
-                    : "ghost",
-                }),
-                "h-9 justify-start gap-3 rounded-lg px-3 text-sm",
-              )}
-            >
-              <item.icon className="size-4 shrink-0" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        {account ? (
-          <details className="rounded-xl border p-3">
-            <summary className="cursor-pointer text-sm">
-              {formatBytes(account.storageUsedBytes)} /{" "}
-              {formatBytes(account.storageLimitBytes)}
-            </summary>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <div
-                className="h-full bg-zinc-950 dark:bg-zinc-100"
-                style={{ width: ratio + "%" }}
-              />
-            </div>
-            <p className="mt-3 text-xs text-zinc-500">
-              {account.planName} plan ·{" "}
-              {formatBytes(account.storageRemainingBytes)} remaining. Retained
-              versions count toward storage.
-            </p>
-          </details>
-        ) : null}
-        <div className="border-t pt-4">
-          <p className="truncate text-xs text-zinc-500">
-            {session.data?.user.email}
-          </p>
+  function sidebar() {
+    return (
+      <>
+        <div className="flex h-16 shrink-0 items-center justify-between border-b px-5">
+          <Brand />
           <Button
-            className="mt-3 w-full"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              void authClient.signOut().then(() => {
-                window.location.href = "/";
-              })
-            }
+            className="lg:hidden"
+            variant="ghost"
+            size="icon"
+            aria-label="Close navigation"
+            onClick={() => mobileNav.current?.close()}
           >
-            <LogOut className="size-4" />
-            Sign out
+            <X />
           </Button>
         </div>
-      </aside>
-      <section className="min-w-0">
+        <div className="px-4 pt-5">
+          <label className="grid gap-2 text-xs font-medium text-muted-foreground">
+            Workspace
+            <select
+              aria-label="Active workspace"
+              className="h-10 w-full rounded-lg border px-3 text-sm text-foreground"
+              disabled={switching}
+              value={workspace}
+              onChange={(e) => void selectWorkspace(e.target.value)}
+            >
+              {workspace === "unavailable" ? (
+                <option value="unavailable" disabled>
+                  Choose a workspace
+                </option>
+              ) : null}
+              <option value="personal">Personal workspace</option>
+              {workspaces.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {error ? (
+            <p role="alert" className="mt-2 text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <nav aria-label="Workspace navigation" className="workspace-nav">
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="workspace-nav-label">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className="workspace-link"
+                    aria-current={
+                      location.pathname.startsWith(item.href)
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <div className="shrink-0 border-t p-4">
+          {account ? (
+            <Link
+              to="/app/storage"
+              className="mb-4 block rounded-lg bg-muted/50 p-3"
+            >
+              <div className="flex justify-between text-xs">
+                <span>Storage</span>
+                <span>{Math.round(ratio)}%</span>
+              </div>
+              <div
+                className="my-2 h-1 overflow-hidden rounded-full bg-border"
+                role="meter"
+                aria-label="Storage used"
+                aria-valuenow={Math.round(ratio)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: ratio + "%" }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {formatBytes(account.storageUsedBytes)} of{" "}
+                {formatBytes(account.storageLimitBytes)} · {account.planName}
+              </p>
+            </Link>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
+            >
+              {(session.data?.user.name || session.data?.user.email || "A")
+                .slice(0, 1)
+                .toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium">
+                {session.data?.user.name || "Your account"}
+              </p>
+              <p className="truncate text-[10px] text-muted-foreground">
+                {session.data?.user.email}
+              </p>
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Sign out"
+              onClick={() =>
+                void authClient.signOut().then(() => {
+                  window.location.href = "/";
+                })
+              }
+            >
+              <LogOut />
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+  const activeGroup = groups.find((g) =>
+    g.items.some((i) => location.pathname.startsWith(i.href)),
+  );
+  return (
+    <div className="workspace-layout">
+      <aside className="workspace-sidebar">{sidebar()}</aside>
+      <dialog
+        ref={mobileNav}
+        aria-label="Workspace menu"
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[90vw] border-r bg-card p-0 text-foreground open:flex open:flex-col"
+        onClick={(e) => {
+          if (e.target === mobileNav.current) mobileNav.current.close();
+        }}
+      >
+        {sidebar()}
+      </dialog>
+      <header className="workspace-topbar">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="lg:hidden"
+            aria-label="Open navigation"
+            onClick={() => mobileNav.current?.showModal()}
+          >
+            <Menu />
+          </Button>
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            {activeGroup?.label}
+          </span>
+          <span className="hidden text-border sm:inline">/</span>
+          <span className="truncate text-sm font-medium">
+            {navigation.find((i) => location.pathname.startsWith(i.href))
+              ?.label ?? "Workspace"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <CommandPalette navigation={navigation} />
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="hidden sm:inline-flex"
+          >
+            <Link to="/cli" aria-label="CLI documentation">
+              <BookOpen />
+            </Link>
+          </Button>
+          <ThemeToggle />
+        </div>
+      </header>
+      <main id="main-content" tabIndex={-1} className="workspace-content">
         <Outlet />
-      </section>
+      </main>
     </div>
   );
 }

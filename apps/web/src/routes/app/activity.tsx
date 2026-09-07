@@ -69,15 +69,15 @@ function ActivityPage() {
     return () => controller.abort();
   }, []);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="dashboard-title">Activity</CardTitle>
+    <section className="workspace-page">
+      <header className="workspace-page-heading">
+        <h1 className="dashboard-title">Activity</h1>
         <CardDescription>
           File changes, downloads, previews, and shares from the last 90 days,
           identified by user or agent token.
         </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
+      </header>
+      <div className="workspace-page-body">
         <Button disabled={busy} variant="outline" onClick={() => void load()}>
           Refresh
         </Button>
@@ -110,7 +110,7 @@ function ActivityPage() {
             window.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

@@ -29,7 +29,7 @@ export function TextEditor() {
   }
   return (
     <section className="space-y-4" aria-label="Text editor">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Edit UTF-8 files up to 256 KiB. Saves keep the previous version in
         recovery and reject concurrent changes.
       </p>
@@ -96,7 +96,7 @@ export function TextEditor() {
               spellCheck={false}
             />
           </label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             {new TextEncoder().encode(text).length.toLocaleString()} / 262,144
             bytes · {text.split("\n").length} lines
             {dirty ? " · Unsaved edits" : ""}
@@ -142,7 +142,7 @@ export function TextEditor() {
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Open a file or start a new one. New files never replace an existing
           path.
         </p>

@@ -49,7 +49,7 @@ export function FileTemplates() {
   }
   return (
     <section className="space-y-4" aria-label="File templates">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Start with a built-in template or save up to 50 personal templates per
         workspace. Use {"{{name}}"} for the destination filename without its
         extension and {"{{date}}"} for today in UTC.
@@ -133,7 +133,7 @@ export function FileTemplates() {
             onChange={(e) => setDraft({ ...draft, body: e.target.value })}
           />
         </label>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           {draft.body.length}/4000 characters
           {dirty ? " · Unsaved template changes" : ""}
         </p>

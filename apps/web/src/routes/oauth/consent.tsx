@@ -47,7 +47,7 @@ function Consent() {
     window.location.assign(target.href);
   }
   return (
-    <div className="page-shell max-w-3xl">
+    <div className="page-shell max-w-3xl py-12 sm:py-16">
       <Page
         title="Connect an MCP client"
         description="Choose a workspace, folder, and permissions. You can pause or revoke this connection later in Tokens and Agent budgets."

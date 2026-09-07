@@ -36,7 +36,7 @@ export function RecentFiles() {
           </Button>
         </div>
       </div>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Your last 100 files opened in text tools or downloaded through a web
         session, in this workspace. History follows renamed files; removed files
         disappear. Agent token activity is excluded.
@@ -60,7 +60,7 @@ export function RecentFiles() {
               >
                 {file.path}
               </a>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 {formatBytes(file.size ?? 0)} · Opened{" "}
                 {new Date(file.openedAt).toLocaleString()}
               </p>

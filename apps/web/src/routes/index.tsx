@@ -1,19 +1,25 @@
 // @ts-nocheck
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, FolderKanban, Link2, Upload } from "lucide-react";
+import {
+  ArrowRight,
+  FolderKanban,
+  Link2,
+  ShieldCheck,
+  GitCompare,
+  Check,
+  ArrowUpRight,
+} from "lucide-react";
 import { FaGithub } from "react-icons/fa6";
 import { authClient } from "~/lib/auth-client";
 import { CodeWindow } from "~/components/CodeWindow";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatBytes, formatMonthlyPrice } from "~/lib/format";
 import { buildSeoHead, buildStructuredDataMeta } from "~/lib/seo";
 import { ORDERED_STORAGE_PLANS } from "~/lib/storage-plans";
 
 const HOME_DESCRIPTION =
   "AGFS is a Cloudflare-native filesystem for screenshots, logs, and artifacts created by AI agents. Browse in the web app, automate with the CLI, and share expiring download links.";
-const GITHUB_REPO_URL = "https://github.com/nearbycoder/agfs";
 
 const HOME_STRUCTURED_DATA = {
   "@context": "https://schema.org",
@@ -36,41 +42,9 @@ const HOME_STRUCTURED_DATA = {
       url: "https://agfs.dev",
       description: HOME_DESCRIPTION,
       image: "https://agfs.dev/og-card.svg",
-      screenshot: "https://agfs.dev/og-card.svg",
+      screenshot: "https://agfs.dev/workspace-preview.png",
     },
   ],
-};
-
-const CONTROL_PLANE_STEPS = [
-  {
-    label: "Upload",
-    description: "Upload screenshots, logs, and artifacts up to 100 MB each into your private namespace.",
-    icon: Upload,
-  },
-  {
-    label: "Browse",
-    description: "Open the same account-scoped workspace in the web app when you want fast inspection, organization, and selection.",
-    icon: FolderKanban,
-  },
-  {
-    label: "Share",
-    description: "Hand back expiring AGFS links that stay on agfs.dev and download the file without exposing raw storage URLs.",
-    icon: Link2,
-  },
-];
-
-const CONTROL_PLANE_TAGS = ["Private namespace", "Expiring downloads", "CLI + web app"];
-const PLAN_MARKETING = {
-  free: {
-    eyebrow: "Default",
-    copy: "Every account starts with a clean 1 GB workspace for artifacts, logs, screenshots, and previews.",
-    detail: "Best for personal use, small runs, and trying the full AGFS workflow.",
-  },
-  paid: {
-    eyebrow: "Coming soon",
-    copy: "Bump storage to 20 GB for teams, heavier automation, and longer-lived artifact histories.",
-    detail: "Stripe billing is on the way. For now, paid access is enabled manually for selected users.",
-  },
 };
 
 export const Route = createFileRoute("/")({
@@ -99,184 +73,221 @@ function HomePage() {
     });
   }
 
-  const actionLabel = session.data?.user ? "Open workspace" : "Sign in with GitHub";
+  const actionLabel = session.data?.user
+    ? "Open workspace"
+    : "Sign in with GitHub";
 
   return (
-    <main className="page-shell py-8 sm:py-12">
-      <div className="mx-auto max-w-5xl space-y-12">
-        <section className="space-y-6 text-center">
-          <Badge className="w-fit" variant="secondary">
-            Private storage for agents
-          </Badge>
-
-          <div className="mx-auto max-w-3xl space-y-4">
-            <h1 className="hero-title">
-              A simple place for screenshots, logs, and artifacts your agent can hand back.
-            </h1>
-            <p className="mx-auto max-w-2xl text-base leading-7 text-zinc-500 dark:text-zinc-400 sm:text-lg">
-              AGFS gives every user a private filesystem backed by R2, with a clean web workspace, a CLI that feels
-              normal on local machines, CI, and remote agent hosts.
-            </p>
-            <p className="mx-auto max-w-2xl text-sm font-medium tracking-[-0.01em] text-zinc-600 dark:text-zinc-300">
-              Open source on{" "}
-              <a className="underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:decoration-zinc-700 dark:hover:decoration-zinc-300" href={GITHUB_REPO_URL} rel="noreferrer" target="_blank">
-                github.com/nearbycoder/agfs
-              </a>
-              .
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button onClick={handleSignIn} size="lg" type="button">
-              {actionLabel}
-              <ArrowRight className="size-4" />
-            </Button>
+    <main className="page-shell">
+      <section className="grid items-center gap-10 pb-14 pt-16 sm:pt-24 lg:grid-cols-[1.15fr_.85fr] lg:gap-16 lg:pb-20">
+        <div>
+          <p className="marketing-kicker">
+            <span className="size-1.5 rounded-full bg-primary" /> The filesystem
+            for your agents
+          </p>
+          <h1 className="hero-title">
+            Good work deserves
+            <br />
+            <span className="text-primary">a place to land.</span>
+          </h1>
+          <p className="mt-7 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+            Screenshots, logs, and everything in between. Give your agents a
+            private filesystem, and yourself a clear view of what they create.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            {session.data?.user ? (
+              <Button asChild size="lg">
+                <Link to="/app/files">
+                  Open workspace
+                  <ArrowRight />
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" onClick={handleSignIn}>
+                <FaGithub />
+                Start with GitHub
+                <ArrowRight />
+              </Button>
+            )}
             <Button asChild size="lg" variant="outline">
-              <a href={GITHUB_REPO_URL} rel="noreferrer" target="_blank">
-                <FaGithub className="size-4" />
-                View on GitHub
-              </a>
-            </Button>
-            <Button asChild size="lg" variant="ghost">
-              <Link to="/cli">CLI docs</Link>
+              <Link to="/cli">Explore the CLI</Link>
             </Button>
           </div>
+          <p className="mt-5 text-xs text-muted-foreground">
+            1 GB free storage · Open source · Built for humans and agents
+          </p>
+        </div>
+        <div className="min-w-0 lg:pt-8">
+          <CodeWindow title="From agent to workspace">{`# Give your work a home
+agfs upload ./report.md /runs/report.md
 
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span>Account-scoped storage</span>
-            <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
-            <span>Expiring download links</span>
-            <span className="hidden text-zinc-300 dark:text-zinc-700 sm:inline">/</span>
-            <span>GitHub login plus agent tokens</span>
+# Share it when it's ready
+agfs upload ./report.md /runs/report.md --share 1h`}</CodeWindow>
+          <div className="mt-5 flex items-start gap-3 px-1">
+            <span className="mt-0.5 rounded-md bg-accent p-1.5 text-primary">
+              <ShieldCheck className="size-4" />
+            </span>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Private by default. Share on your terms with scoped tokens and
+              expiring links.
+            </p>
           </div>
-        </section>
+        </div>
+      </section>
+      <section className="pb-16 sm:pb-24" aria-label="Workspace preview">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <p className="section-label">Your workspace, at a glance</p>
+          <Link
+            to="/app/files"
+            className="flex items-center gap-1 text-xs font-medium text-primary"
+          >
+            Take a look <ArrowUpRight className="size-3.5" />
+          </Link>
+        </div>
+        <div className="product-shot">
+          <img
+            src="/workspace-preview.png"
+            alt="AGFS file workspace with grouped navigation, folder breadcrumbs, artifact files, and file actions. Sample workspace."
+            width="1440"
+            height="960"
+            fetchPriority="high"
+            className="w-full"
+          />
+        </div>
+        <p className="mt-3 text-right text-[11px] text-muted-foreground">
+          A sample workspace. Your files stay private.
+        </p>
+      </section>
+      <section className="marketing-section">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <p className="marketing-kicker">One shared workspace</p>
+            <h2 className="marketing-heading max-w-lg">
+              From the first artifact
+              <br />
+              to the final handoff.
+            </h2>
+          </div>
+          <p className="max-w-md self-end text-base leading-7 text-muted-foreground">
+            Your agents work in the terminal. You review in the browser. AGFS
+            keeps both connected to the same files.
+          </p>
+        </div>
+        <div className="mt-12 grid gap-8 md:grid-cols-3">
+          {[
+            {
+              icon: FolderKanban,
+              title: "Find your bearings",
+              copy: "Browse folders, pin favorites, and organize collections. Search by path, type, size, or date to find the right artifact.",
+            },
+            {
+              icon: GitCompare,
+              title: "Understand the output",
+              copy: "Edit text, inspect JSON and CSV, compare files, and review agent runs. Keep useful context alongside files with notes.",
+            },
+            {
+              icon: Link2,
+              title: "Make the handoff",
+              copy: "Create expiring links, scope agent access, and review activity. Recover previous versions when something needs a second look.",
+            },
+          ].map((item) => (
+            <article key={item.title} className="border-t pt-6">
+              <item.icon className="mb-6 size-6 text-primary" />
+              <h3 className="text-lg font-semibold tracking-tight">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {item.copy}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="marketing-section grid gap-10 lg:grid-cols-2">
+        <div>
+          <p className="marketing-kicker">Works where you work</p>
+          <h2 className="marketing-heading">
+            A familiar CLI.
+            <br />
+            An agent-ready connection.
+          </h2>
+          <p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">
+            Upload from your laptop, a CI job, or a remote agent. Connect an MCP
+            client directly, using the permissions you choose.
+          </p>
+          <Link
+            to="/cli"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary"
+          >
+            Read the setup guide <ArrowRight className="size-4" />
+          </Link>
+        </div>
+        <CodeWindow title="Install · authenticate · upload">{`npm install -g @agfs/cli
+agfs login
+agfs upload ./artifact.json /runs/artifact.json
 
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-          <CodeWindow title="Typical flow">
-            {`$ agfs upload ./run/screenshot.png /runs/latest/screenshot.png --share 1h
-Uploaded /runs/latest/screenshot.png
-Share URL: https://agfs.dev/s/agfssh_4SCQm0...
-
-$ agfs ls /runs/latest
-screenshot.png    381 kB    image/png`}
-          </CodeWindow>
-
-          <Card className="app-preview-card h-full border-white/10 bg-zinc-950 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_24px_80px_rgba(0,0,0,0.46)]">
-            <CardHeader className="space-y-4 pb-5">
-              <span className="app-preview-chip w-fit">Why it exists</span>
-              <div className="space-y-3">
-                <CardTitle className="max-w-sm text-xl tracking-[-0.04em] text-zinc-50">
-                  Remote agents can create files you can&apos;t directly reach.
-                </CardTitle>
-                <p className="max-w-md text-sm leading-6 text-zinc-300/78">
-                  AGFS keeps the handoff in one darker control plane, using the same visual language as the app: a
-                  private namespace, predictable actions, and download links that feel native instead of improvised.
-                </p>
+# MCP endpoint
+https://agfs.dev/mcp`}</CodeWindow>
+      </section>
+      <section className="marketing-section">
+        <div className="mb-10">
+          <p className="marketing-kicker">Room to get started</p>
+          <h2 className="marketing-heading">Start small. Keep creating.</h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          {ORDERED_STORAGE_PLANS.map((plan) => (
+            <article
+              className="rounded-xl border bg-card p-7 sm:p-9"
+              key={plan.id}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">{plan.name}</h3>
+                <Badge variant={plan.id === "free" ? "success" : "secondary"}>
+                  {plan.id === "free" ? "Available now" : "Coming soon"}
+                </Badge>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3">
-                {CONTROL_PLANE_STEPS.map((step) => {
-                  const Icon = step.icon;
-
-                  return (
-                    <div
-                      className="rounded-[1.35rem] border border-white/8 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                      key={step.label}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                          <Icon className="size-4" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <p className="app-preview-label">{step.label}</p>
-                          <p className="text-sm leading-6 text-zinc-300">{step.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {CONTROL_PLANE_TAGS.map((tag) => (
-                  <span className="app-preview-chip" key={tag}>
-                    {tag}
+              <p className="mt-7 text-4xl font-semibold tracking-tight">
+                {plan.priceMonthlyCents == null
+                  ? "Free"
+                  : formatMonthlyPrice(plan.priceMonthlyCents)}
+                {plan.priceMonthlyCents != null ? (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {" "}
+                    / month
                   </span>
+                ) : null}
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {formatBytes(plan.storageLimitBytes)} of private file storage
+              </p>
+              <div className="my-6 space-y-3 border-t pt-6">
+                {[
+                  "Web workspace, CLI, and MCP",
+                  "File tools and expiring share links",
+                  "Scoped tokens and activity history",
+                ].map((feature) => (
+                  <p className="flex items-center gap-2 text-sm" key={feature}>
+                    <Check className="size-4 text-primary" />
+                    {feature}
+                  </p>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="border-t border-zinc-200/80 pt-8 dark:border-zinc-800/80">
-          <div className="space-y-3 text-center">
-            <Badge className="w-fit" variant="secondary">
-              Pricing
-            </Badge>
-            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50">Start free, then unlock more storage.</h2>
-            <p className="mx-auto max-w-2xl text-base leading-7 text-zinc-500 dark:text-zinc-400">
-              The free plan is the standard today. Paid storage is defined now and will move to Stripe self-serve next.
-            </p>
-          </div>
-
-          <div className="mt-8 grid gap-5 lg:grid-cols-2">
-            {ORDERED_STORAGE_PLANS.map((plan) => {
-              const marketing = PLAN_MARKETING[plan.id];
-
-              return (
-                <Card className={plan.id === "paid" ? "border-zinc-900 bg-zinc-950 text-zinc-50 dark:border-zinc-700" : ""} key={plan.id}>
-                  <CardHeader className="space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge variant={plan.id === "paid" ? "warning" : "secondary"}>{marketing.eyebrow}</Badge>
-                      <p className={plan.id === "paid" ? "text-xs font-medium uppercase tracking-[0.16em] text-zinc-400" : "text-xs font-medium uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500"}>
-                        {formatBytes(plan.storageLimitBytes)} included
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <CardTitle className={plan.id === "paid" ? "text-zinc-50" : ""}>{plan.name}</CardTitle>
-                      <p className={plan.id === "paid" ? "text-4xl font-semibold tracking-[-0.05em] text-zinc-50" : "text-4xl font-semibold tracking-[-0.05em] text-zinc-950 dark:text-zinc-50"}>
-                        {plan.priceMonthlyCents == null ? "Free" : `${formatMonthlyPrice(plan.priceMonthlyCents)}/mo`}
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className={plan.id === "paid" ? "text-sm leading-6 text-zinc-300" : "text-sm leading-6 text-zinc-600 dark:text-zinc-400"}>
-                      {marketing.copy}
-                    </p>
-                    <div className={plan.id === "paid" ? "rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-zinc-300" : "rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 text-sm leading-6 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-400"}>
-                      {marketing.detail}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="border-t border-zinc-200/80 pt-8 dark:border-zinc-800/80">
-          <div className="grid gap-8 sm:grid-cols-3">
-            <div className="space-y-2">
-              <p className="section-label">Download links</p>
-              <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                Share URLs stay on `agfs.dev`, expire automatically, and download files as attachments.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="section-label">Authentication</p>
-              <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                Use GitHub in the browser, device auth in the CLI, or long-lived tokens for unattended agents.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="section-label">Storage model</p>
-              <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                Metadata lives in D1, bytes live in R2, and each account stays isolated in both places.
-              </p>
-            </div>
-          </div>
-        </section>
-      </div>
+              {plan.id === "free" ? (
+                <Button asChild className="w-full" variant="outline">
+                  <Link to="/app/files">
+                    Open your workspace <ArrowRight />
+                  </Link>
+                </Button>
+              ) : (
+                <p className="text-xs leading-6 text-muted-foreground">
+                  Self-serve upgrades are not available yet. Paid access is
+                  currently enabled manually for selected users.
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

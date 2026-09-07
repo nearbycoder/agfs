@@ -112,7 +112,7 @@ export function WorkspaceAdmin({ owner }: { owner: boolean }) {
                   ))}
               </select>
             </label>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted-foreground">
               The recipient must accept within 24 hours. You become an editor
               after acceptance.
             </p>

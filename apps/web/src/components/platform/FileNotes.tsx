@@ -28,7 +28,7 @@ export function FileNotes({ initialPath = "" }: { initialPath?: string }) {
   });
   return (
     <section className="space-y-4" aria-label="File notes">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Notes are shared with everyone who can read the file in this workspace.
         Editors can update them.
       </p>
@@ -77,7 +77,7 @@ export function FileNotes({ initialPath = "" }: { initialPath?: string }) {
               onChange={(e) => setBody(e.target.value)}
             />
           </label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             {body.length}/4000 characters ·{" "}
             {loaded.note
               ? `Updated ${new Date(loaded.note.updatedAt).toLocaleString()} · Revision ${loaded.note.revision}`
@@ -107,7 +107,7 @@ export function FileNotes({ initialPath = "" }: { initialPath?: string }) {
           )}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Load a file or folder to read or write its notes.
         </p>
       )}

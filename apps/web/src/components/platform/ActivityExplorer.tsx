@@ -70,7 +70,7 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
           onChange={(e) => setFilters({ ...filters, to: e.target.value })}
         />
       </div>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         {matching.length} matching events from {events.length} loaded. Dates use
         your local timezone. Load older activity below to include more records
         in filters and exports.
@@ -82,7 +82,7 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
             : error}
         </p>
       ) : null}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button variant="outline" onClick={() => setFilters(empty)}>
           Reset activity filters
         </Button>
@@ -101,7 +101,7 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-medium">{event.action}</span>
                 <time
-                  className="text-sm text-zinc-500"
+                  className="text-sm text-muted-foreground"
                   dateTime={event.createdAt}
                 >
                   {new Date(event.createdAt).toLocaleString()}

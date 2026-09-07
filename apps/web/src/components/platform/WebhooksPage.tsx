@@ -73,7 +73,7 @@ export function WebhooksPage() {
                 {h.path_prefix} · {JSON.parse(h.events).join(", ")} ·{" "}
                 {h.enabled ? "Enabled" : "Paused"}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Last delivery:{" "}
                 {h.last_used_at
                   ? new Date(h.last_used_at).toLocaleString()

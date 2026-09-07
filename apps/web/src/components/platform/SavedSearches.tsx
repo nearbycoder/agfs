@@ -31,7 +31,7 @@ export function SavedSearches({
       aria-label="Saved searches"
     >
       <h2 className="font-semibold">Saved searches</h2>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Save the current filters for this workspace. Only you can see them.
       </p>
       {action.error || data.error ? (
@@ -81,7 +81,7 @@ export function SavedSearches({
       {data.loading ? (
         <p role="status">Loading saved searches…</p>
       ) : !data.items.length ? (
-        <p className="text-sm text-zinc-500">No saved searches yet.</p>
+        <p className="text-sm text-muted-foreground">No saved searches yet.</p>
       ) : null}
       <ul className="divide-y">
         {data.items.map((item) => (

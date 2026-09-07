@@ -126,7 +126,7 @@ export function FolderReadme({
             )}
           </div>
         ) : null}
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           Basic Markdown headings, lists and code blocks. Embedded HTML, links
           and images are displayed as text.
         </p>

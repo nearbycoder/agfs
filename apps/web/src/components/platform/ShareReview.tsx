@@ -212,7 +212,7 @@ export function ShareReview({
                       {new Date(s.expiresAt).toLocaleString()}
                     </time>
                     {status === "active" ? (
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-muted-foreground">
                         {Math.ceil(
                           (new Date(s.expiresAt).getTime() - now) / 3600000,
                         )}{" "}

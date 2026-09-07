@@ -25,7 +25,7 @@ export function JsonInspector() {
     current = Math.min(page, pages - 1);
   return (
     <section className="space-y-4" aria-label="JSON inspector">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Validate JSON up to 256 KiB, 40 levels and 10,000 values. Inspect
         escaped JSON Pointer paths, search values, or copy the formatted
         document. Tree values use JavaScript number precision. Formatted and raw

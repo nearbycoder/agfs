@@ -63,7 +63,7 @@ export function RunCompare({ runs }: { runs: any[] }) {
         Compare agent runs
       </summary>
       <div className="mt-4 space-y-4">
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Compare recorded inputs and completed output manifests. Outputs match
           by paths relative to each run folder; inputs match by full paths. This
           does not inspect current file contents or extend retention.
