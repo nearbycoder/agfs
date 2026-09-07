@@ -1,3 +1,4 @@
+import { CommandPalette } from "./CommandPalette";
 import { useEffect, useState } from "react";
 import { accountSummarySchema, type AccountSummary } from "@agfs/contracts";
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
@@ -127,6 +128,12 @@ export function AppShell() {
             {error}
           </p>
         ) : null}
+        <CommandPalette
+          navigation={navigation.map((item) => ({
+            label: item.label,
+            href: item.href,
+          }))}
+        />
         <nav
           aria-label="Workspace navigation"
           className="grid grid-cols-2 gap-1 lg:grid-cols-1"
