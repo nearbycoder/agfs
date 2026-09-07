@@ -1,7 +1,15 @@
 import { collectGarbage, queueObject } from "./garbage";
 import { atomicBatch } from "./atomic-batch";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
-import { createAgfsId, entries, getBaseName, getParentPath, normalizeAgfsPath, now, recovery } from "@agfs/db";
+import {
+  createAgfsId,
+  entries,
+  getBaseName,
+  getParentPath,
+  normalizeAgfsPath,
+  now,
+  recovery,
+} from "@agfs/db";
 import { db } from "./db";
 import { authorize, canAccess } from "./scope";
 import type { RequestAuth } from "./authz";
@@ -9,11 +17,16 @@ import { ensureFolderChain } from "./fs";
 import { errorResponse } from "./http";
 import { requireResourceBindings } from "./bindings";
 
-export async function trashEntry(ownerId: string, path: string, recursive = false) {
+export async function trashEntry(
+  ownerId: string,
+  path: string,
+  recursive = false,
+  ifMatch?: string,
+) {
   const group = createAgfsId("trash");
   const at = Date.now();
   const prefix = `${path}/`;
-  const where = sql`owner_id=${ownerId} AND (path=${path} OR substr(path,1,length(${prefix}))=${prefix})
+  const where = sql`(${ifMatch ?? null} IS NULL OR (kind='file' AND path=${path} AND etag=${ifMatch ?? null})) AND owner_id=${ownerId} AND (path=${path} OR substr(path,1,length(${prefix}))=${prefix})
     AND (${recursive ? 1 : 0}=1 OR NOT EXISTS (SELECT 1 FROM entries child WHERE child.owner_id=${ownerId} AND substr(child.path,1,length(${prefix}))=${prefix}))`;
   // Snapshot and removal share one D1 transaction; public shares cascade away.
   const [snapshot] = await atomicBatch([
@@ -22,9 +35,15 @@ export async function trashEntry(ownerId: string, path: string, recursive = fals
       FROM entries WHERE ${where} RETURNING id`,
     sql`DELETE FROM entries WHERE ${where}`,
   ]);
-  if (!snapshot.results.length) throw errorResponse(409, "Entry changed or folder is not empty");
+  if (!snapshot.results.length)
+    throw errorResponse(409, "Entry changed or folder is not empty");
 }
-export async function listRecovery(auth: RequestAuth, reason: "trash" | "version", path?: string, cursor?: string) {
+export async function listRecovery(
+  auth: RequestAuth,
+  reason: "trash" | "version",
+  path?: string,
+  cursor?: string,
+) {
   authorize(auth, "read", path ?? auth.pathPrefix ?? "/");
   const prefix = normalizeAgfsPath(path ?? auth.pathPrefix ?? "/");
   const descendants = prefix === "/" ? "/" : `${prefix}/`;
@@ -45,13 +64,25 @@ export async function listRecovery(auth: RequestAuth, reason: "trash" | "version
     )
     .orderBy(desc(recovery.retainedAt), desc(recovery.id))
     .limit(200);
-  return rows.filter((r) => canAccess(auth, "read", r.path)).map(({ r2Key, ...row }) => row);
+  return rows
+    .filter((r) => canAccess(auth, "read", r.path))
+    .map(({ r2Key, ...row }) => row);
 }
-export async function restoreRecovery(auth: RequestAuth, id: string, destination?: string) {
+export async function restoreRecovery(
+  auth: RequestAuth,
+  id: string,
+  destination?: string,
+) {
   const [record] = await db
     .select()
     .from(recovery)
-    .where(and(eq(recovery.id, id), eq(recovery.ownerId, auth.user.id), gt(recovery.expiresAt, now())));
+    .where(
+      and(
+        eq(recovery.id, id),
+        eq(recovery.ownerId, auth.user.id),
+        gt(recovery.expiresAt, now()),
+      ),
+    );
   if (!record) throw errorResponse(404, "Recovery item not found");
   authorize(auth, "read", record.path);
   const target = normalizeAgfsPath(destination ?? record.path);
@@ -69,7 +100,9 @@ export async function restoreRecovery(auth: RequestAuth, id: string, destination
             ),
           )
       : [record];
-  const selected = rows.filter((r) => r.path === record.path || r.path.startsWith(`${record.path}/`));
+  const selected = rows.filter(
+    (r) => r.path === record.path || r.path.startsWith(`${record.path}/`),
+  );
   for (const row of selected) {
     authorize(auth, "read", row.path);
     authorize(auth, "write", `${target}${row.path.slice(record.path.length)}`);
@@ -84,7 +117,11 @@ export async function restoreRecovery(auth: RequestAuth, id: string, destination
           sql`INSERT INTO entries(id,owner_id,path,parent_path,name,kind,size,content_type,etag,r2_key,created_at,updated_at)
           VALUES (${createAgfsId("ent")},(SELECT owner_id FROM recovery WHERE id=${row.id} AND owner_id=${auth.user.id} AND expires_at>${Date.now()}),
           ${path},${getParentPath(path)},${getBaseName(path)},${row.kind},${row.size},${row.contentType},${row.etag},${row.r2Key},${row.createdAt.getTime()},${Date.now()}) RETURNING id`,
-          db.delete(recovery).where(and(eq(recovery.ownerId, auth.user.id), eq(recovery.id, row.id))),
+          db
+            .delete(recovery)
+            .where(
+              and(eq(recovery.ownerId, auth.user.id), eq(recovery.id, row.id)),
+            ),
         ];
       }),
     );
@@ -92,7 +129,10 @@ export async function restoreRecovery(auth: RequestAuth, id: string, destination
       throw errorResponse(409, "Recovery item changed or expired");
   } catch (error) {
     if (/UNIQUE|NOT NULL/.test(String(error)))
-      throw errorResponse(409, "Destination exists. Choose a new restore path.");
+      throw errorResponse(
+        409,
+        "Destination exists. Choose a new restore path.",
+      );
     throw error;
   }
   return { path: target, count: selected.length };
@@ -123,6 +163,10 @@ export async function purgeRecovery(auth: RequestAuth, id: string) {
   return row.path;
 }
 export async function removeExpiredRecovery(row: typeof recovery.$inferSelect) {
-  const removal = db.delete(recovery).where(and(eq(recovery.id, row.id), sql`${recovery.expiresAt}<=${Date.now()}`));
+  const removal = db
+    .delete(recovery)
+    .where(
+      and(eq(recovery.id, row.id), sql`${recovery.expiresAt}<=${Date.now()}`),
+    );
   await atomicBatch(row.r2Key ? [queueObject(row.r2Key), removal] : [removal]);
 }

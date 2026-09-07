@@ -14,7 +14,10 @@ async function inspect(target: string) {
 export async function ensureDownloadDirectory(directory: string) {
   const absolute = path.resolve(directory);
   let current = path.parse(absolute).root;
-  for (const segment of absolute.slice(current.length).split(path.sep).filter(Boolean)) {
+  for (const segment of absolute
+    .slice(current.length)
+    .split(path.sep)
+    .filter(Boolean)) {
     current = path.join(current, segment);
     if (!(await inspect(current))) {
       try {
@@ -24,15 +27,19 @@ export async function ensureDownloadDirectory(directory: string) {
       }
     }
     const entry = await inspect(current);
-    if (entry?.isSymbolicLink()) throw new Error("Refusing download through a symlink");
-    if (!entry?.isDirectory()) throw new Error("Download parent is not a directory");
+    if (entry?.isSymbolicLink())
+      throw new Error("Refusing download through a symlink");
+    if (!entry?.isDirectory())
+      throw new Error("Download parent is not a directory");
   }
 }
 
 async function checkFile(destination: string) {
   const entry = await inspect(destination);
-  if (entry?.isSymbolicLink()) throw new Error("Refusing to replace a download symlink");
-  if (entry && !entry.isFile()) throw new Error("Download destination is not a regular file");
+  if (entry?.isSymbolicLink())
+    throw new Error("Refusing to replace a download symlink");
+  if (entry && !entry.isFile())
+    throw new Error("Download destination is not a regular file");
 }
 
 export async function writeDownloadFile(
@@ -40,13 +47,16 @@ export async function writeDownloadFile(
   body: ReadableStream<Uint8Array>,
   progress: (bytes: number) => void,
   expectedSize?: number,
+  beforeReplace?: () => Promise<void>,
 ) {
   const reader = body.getReader();
   let temporary: string | undefined;
   try {
     await ensureDownloadDirectory(path.dirname(destination));
     await checkFile(destination);
-    temporary = await mkdtemp(path.join(path.dirname(path.resolve(destination)), ".agfs-download-"));
+    temporary = await mkdtemp(
+      path.join(path.dirname(path.resolve(destination)), ".agfs-download-"),
+    );
     const filePath = path.join(temporary, "content");
     const file = await open(filePath, "wx", 0o600);
     let total = 0;
@@ -55,16 +65,19 @@ export async function writeDownloadFile(
         const { done, value } = await reader.read();
         if (done) break;
         total += value.byteLength;
-        if (expectedSize !== undefined && total > expectedSize) throw new Error("Download size mismatch");
+        if (expectedSize !== undefined && total > expectedSize)
+          throw new Error("Download size mismatch");
         await file.writeFile(value);
         progress(total);
       }
-      if (expectedSize !== undefined && total !== expectedSize) throw new Error("Download size mismatch");
+      if (expectedSize !== undefined && total !== expectedSize)
+        throw new Error("Download size mismatch");
     } finally {
       await file.close();
     }
     await ensureDownloadDirectory(path.dirname(destination));
     await checkFile(destination);
+    await beforeReplace?.();
     // Rename replaces the directory entry, so an existing hard link is never truncated.
     await rename(filePath, destination);
   } finally {

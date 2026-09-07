@@ -5,11 +5,20 @@ import { commitUploadStatement } from "./upload-commit";
 
 it("checks quota and folder conflicts in the actual SQLite write", () => {
   const db = new DatabaseSync(":memory:");
-  db.exec(`CREATE TABLE entries (id TEXT PRIMARY KEY, owner_id TEXT, parent_path TEXT, path TEXT, name TEXT, kind TEXT, size INTEGER, content_type TEXT, etag TEXT, r2_key TEXT, version_id TEXT, created_at INTEGER, updated_at INTEGER, UNIQUE(owner_id, path));
+  db.exec(`CREATE TABLE entries (id TEXT PRIMARY KEY, owner_id TEXT, parent_path TEXT, path TEXT, name TEXT, kind TEXT, size INTEGER, content_type TEXT, etag TEXT, r2_key TEXT, version_id TEXT, created_at INTEGER, updated_at INTEGER, token_id TEXT, UNIQUE(owner_id, path));
     CREATE TABLE recovery (owner_id TEXT, r2_key TEXT, size INTEGER, kind TEXT);
-    CREATE TABLE uploads (id TEXT, owner_id TEXT, status TEXT, expires_at INTEGER DEFAULT 9999999999999);
+    CREATE TABLE uploads (id TEXT, owner_id TEXT, status TEXT, expires_at INTEGER DEFAULT 9999999999999,condition_mode TEXT DEFAULT 'any',expected_etag TEXT);
+    CREATE TABLE api_tokens(id TEXT,paused INTEGER,revoked_at INTEGER,expires_at INTEGER,storage_limit INTEGER);
+    CREATE TABLE workspaces(id TEXT,paused INTEGER,storage_limit INTEGER);
+    CREATE TABLE workspace_members(workspace_id TEXT,user_id TEXT,role TEXT);
+    CREATE TABLE object_usage(token_id TEXT,size INTEGER);
     INSERT INTO uploads (id,owner_id,status) VALUES ('u1','owner','pending'),('u2','owner','pending'),('u3','owner','pending');`);
-  const commit = (id: string, path: string, size: number, ownerId = "owner") => {
+  const commit = (
+    id: string,
+    path: string,
+    size: number,
+    ownerId = "owner",
+  ) => {
     const query = new SQLiteSyncDialect().sqlToQuery(
       commitUploadStatement(
         {
@@ -40,7 +49,9 @@ it("checks quota and folder conflicts in the actual SQLite write", () => {
   expect(commit("u3", "/foreign", 1, "other")).toHaveLength(0);
   db.exec("UPDATE uploads SET status = 'committed' WHERE id = 'u1'");
   expect(commit("u1", "/replayed", 1)).toHaveLength(0);
-  db.exec("INSERT INTO entries (id,owner_id,path,kind) VALUES ('folder','owner','/folder','folder')");
+  db.exec(
+    "INSERT INTO entries (id,owner_id,path,kind) VALUES ('folder','owner','/folder','folder')",
+  );
   expect(commit("u3", "/folder", 1)).toHaveLength(0);
   db.close();
 });

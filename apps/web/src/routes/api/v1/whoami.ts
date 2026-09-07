@@ -10,7 +10,8 @@ export const Route = createFileRoute("/api/v1/whoami")({
         try {
           const result = await requireRequestAuth(request);
           return json({
-            user: result.user,
+            user: result.actor ?? result.user,
+            workspaceId: result.workspaceId ?? null,
             authSource: result.authSource,
           });
         } catch (error) {

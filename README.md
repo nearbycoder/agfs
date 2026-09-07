@@ -48,7 +48,14 @@ Connect an HTTP MCP client to `https://agfs.dev/mcp` with an `Authorization: Bea
 Example client configuration (environment-variable syntax varies by client):
 
 ```json
-{"mcpServers":{"agfs":{"url":"https://agfs.dev/mcp","headers":{"Authorization":"Bearer ${AGFS_TOKEN}"}}}}
+{
+  "mcpServers": {
+    "agfs": {
+      "url": "https://agfs.dev/mcp",
+      "headers": { "Authorization": "Bearer ${AGFS_TOKEN}" }
+    }
+  }
+}
 ```
 
 Tools cover listing, trees, text reading/writing, folders, moves, trash, recovery, shares, previews, activity, and starting larger uploads. `fs_read` is limited to 1 MiB; `fs_write` accepts up to 8,192 text characters within the endpoint's 16 KiB JSON limit. Larger binary transfers use the authenticated multipart HTTP API. This endpoint uses manually issued AGFS tokens; it does not advertise an OAuth authorization server.
@@ -64,7 +71,6 @@ agfs activity
 ```
 
 Build the updated CLI from this checkout with `pnpm --filter @agfs/cli build`; run `node packages/cli/dist/index.js`. Publishing the CLI to npm is a separate release step.
-
 
 ## Useful commands
 
@@ -175,7 +181,10 @@ Run `pnpm security:check` to audit dependencies, run regression tests, build, an
 
 The September 2026 review and deployment verification are documented in [SECURITY-AUDIT.md](./SECURITY-AUDIT.md). `scripts/security-smoke.mjs` runs only against localhost:8787 and expects disposable local users `alice` and `bob` with API tokens `agfs_local_test_alice` and `agfs_local_test_bob`. Never seed these fixtures in production.
 
-
 Local feature verification: apply migrations to `/tmp/agfs-audit-state`, seed the disposable users described above, and start the built app on 8787 and preview Worker on 8788 using that same persistence directory. Set matching local-only preview signing secrets. Run `node scripts/security-smoke.mjs` and `node scripts/features-smoke.mjs`. The latter covers both protocol generations with the official MCP client, scoped tokens, recovery, multipart resume, and preview isolation. Invoke `/cdn-cgi/local/scheduled` to test cron locally. Never expose this local fixture environment publicly.
 
 The feature rollout and verification are documented in [AGENT-UPGRADE.md](./AGENT-UPGRADE.md).
+
+## Collaborative agent platform
+
+AGFS now includes search and tags, browser OAuth for MCP, shared workspaces, conditional writes, signed webhooks, run manifests, reviewed drafts, CLI sync/watch, TypeScript and Python SDKs, and agent/workspace budgets. See [the platform guide](docs/platform.md) for workflows, API routes, limits, and release verification.

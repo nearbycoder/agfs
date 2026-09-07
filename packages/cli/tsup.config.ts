@@ -7,5 +7,5 @@ export default defineConfig({
   dts: false,
   clean: true,
   target: "es2022",
-  noExternal: ["@agfs/contracts"],
+  noExternal: ["@agfs/contracts", "@agfs/sdk"],
 });

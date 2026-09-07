@@ -2,12 +2,19 @@ import { z } from "zod";
 
 export const ENTRY_KIND_VALUES = ["file", "folder"] as const;
 export const TOKEN_SOURCE_VALUES = ["session", "api-token"] as const;
-export const DEVICE_STATUS_VALUES = ["pending", "approved", "consumed", "expired"] as const;
+export const DEVICE_STATUS_VALUES = [
+  "pending",
+  "approved",
+  "consumed",
+  "expired",
+] as const;
 export const STORAGE_PLAN_ID_VALUES = ["free", "paid"] as const;
 
 export const pathSchema = z.string().min(1).max(4096).startsWith("/");
 
-export const ttlSchema = z.string().regex(/^\d+\s*(m|h|d)$/i, "TTL must use m, h, or d units");
+export const ttlSchema = z
+  .string()
+  .regex(/^\d+\s*(m|h|d)$/i, "TTL must use m, h, or d units");
 
 export const entryKindSchema = z.enum(ENTRY_KIND_VALUES);
 export const tokenSourceSchema = z.enum(TOKEN_SOURCE_VALUES);
@@ -62,10 +69,19 @@ export const uploadIntentSchema = z.object({
   expiresAt: z.string(),
 });
 
-export const permissionSchema = z.enum(["read", "write", "delete", "share", "manage"]);
+export const permissionSchema = z.enum([
+  "read",
+  "write",
+  "delete",
+  "share",
+  "manage",
+]);
 export const tokenScopeSchema = z.object({
   pathPrefix: pathSchema.default("/"),
-  permissions: z.array(permissionSchema).min(1).default(["read", "write", "delete", "share"]),
+  permissions: z
+    .array(permissionSchema)
+    .min(1)
+    .default(["read", "write", "delete", "share"]),
 });
 
 export const apiTokenRecordSchema = z.object({
@@ -91,6 +107,7 @@ export const shareLinkRecordSchema = z.object({
 
 export const whoAmIResponseSchema = z.object({
   user: sessionUserSchema,
+  workspaceId: z.string().nullable().optional(),
   authSource: tokenSourceSchema,
 });
 
@@ -175,14 +192,20 @@ export const moveEntryRequestSchema = z.object({
 });
 
 export const deleteEntryRequestSchema = z.object({
+  ifMatch: z.string().max(256).optional(),
   path: pathSchema,
   recursive: z.boolean().default(false),
 });
 
 export const uploadIntentRequestSchema = z.object({
+  ifMatch: z.string().max(256).nullable().optional(),
   path: pathSchema,
   contentType: z.string().min(1).max(255),
-  size: z.number().int().nonnegative().max(100_000_000, "Uploads are limited to 100 MB per file"),
+  size: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100_000_000, "Uploads are limited to 100 MB per file"),
 });
 
 export const uploadCommitRequestSchema = z.object({

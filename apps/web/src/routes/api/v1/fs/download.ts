@@ -6,7 +6,12 @@ import { listEntriesRequestSchema } from "@agfs/contracts";
 import { getEntryByPath } from "~/lib/fs";
 import { streamObject } from "~/lib/r2";
 import { requireRequestAuth } from "~/lib/authz";
-import { createContentDisposition, errorResponse, handleRouteError, parseSearch } from "~/lib/http";
+import {
+  createContentDisposition,
+  errorResponse,
+  handleRouteError,
+  parseSearch,
+} from "~/lib/http";
 
 export const Route = createFileRoute("/api/v1/fs/download")({
   server: {
@@ -22,9 +27,15 @@ export const Route = createFileRoute("/api/v1/fs/download")({
             return errorResponse(404, "File not found");
           }
 
+          const expected = request.headers.get("if-match");
+          if (expected && expected.replace(/^"|"$/g, "") !== entry.etag)
+            return errorResponse(412, "File changed");
           return streamObject(entry.r2Key, {
             headers: {
-              "content-disposition": createContentDisposition("attachment", entry.name),
+              "content-disposition": createContentDisposition(
+                "attachment",
+                entry.name,
+              ),
             },
           });
         } catch (error) {

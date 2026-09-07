@@ -1,11 +1,20 @@
 import { sql } from "drizzle-orm";
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name"),
   email: text("email").notNull().unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  emailVerified: integer("email_verified", { mode: "boolean" })
+    .notNull()
+    .default(false),
   image: text("image"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -40,15 +49,22 @@ export const accounts = sqliteTable(
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     idToken: text("id_token"),
-    accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
-    refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp_ms" }),
+    accessTokenExpiresAt: integer("access_token_expires_at", {
+      mode: "timestamp_ms",
+    }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", {
+      mode: "timestamp_ms",
+    }),
     scope: text("scope"),
     password: text("password"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => ({
-    providerAccountIdx: uniqueIndex("account_provider_account_idx").on(table.providerId, table.accountId),
+    providerAccountIdx: uniqueIndex("account_provider_account_idx").on(
+      table.providerId,
+      table.accountId,
+    ),
   }),
 );
 
@@ -57,8 +73,12 @@ export const verifications = sqliteTable("verification", {
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(unixepoch() * 1000)`),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).default(
+    sql`(unixepoch() * 1000)`,
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(
+    sql`(unixepoch() * 1000)`,
+  ),
 });
 
 export const entries = sqliteTable(
@@ -77,6 +97,7 @@ export const entries = sqliteTable(
     etag: text("etag"),
     r2Key: text("r2_key"),
     versionId: text("version_id"),
+    tokenId: text("token_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -85,8 +106,14 @@ export const entries = sqliteTable(
       .default(sql`(unixepoch() * 1000)`),
   },
   (table) => ({
-    ownerPathUnique: uniqueIndex("entries_owner_path_idx").on(table.ownerId, table.path),
-    parentPathIdx: index("entries_owner_parent_path_idx").on(table.ownerId, table.parentPath),
+    ownerPathUnique: uniqueIndex("entries_owner_path_idx").on(
+      table.ownerId,
+      table.path,
+    ),
+    parentPathIdx: index("entries_owner_parent_path_idx").on(
+      table.ownerId,
+      table.parentPath,
+    ),
   }),
 );
 
@@ -100,9 +127,14 @@ export const uploads = sqliteTable("uploads", {
   size: integer("size").notNull(),
   objectKey: text("object_key").notNull(),
   uploadTokenHash: text("upload_token_hash").notNull(),
+  tokenId: text("token_id"),
+  conditionMode: text("condition_mode").notNull().default("any"),
+  expectedEtag: text("expected_etag"),
   multipartId: text("multipart_id"),
   fingerprint: text("fingerprint"),
-  status: text("status", { enum: ["pending", "completing", "committed", "expired"] })
+  status: text("status", {
+    enum: ["pending", "completing", "committed", "expired"],
+  })
     .notNull()
     .default("pending"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
@@ -119,8 +151,15 @@ export const apiTokens = sqliteTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    issuedBy: text("issued_by"),
+    paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+    storageLimit: integer("storage_limit"),
+    uploadLimit: integer("upload_limit"),
+    operationLimit: integer("operation_limit"),
     pathPrefix: text("path_prefix").notNull().default("/"),
-    permissions: text("permissions").notNull().default('["read","write","delete","share","manage"]'),
+    permissions: text("permissions")
+      .notNull()
+      .default('["read","write","delete","share","manage"]'),
     label: text("label").notNull(),
     prefix: text("prefix").notNull(),
     tokenHash: text("token_hash").notNull(),
@@ -142,7 +181,9 @@ export const deviceCodes = sqliteTable("device_codes", {
   userCode: text("user_code").notNull().unique(),
   ownerId: text("owner_id").references(() => users.id, { onDelete: "cascade" }),
   label: text("label"),
-  apiTokenId: text("api_token_id").references(() => apiTokens.id, { onDelete: "set null" }),
+  apiTokenId: text("api_token_id").references(() => apiTokens.id, {
+    onDelete: "set null",
+  }),
   accessTokenPlaintext: text("access_token_plaintext"),
   intervalSeconds: integer("interval_seconds").notNull().default(5),
   approvedAt: integer("approved_at", { mode: "timestamp_ms" }),
@@ -190,7 +231,9 @@ export const entryAncestors = sqliteTable(
     descendantPath: text("descendant_path").notNull(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.ownerId, table.ancestorPath, table.descendantPath] }),
+    pk: primaryKey({
+      columns: [table.ownerId, table.ancestorPath, table.descendantPath],
+    }),
   }),
 );
 
@@ -232,7 +275,9 @@ export const activity = sqliteTable(
     tokenId: text("token_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (t) => ({ owner: index("activity_owner_idx").on(t.ownerId, t.createdAt, t.id) }),
+  (t) => ({
+    owner: index("activity_owner_idx").on(t.ownerId, t.createdAt, t.id),
+  }),
 );
 
 export const uploadParts = sqliteTable(

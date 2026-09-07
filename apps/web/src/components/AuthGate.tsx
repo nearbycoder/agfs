@@ -3,7 +3,13 @@ import { LoaderCircle, LockKeyhole } from "lucide-react";
 import { authClient } from "~/lib/auth-client";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 
 export function AuthGate(props: { children: ReactNode; message?: string }) {
   const session = authClient.useSession();
@@ -20,7 +26,9 @@ export function AuthGate(props: { children: ReactNode; message?: string }) {
               <LoaderCircle className="size-5 animate-spin text-zinc-500 dark:text-zinc-400" />
               Checking your session
             </CardTitle>
-            <CardDescription>We’re verifying your GitHub session before opening the workspace.</CardDescription>
+            <CardDescription>
+              We’re verifying your GitHub session before opening the workspace.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -39,14 +47,18 @@ export function AuthGate(props: { children: ReactNode; message?: string }) {
               <LockKeyhole className="size-5 text-zinc-500 dark:text-zinc-400" />
               Connect GitHub to open your AGFS workspace
             </CardTitle>
-            <CardDescription>{props.message ?? "Private files, tokens, and shares live behind your AGFS session."}</CardDescription>
+            <CardDescription>
+              {props.message ??
+                "Private files, tokens, and shares live behind your AGFS session."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
               onClick={() =>
                 authClient.signIn.social({
                   provider: "github",
-                  callbackURL: "/app/files",
+                  callbackURL:
+                    window.location.pathname + window.location.search,
                 })
               }
               type="button"

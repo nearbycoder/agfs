@@ -2,32 +2,30 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agfs-dev",
   "compatibility_date": "2026-09-06",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "main": "src/server.ts",
   "workers_dev": true,
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "vars": {
     "APP_URL": "http://localhost:3000",
     "R2_BUCKET_NAME": "agfs-files",
-    "PREVIEW_URL": "http://localhost:8788"
+    "PREVIEW_URL": "http://localhost:8788",
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "agfs-db",
       "database_id": "e40aac3b-5468-468c-b110-ac6a6ca4cece",
-      "migrations_dir": "../../packages/db/src/migrations"
-    }
+      "migrations_dir": "../../packages/db/src/migrations",
+    },
   ],
   "r2_buckets": [
     {
       "binding": "FILES_BUCKET",
-      "bucket_name": "agfs-files"
-    }
+      "bucket_name": "agfs-files",
+    },
   ],
   "env": {
     "production": {
@@ -35,39 +33,39 @@
       "vars": {
         "APP_URL": "https://agfs.dev",
         "R2_BUCKET_NAME": "agfs-files",
-        "PREVIEW_URL": "https://preview.agfs.dev"
+        "PREVIEW_URL": "https://preview.agfs.dev",
       },
       "routes": [
         {
           "pattern": "agfs.dev",
-          "custom_domain": true
+          "custom_domain": true,
         },
         {
           "pattern": "www.agfs.dev",
-          "custom_domain": true
-        }
+          "custom_domain": true,
+        },
       ],
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "agfs-db",
           "database_id": "e40aac3b-5468-468c-b110-ac6a6ca4cece",
-          "migrations_dir": "../../packages/db/src/migrations"
-        }
+          "migrations_dir": "../../packages/db/src/migrations",
+        },
       ],
       "r2_buckets": [
         {
           "binding": "FILES_BUCKET",
-          "bucket_name": "agfs-files"
-        }
+          "bucket_name": "agfs-files",
+        },
       ],
       "secrets": {
         "required": [
           "BETTER_AUTH_SECRET",
           "GITHUB_CLIENT_ID",
           "GITHUB_CLIENT_SECRET",
-          "PREVIEW_SIGNING_SECRET"
-        ]
+          "PREVIEW_SIGNING_SECRET",
+        ],
       },
       "ratelimits": [
         {
@@ -75,16 +73,14 @@
           "namespace_id": "94672001",
           "simple": {
             "limit": 60,
-            "period": 60
-          }
-        }
+            "period": 60,
+          },
+        },
       ],
       "triggers": {
-        "crons": [
-          "17 * * * *"
-        ]
-      }
-    }
+        "crons": ["* * * * *"],
+      },
+    },
   },
   "ratelimits": [
     {
@@ -92,13 +88,11 @@
       "namespace_id": "94672001",
       "simple": {
         "limit": 60,
-        "period": 60
-      }
-    }
+        "period": 60,
+      },
+    },
   ],
   "triggers": {
-    "crons": [
-      "17 * * * *"
-    ]
-  }
+    "crons": ["* * * * *"],
+  },
 }
