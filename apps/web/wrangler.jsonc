@@ -30,6 +30,7 @@
   "env": {
     "production": {
       "workers_dev": false,
+      "services": [{ "binding": "CIMD_EGRESS", "service": "agfs-cimd-egress" }],
       "vars": {
         "APP_URL": "https://agfs.dev",
         "R2_BUCKET_NAME": "agfs-files",
