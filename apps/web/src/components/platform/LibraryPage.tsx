@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Collections } from "./Collections";
 import { Button } from "~/components/ui/button";
 import { Page, Field, Empty, platform, useAction, useData } from "./shared";
 export function LibraryPage() {
@@ -12,6 +13,7 @@ export function LibraryPage() {
       error={action.error || favorites.error}
       notice={action.notice}
     >
+      <h2 className="font-semibold">Favorites</h2>
       <form
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
@@ -70,6 +72,7 @@ export function LibraryPage() {
           text="Add a favorite to keep important files and folders close."
         />
       ) : null}
+      <Collections />
     </Page>
   );
 }

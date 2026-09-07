@@ -44,6 +44,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./file-notes-api")
   ).fileNotesApi(request, auth, path);
   if (notes) return notes;
+  const collections = await (
+    await import("./collections-api")
+  ).collectionsApi(request, auth, path);
+  if (collections) return collections;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);

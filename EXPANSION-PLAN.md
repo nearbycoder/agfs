@@ -6,7 +6,7 @@ Each numbered feature ships in its own PR after focused verification and require
 |---|---|---|
 | 1 | Personal workspace favorites: add/remove, survive renames, hide deleted files, isolate users/workspaces. | [#11](https://github.com/nearbycoder/agfs/pull/11) merged |
 | 2 | Saved searches: named reusable filters, rename/delete, user/workspace isolation. | [#12](https://github.com/nearbycoder/agfs/pull/12) merged |
-| 3 | File notes: bounded shared annotations, timestamps, permission checks, conflict detection. | pending |
+| 3 | File notes: bounded shared annotations, timestamps, permission checks, conflict detection. | [#13](https://github.com/nearbycoder/agfs/pull/13) merged |
 | 4 | Collections: named sets of existing files, add/remove members, rename/delete, follow file moves. | pending |
 | 5 | Advanced search: size, modification date, file/folder filters with stable pagination and reset. | pending |
 | 6 | Storage insights: live totals, type distribution, largest files, folder-scoped summaries. | pending |
