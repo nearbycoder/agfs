@@ -434,4 +434,53 @@ assert.equal(
   "Newer remote content",
 );
 checks++;
+const templateBody = {
+  name: "Handoff",
+  body: "# {{name}}",
+  contentType: "text/markdown",
+};
+const template = await api("/templates", {
+  method: "POST",
+  body: templateBody,
+  status: 201,
+});
+assert.equal(
+  (await api("/templates")).templates.find((t) => t.id === template.id).body,
+  templateBody.body,
+);
+checks++;
+await api("/templates", { method: "POST", body: templateBody, status: 409 });
+const revisedTemplate = await api("/templates/" + template.id, {
+  method: "PATCH",
+  body: { ...templateBody, body: "Revised", revision: 1 },
+});
+assert.equal(revisedTemplate.revision, 2);
+checks++;
+await api("/templates/" + template.id, {
+  method: "PATCH",
+  body: { ...templateBody, revision: 1 },
+  status: 409,
+});
+await api("/templates/" + template.id, {
+  method: "DELETE",
+  session: bob,
+  status: 404,
+});
+assert.equal(
+  (await api("/templates", { workspace: workspace.id })).templates.length,
+  0,
+);
+checks++;
+await api("/templates", {
+  method: "POST",
+  body: { ...templateBody, body: "x".repeat(4001) },
+  status: 400,
+});
+await api("/templates/" + template.id, { method: "DELETE" });
+await assert.rejects(() =>
+  client.upload(root + "/editable.txt", new Blob(["Template overwrite"]), {
+    ifMatch: null,
+  }),
+);
+checks++;
 console.log(`Expansion checks passed: ${checks}`);
