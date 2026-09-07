@@ -53,6 +53,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./storage-insights-api")
   ).storageInsightsApi(request, auth, path);
   if (storage) return storage;
+  const duplicates = await (
+    await import("./duplicates-api")
+  ).duplicatesApi(request, auth, path);
+  if (duplicates) return duplicates;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);

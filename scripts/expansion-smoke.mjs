@@ -353,4 +353,39 @@ assert.equal(
   8,
 );
 checks++;
+await client.upload(root + "/duplicate.txt", new Blob(["favorite"]));
+const duplicates = await api(
+  "/storage/duplicates?path=" + encodeURIComponent(root),
+);
+assert.equal(duplicates.groups.length, 1);
+assert.equal(duplicates.groups[0].count, 2);
+assert.equal(duplicates.groups[0].extraBytes, 8);
+checks += 3;
+assert.deepEqual(
+  duplicates.groups[0].files.map((f) => f.path).sort(),
+  [root + "/collected.txt", root + "/duplicate.txt"].sort(),
+);
+checks++;
+assert.equal(
+  (
+    await api("/storage/duplicates?path=" + encodeURIComponent(root), {
+      session: bob,
+    })
+  ).groups.length,
+  0,
+);
+checks++;
+await api("/storage/duplicates?path=/", { token: reader, status: 403 });
+assert.equal(
+  (await api("/storage/duplicates", { token: reader })).groups.length,
+  1,
+);
+checks++;
+await client.upload(root + "/duplicate.txt", new Blob(["different"]));
+assert.equal(
+  (await api("/storage/duplicates?path=" + encodeURIComponent(root))).groups
+    .length,
+  0,
+);
+checks++;
 console.log(`Expansion checks passed: ${checks}`);

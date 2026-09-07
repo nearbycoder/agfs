@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DuplicateFinder } from "./DuplicateFinder";
 import { Button } from "~/components/ui/button";
 import { formatBytes } from "~/lib/format";
 import { Page, Field, platform, useAction } from "./shared";
@@ -146,6 +147,7 @@ export function StoragePage() {
               ))}
             </ul>
           </section>
+          <DuplicateFinder key={data.path} initialPath={data.path} />
         </div>
       ) : null}
     </Page>
