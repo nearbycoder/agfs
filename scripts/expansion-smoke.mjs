@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cookie } from "./platform-fixtures.mjs";
+import { cookie, database } from "./platform-fixtures.mjs";
 import { AgfsClient } from "../packages/sdk/dist/index.js";
 const base = "http://localhost:8787",
   alice = cookie(),
@@ -542,4 +542,61 @@ await api("/batch-rename", {
   body: { changes: renameChanges, dryRun: false },
   status: 409,
 });
+await api("/recent-files", { method: "DELETE", body: { clear: true } });
+await api("/recent-files", { token: "agfs_local_test_alice", status: 403 });
+await api("/text?path=" + encodeURIComponent(renameChanges[0].to));
+const recent = (await api("/recent-files")).recent;
+assert.equal(recent.length, 1);
+checks++;
+assert.equal(recent[0].path, renameChanges[0].to);
+checks++;
+assert.equal((await api("/recent-files", { session: bob })).recent.length, 0);
+checks++;
+assert.equal(
+  (await api("/recent-files", { workspace: workspace.id })).recent.length,
+  0,
+);
+checks++;
+await client.move(renameChanges[0].to, root + "/recent-moved.txt");
+assert.equal(
+  (await api("/recent-files")).recent[0].path,
+  root + "/recent-moved.txt",
+);
+checks++;
+await api("/recent-files", {
+  method: "DELETE",
+  body: { entryId: recent[0].id },
+});
+assert.equal((await api("/recent-files")).recent.length, 0);
+checks++;
+await api("/text?path=" + encodeURIComponent(root + "/recent-moved.txt"));
+await client.mkdir(root + "/history");
+// Seed independent file entries sharing a valid object, then exercise real reads.
+// Avoid 101 irrelevant Queue jobs in the browser-history capacity test.
+for (let i = 0; i < 101; i++) {
+  const p = root + "/history/" + i + ".txt";
+  database
+    .prepare(
+      "INSERT INTO entries(id,owner_id,parent_path,path,name,kind,size,content_type,etag,r2_key,created_at,updated_at) SELECT ?,owner_id,?,?,?,'file',size,content_type,etag,r2_key,?,? FROM entries WHERE owner_id='alice' AND path=?",
+    )
+    .run(
+      root + "-history-" + i,
+      root + "/history",
+      p,
+      i + ".txt",
+      Date.now(),
+      Date.now(),
+      root + "/recent-moved.txt",
+    );
+  await api("/text?path=" + encodeURIComponent(p));
+}
+assert.equal((await api("/recent-files")).recent.length, 100);
+checks++;
+await api("/recent-files", { method: "DELETE", body: { clear: true } });
+assert.equal((await api("/recent-files")).recent.length, 0);
+checks++;
+
+database
+  .prepare("DELETE FROM entries WHERE owner_id='alice' AND parent_path=?")
+  .run(root + "/history");
 console.log(`Expansion checks passed: ${checks}`);

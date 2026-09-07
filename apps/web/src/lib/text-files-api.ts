@@ -1,3 +1,4 @@
+import { recordRecentFile } from "./recent-files";
 import { pathSchema } from "@agfs/contracts";
 import type { RequestAuth } from "./authz";
 import { authorize, canAccess } from "./scope";
@@ -35,6 +36,7 @@ export async function textFilesApi(
   } catch {
     throw errorResponse(415, "This file is not supported UTF-8 text");
   }
+  await recordRecentFile(auth, entry.id);
   return json({
     path: entry.path,
     entryId: entry.id,
