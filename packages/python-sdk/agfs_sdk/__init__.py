@@ -1,4 +1,5 @@
 """AGFS client: standard-library only, bounded-memory uploads, explicit conditional writes."""
+from __future__ import annotations
 import hashlib
 import json
 import time
