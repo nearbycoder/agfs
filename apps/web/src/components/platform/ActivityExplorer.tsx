@@ -1,5 +1,5 @@
 import { Select, SelectItem } from "~/components/ui/select";
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field } from "./shared";
 import {
@@ -9,10 +9,25 @@ import {
 } from "~/lib/activity-explorer";
 const empty = { action: "", path: "", actor: "", from: "", to: "" };
 export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
-  const [filters, setFilters] = useState(empty),
-    [error, setError] = useState("");
-  const invalid = !!(filters.from && filters.to && filters.from > filters.to),
-    matching = invalid ? [] : filterActivity(events, filters);
+  const [filters, updateFilters] = useState(empty);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(0);
+  const deferred = useDeferredValue(filters);
+  const pending = deferred !== filters;
+  const invalid = !!(filters.from && filters.to && filters.from > filters.to);
+  const matching = useMemo(
+    () =>
+      deferred.from && deferred.to && deferred.from > deferred.to
+        ? []
+        : filterActivity(events, deferred),
+    [events, deferred],
+  );
+  const pages = Math.max(1, Math.ceil(matching.length / 100));
+  const current = Math.min(page, pages - 1);
+  function setFilters(next: typeof empty) {
+    updateFilters(next);
+    setPage(0);
+  }
   function exportCsv() {
     try {
       const url = URL.createObjectURL(
@@ -75,6 +90,7 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
         />
       </div>
       <p className="text-sm text-muted-foreground">
+        {pending ? "Filtering… · " : ""}
         {matching.length} matching events from {events.length} loaded. Dates use
         your local timezone. Load older activity below to include more records
         in filters and exports.
@@ -92,16 +108,27 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
         </Button>
         <Button
           variant="outline"
-          disabled={!matching.length}
+          disabled={pending || invalid || !matching.length}
           onClick={exportCsv}
         >
           Export {matching.length} matching events
         </Button>
       </div>
       {matching.length ? (
-        <ol className="max-h-[40rem] divide-y overflow-auto">
-          {matching.map((event) => (
-            <li key={event.id} className="py-4">
+        <ol
+          className="activity-timeline max-h-[40rem] overflow-auto rounded-xl border bg-card p-4"
+          aria-label="Activity timeline"
+          tabIndex={0}
+        >
+          {matching.slice(current * 100, current * 100 + 100).map((event) => (
+            <li
+              key={event.id}
+              className="relative border-l border-border py-4 pl-5"
+            >
+              <span
+                aria-hidden="true"
+                className="absolute -left-1 top-6 size-2 rounded-full border-2 border-card bg-muted-foreground"
+              />
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-medium">{event.action}</span>
                 <time
@@ -124,6 +151,30 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
       ) : (
         <p className="text-sm">No loaded events match these filters.</p>
       )}
+      {matching.length > 100 ? (
+        <nav
+          aria-label="Activity pages"
+          className="flex flex-wrap items-center gap-3"
+        >
+          <Button
+            variant="outline"
+            disabled={pending || current === 0}
+            onClick={() => setPage(current - 1)}
+          >
+            Previous events
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {current + 1} of {pages} · 100 events per page
+          </span>
+          <Button
+            variant="outline"
+            disabled={pending || current + 1 >= pages}
+            onClick={() => setPage(current + 1)}
+          >
+            Next events
+          </Button>
+        </nav>
+      ) : null}
     </section>
   );
 }

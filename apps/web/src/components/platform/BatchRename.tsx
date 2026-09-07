@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field, platform, useAction } from "./shared";
@@ -24,10 +25,10 @@ export function BatchRename({
     signature = JSON.stringify({ entries, options });
   const ready = preview?.signature === signature ? preview : null;
   return (
-    <details className="rounded-xl border p-4">
-      <summary className="cursor-pointer font-medium">
+    <Disclosure>
+      <DisclosureSummary>
         Rename selected files ({entries.length})
-      </summary>
+      </DisclosureSummary>
       <div className="mt-4 space-y-4">
         <p className="text-sm text-muted-foreground">
           Preview up to 50 files in this folder. Existing names and swaps are
@@ -105,6 +106,6 @@ export function BatchRename({
           </>
         ) : null}
       </div>
-    </details>
+    </Disclosure>
   );
 }

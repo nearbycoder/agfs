@@ -1,3 +1,4 @@
+import { Empty } from "~/components/platform/shared";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -35,6 +36,7 @@ function RecoveryPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -49,6 +51,9 @@ function RecoveryPage() {
   useEffect(() => {
     const controller = new AbortController();
     setError("");
+    setLoading(true);
+    setSelected(null);
+    if (!cursor) setItems([]);
     fetch(
       `/api/v1/recovery?reason=${reason}&path=${encodeURIComponent(path)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       { signal: controller.signal },
@@ -63,6 +68,9 @@ function RecoveryPage() {
       })
       .catch((error) => {
         if (!controller.signal.aborted) setError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [reason, path, refresh, cursor]);
@@ -115,6 +123,7 @@ function RecoveryPage() {
       <div className="workspace-page-body">
         <div className="flex flex-wrap gap-3">
           <Button
+            aria-pressed={reason === "trash"}
             variant={reason === "trash" ? "default" : "outline"}
             onClick={() => {
               setCursor(null);
@@ -124,6 +133,7 @@ function RecoveryPage() {
             Trash
           </Button>
           <Button
+            aria-pressed={reason === "version"}
             variant={reason === "version" ? "default" : "outline"}
             onClick={() => {
               setCursor(null);
@@ -151,7 +161,7 @@ function RecoveryPage() {
         {notice ? <p role="status">{notice}</p> : null}
         {selected ? (
           <form
-            className="rounded-xl border p-4 space-y-3"
+            className="detail-surface space-y-3"
             onSubmit={(event) => {
               event.preventDefault();
               void act(selected);
@@ -167,7 +177,7 @@ function RecoveryPage() {
               />
             </label>
             <div className="flex gap-2">
-              <Button disabled={busy} type="submit">
+              <Button disabled={busy || loading} type="submit">
                 Restore
               </Button>
               <Button
@@ -181,10 +191,10 @@ function RecoveryPage() {
           </form>
         ) : null}
         {!items.length ? (
-          <p className="rounded-xl border border-dashed p-10 text-center text-zinc-500">
-            No retained {reason === "trash" ? "deleted files" : "versions"} at
-            this path.
-          </p>
+          <Empty
+            loading={loading}
+            text={`No retained ${reason === "trash" ? "deleted files" : "versions"} at this path.`}
+          />
         ) : (
           <div className="divide-y">
             {items.map((item) => (
@@ -202,7 +212,7 @@ function RecoveryPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    disabled={busy}
+                    disabled={busy || loading}
                     variant="outline"
                     onClick={() => {
                       setSelected(item);
@@ -216,7 +226,7 @@ function RecoveryPage() {
                     Restore…
                   </Button>
                   <Button
-                    disabled={busy}
+                    disabled={busy || loading}
                     variant="ghost"
                     onClick={() => void act(item, true)}
                   >

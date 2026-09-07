@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { formatBytes } from "~/lib/format";
@@ -66,11 +67,11 @@ export function DuplicateFinder({ initialPath }: { initialPath: string }) {
         </p>
       ) : null}
       {groups.map((g) => (
-        <details key={g.etag + ":" + g.size} className="rounded-lg border p-3">
-          <summary className="cursor-pointer">
+        <Disclosure key={g.etag + ":" + g.size} className="">
+          <DisclosureSummary className="cursor-pointer">
             {g.count} files · {formatBytes(g.size)} each ·{" "}
             {formatBytes(g.extraBytes)} extra
-          </summary>
+          </DisclosureSummary>
           <p className="my-2 font-mono text-xs break-all">Checksum: {g.etag}</p>
           <ul className="space-y-2">
             {g.files.map((f) => (
@@ -92,7 +93,7 @@ export function DuplicateFinder({ initialPath }: { initialPath: string }) {
               additional files.
             </p>
           ) : null}
-        </details>
+        </Disclosure>
       ))}
       {next ? (
         <Button

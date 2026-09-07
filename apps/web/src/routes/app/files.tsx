@@ -1,10 +1,14 @@
 // @ts-nocheck
+import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
+import { LoadingState, DetailSurface } from "~/components/platform/shared";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   startTransition,
   useEffect,
   useEffectEvent,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -13,6 +17,10 @@ import {
   Copy,
   Download,
   FileImage,
+  FileText,
+  FileCode,
+  FileSpreadsheet,
+  FileArchive,
   Folder,
   FolderPlus,
   Link2,
@@ -85,14 +93,39 @@ function triggerDownload(path: string) {
   link.remove();
 }
 
+function EntryIcon({ name }: { name: string }) {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  const Icon = ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"].includes(
+    extension,
+  )
+    ? FileImage
+    : ["csv", "tsv", "xlsx"].includes(extension)
+      ? FileSpreadsheet
+      : ["json", "js", "ts", "py", "html", "css", "yaml", "yml"].includes(
+            extension,
+          )
+        ? FileCode
+        : ["zip", "gz", "tar", "7z"].includes(extension)
+          ? FileArchive
+          : FileText;
+  return <Icon className="size-4 text-foreground" />;
+}
+
 function FilesPage() {
   const search = Route.useSearch();
-  const [path, setPath] = useState(search.path ?? "/");
+  const path = search.path ?? "/";
+  const navigate = Route.useNavigate();
+  const setPath = (nextPath: string) => {
+    void navigate({ search: { path: nextPath } });
+  };
+  const request = useRef<AbortController | null>(null);
+  const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<
     Array<ReturnType<typeof listEntriesResponseSchema.parse>["entries"][number]>
   >([]);
   const [folderName, setFolderName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [copiedShare, setCopiedShare] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharePath, setSharePath] = useState<string | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
@@ -101,26 +134,40 @@ function FilesPage() {
   const [isBusy, setIsBusy] = useState(false);
 
   const refreshEntries = useEffectEvent(async (nextPath: string) => {
-    const response = await fetch(
-      `/api/v1/fs/list?path=${encodeURIComponent(nextPath)}`,
-    );
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error ?? "Failed to load entries");
+    // A completed mutation must not replace a newer directory's contents.
+    if (nextPath !== path) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/v1/fs/list?path=${encodeURIComponent(nextPath)}`,
+        { signal: controller.signal },
+      );
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error ?? "Failed to load entries");
+      const parsed = listEntriesResponseSchema.parse(payload);
+      if (!controller.signal.aborted) setEntries(parsed.entries);
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setError(
+          cause instanceof Error ? cause.message : "Failed to load entries",
+        );
+        setEntries([]);
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
     }
-
-    const parsed = listEntriesResponseSchema.parse(payload);
-    setEntries(parsed.entries);
   });
 
   useEffect(() => {
-    setError(null);
-    void refreshEntries(path).catch((cause: unknown) => {
-      setError(
-        cause instanceof Error ? cause.message : "Failed to load entries",
-      );
-      setEntries([]);
-    });
+    setEntries([]);
+    setSelectedPaths([]);
+    void refreshEntries(path);
+    return () => request.current?.abort();
   }, [path]);
 
   useEffect(() => {
@@ -254,6 +301,7 @@ function FilesPage() {
       setError(payload.error ?? "Failed to create share");
       return;
     }
+    setCopiedShare(false);
     setShareUrl(payload.share.url);
     setSharePath(targetPath);
   }
@@ -339,7 +387,12 @@ function FilesPage() {
       return;
     }
 
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedShare(true);
+    } catch {
+      setError("Could not copy the link. Select and copy the URL instead.");
+    }
   }
 
   function toggleSelection(targetPath: string) {
@@ -382,7 +435,7 @@ function FilesPage() {
                 All your agent artifacts, organized in one place.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 break-all text-sm text-muted-foreground">
               {breadcrumbItems.map((item, index) => (
                 <div className="flex items-center gap-2" key={item.value}>
                   {index > 0 ? (
@@ -459,14 +512,72 @@ function FilesPage() {
         </p>
       ) : null}
       {previewUrl ? (
-        <a
-          className="underline"
-          href={previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open isolated preview (expires in 5 minutes)
-        </a>
+        <DetailSurface key={previewUrl} label="Preview ready">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <a
+              className="underline"
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open isolated preview (expires in 5 minutes)
+            </a>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewUrl(null)}
+            >
+              Dismiss preview
+            </Button>
+          </div>
+        </DetailSurface>
+      ) : null}
+      {shareUrl ? (
+        <DetailSurface key={shareUrl} label="Share link ready">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Share link ready</h2>
+            <Button variant="ghost" size="sm" onClick={() => setShareUrl(null)}>
+              Dismiss link
+            </Button>
+          </div>
+          <div className="mt-3 space-y-3">
+            {sharePath ? (
+              <p className="text-sm font-medium text-foreground">{sharePath}</p>
+            ) : null}
+            <a
+              className="block break-all text-sm leading-6 text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-700"
+              href={shareUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {shareUrl}
+            </a>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={handleCopyShare}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Copy className="size-4" />
+                {copiedShare ? "Copied" : "Copy link"}
+              </Button>
+              {sharePath ? (
+                <Button asChild size="sm" type="button" variant="outline">
+                  <a href={getDownloadHref(sharePath)}>
+                    <Download className="size-4" />
+                    Download file
+                  </a>
+                </Button>
+              ) : null}
+              <Button asChild size="sm" variant="ghost">
+                <a href={shareUrl} rel="noreferrer" target="_blank">
+                  Open
+                </a>
+              </Button>
+            </div>
+          </div>
+        </DetailSurface>
       ) : null}
       {error ? (
         <Alert variant="destructive">
@@ -494,11 +605,13 @@ function FilesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {entries.length === 0 ? (
+          {loading ? (
+            <LoadingState label="Loading folder" />
+          ) : entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
               <Folder className="size-6 text-zinc-400 dark:text-zinc-500" />
               <p className="mt-4 text-sm font-medium text-foreground">
-                This folder is empty
+                {error ? "Folder could not be loaded" : "This folder is empty"}
               </p>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                 Upload files, create a folder, or move back up to browse a
@@ -506,7 +619,7 @@ function FilesPage() {
               </p>
             </div>
           ) : (
-            <Table className="file-table">
+            <Table className="file-table" aria-label="Directory contents">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-14">
@@ -526,7 +639,10 @@ function FilesPage() {
               </TableHeader>
               <TableBody>
                 {entries.map((entry) => (
-                  <TableRow key={entry.id}>
+                  <TableRow
+                    key={entry.id}
+                    data-selected={selectedPaths.includes(entry.path)}
+                  >
                     <TableCell>
                       {entry.kind === "file" ? (
                         <input
@@ -563,7 +679,7 @@ function FilesPage() {
                           href={getDownloadHref(entry.path)}
                         >
                           <span className="rounded-xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
-                            <FileImage className="size-4 text-foreground" />
+                            <EntryIcon name={entry.name} />
                           </span>
                           <span>
                             <span className="block font-medium text-foreground underline decoration-transparent underline-offset-4 transition-colors group-hover:decoration-current">
@@ -589,88 +705,102 @@ function FilesPage() {
                       {formatBytes(entry.size, { nullLabel: "Folder" })}
                     </TableCell>
                     <TableCell>
-                      <details className="file-actions text-right">
-                        <summary className="inline-flex min-h-9 cursor-pointer items-center rounded-md border px-3 text-xs font-medium">
-                          Actions
-                          <span className="sr-only"> for {entry.name}</span>
-                        </summary>
-                        <div className="file-row-actions mt-2 max-w-64">
+                      <div className="flex justify-end">
+                        <ActionMenu
+                          label={`Actions for ${entry.name}`}
+                          disabled={isBusy}
+                        >
                           {entry.kind === "file" ? (
                             <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={isBusy}
-                                onClick={() =>
-                                  mutate(async () => {
-                                    setPreviewUrl(null);
-                                    const response = await fetch(
-                                      "/api/v1/fs/preview",
-                                      {
-                                        method: "POST",
-                                        headers: {
-                                          "content-type": "application/json",
+                              <ActionMenuItem asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={isBusy}
+                                  onClick={() =>
+                                    mutate(async () => {
+                                      setPreviewUrl(null);
+                                      const response = await fetch(
+                                        "/api/v1/fs/preview",
+                                        {
+                                          method: "POST",
+                                          headers: {
+                                            "content-type": "application/json",
+                                          },
+                                          body: JSON.stringify({
+                                            path: entry.path,
+                                          }),
                                         },
-                                        body: JSON.stringify({
-                                          path: entry.path,
-                                        }),
-                                      },
-                                    );
-                                    const result = await response.json();
-                                    if (!response.ok)
-                                      throw new Error(result.error);
-                                    setPreviewUrl(result.url);
-                                  })
-                                }
-                              >
-                                Preview
-                              </Button>
-                              <Button asChild size="sm" variant="ghost">
-                                <a
-                                  href={`/app/recovery?reason=version&path=${encodeURIComponent(entry.path)}`}
+                                      );
+                                      const result = await response.json();
+                                      if (!response.ok)
+                                        throw new Error(result.error);
+                                      setPreviewUrl(result.url);
+                                    })
+                                  }
                                 >
-                                  Versions
-                                </a>
-                              </Button>
-                              <Button asChild size="sm" variant="ghost">
-                                <a href={getDownloadHref(entry.path)}>
-                                  <Download className="size-4" />
-                                  Download
-                                </a>
-                              </Button>
-                              <Button
-                                onClick={() => handleShare(entry.path)}
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <Link2 className="size-4" />
-                                Share
-                              </Button>
+                                  Preview
+                                </Button>
+                              </ActionMenuItem>
+                              <ActionMenuItem asChild>
+                                <Button asChild size="sm" variant="ghost">
+                                  <a
+                                    href={`/app/recovery?reason=version&path=${encodeURIComponent(entry.path)}`}
+                                  >
+                                    Versions
+                                  </a>
+                                </Button>
+                              </ActionMenuItem>
+                              <ActionMenuItem asChild>
+                                <Button asChild size="sm" variant="ghost">
+                                  <a href={getDownloadHref(entry.path)}>
+                                    <Download className="size-4" />
+                                    Download
+                                  </a>
+                                </Button>
+                              </ActionMenuItem>
+                              <ActionMenuItem asChild>
+                                <Button
+                                  onClick={() => handleShare(entry.path)}
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <Link2 className="size-4" />
+                                  Share
+                                </Button>
+                              </ActionMenuItem>
                             </>
                           ) : null}
-                          <Button
-                            onClick={() => handleMove(entry.path)}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <MoveRight className="size-4" />
-                            Move
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              handleDelete(entry.path, entry.kind === "folder")
-                            }
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Trash2 className="size-4 text-red-500" />
-                            Move to trash
-                          </Button>
-                        </div>
-                      </details>
+                          <ActionMenuItem asChild>
+                            <Button
+                              onClick={() => handleMove(entry.path)}
+                              size="sm"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <MoveRight className="size-4" />
+                              Move
+                            </Button>
+                          </ActionMenuItem>
+                          <ActionMenuItem asChild>
+                            <Button
+                              onClick={() =>
+                                handleDelete(
+                                  entry.path,
+                                  entry.kind === "folder",
+                                )
+                              }
+                              size="sm"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Trash2 className="size-4 text-red-500" />
+                              Move to trash
+                            </Button>
+                          </ActionMenuItem>
+                        </ActionMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -680,85 +810,26 @@ function FilesPage() {
         </CardContent>
       </Card>
       <div className="grid gap-5">
-        {" "}
-        <Card>
-          <CardHeader>
-            <CardTitle>Folder actions</CardTitle>
-            <CardDescription>
-              Create a folder in the current directory or copy your latest
-              share.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-5 md:grid-cols-2">
-            <form className="space-y-3" onSubmit={handleCreateFolder}>
-              <div className="space-y-2">
-                <label className="section-label" htmlFor="folder-name">
-                  New folder
-                </label>
-                <Input
-                  id="folder-name"
-                  onChange={(event) => setFolderName(event.target.value)}
-                  placeholder="screenshots"
-                  value={folderName}
-                />
-              </div>
-              <Button disabled={isBusy} type="submit" variant="outline">
-                <FolderPlus className="size-4" />
-                Create folder
-              </Button>
-            </form>
-
-            <div className="rounded-xl border border-border bg-muted/40 p-4">
-              <p className="section-label">Latest share link</p>
-              {shareUrl ? (
-                <div className="mt-3 space-y-3">
-                  {sharePath ? (
-                    <p className="text-sm font-medium text-foreground">
-                      {sharePath}
-                    </p>
-                  ) : null}
-                  <a
-                    className="block break-all text-sm leading-6 text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-700"
-                    href={shareUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {shareUrl}
-                  </a>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleCopyShare}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Copy className="size-4" />
-                      Copy
-                    </Button>
-                    {sharePath ? (
-                      <Button asChild size="sm" type="button" variant="outline">
-                        <a href={getDownloadHref(sharePath)}>
-                          <Download className="size-4" />
-                          Download file
-                        </a>
-                      </Button>
-                    ) : null}
-                    <Button asChild size="sm" variant="ghost">
-                      <a href={shareUrl} rel="noreferrer" target="_blank">
-                        Open
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Generate a share from any file row to surface an expiring
-                  download URL here.
-                </p>
-              )}
+        <Disclosure>
+          <DisclosureSummary>Create a folder</DisclosureSummary>
+          <form className="space-y-3" onSubmit={handleCreateFolder}>
+            <div className="space-y-2">
+              <label className="section-label" htmlFor="folder-name">
+                New folder
+              </label>
+              <Input
+                id="folder-name"
+                onChange={(event) => setFolderName(event.target.value)}
+                placeholder="screenshots"
+                value={folderName}
+              />
             </div>
-          </CardContent>
-        </Card>{" "}
+            <Button disabled={isBusy} type="submit" variant="outline">
+              <FolderPlus className="size-4" />
+              Create folder
+            </Button>
+          </form>
+        </Disclosure>
         <FolderReadme entries={entries} />
         <FolderUpload
           destination={path}

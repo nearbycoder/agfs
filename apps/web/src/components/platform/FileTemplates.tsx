@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem, SelectGroup } from "~/components/ui/select";
 import { useState } from "react";
 import { useBlocker } from "@tanstack/react-router";
@@ -216,14 +217,12 @@ export function FileTemplates() {
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
         />
-        <details>
-          <summary className="cursor-pointer text-sm">
-            Preview rendered file
-          </summary>
+        <Disclosure>
+          <DisclosureSummary>Preview rendered file</DisclosureSummary>
           <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
             {renderFileTemplate(draft.body, destination, draft.contentType)}
           </pre>
-        </details>
+        </Disclosure>
         <Button disabled={action.busy}>Create file from template</Button>
       </form>
     </section>

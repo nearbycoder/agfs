@@ -1,3 +1,4 @@
+import { Empty } from "~/components/platform/shared";
 import { ActivityExplorer } from "~/components/platform/ActivityExplorer";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -87,11 +88,10 @@ function ActivityPage() {
           </p>
         ) : null}
         {!events.length ? (
-          <p className="rounded-xl border border-dashed p-10 text-center text-zinc-500">
-            {busy
-              ? "Loading activity…"
-              : "No activity yet. File operations will appear here."}
-          </p>
+          <Empty
+            loading={busy}
+            text="No activity yet. File operations will appear here."
+          />
         ) : (
           <ActivityExplorer events={events} />
         )}

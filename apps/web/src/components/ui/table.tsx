@@ -1,9 +1,21 @@
 import * as React from "react";
 import { cn } from "~/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  scrollClassName,
+  ...props
+}: React.ComponentProps<"table"> & { scrollClassName?: string }) {
   return (
-    <div className="relative w-full overflow-auto">
+    <div
+      className={cn(
+        "data-table relative w-full min-w-0 overflow-auto rounded-xl border",
+        scrollClassName,
+      )}
+      tabIndex={0}
+      role="region"
+      aria-label={props["aria-label"] ?? "Scrollable table"}
+    >
       <table
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
@@ -16,7 +28,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       className={cn(
-        "bg-muted/40 [&_tr]:border-b [&_tr]:border-border",
+        "sticky top-0 z-10 bg-muted [&_tr]:border-b [&_tr]:border-border",
         className,
       )}
       {...props}
@@ -34,7 +46,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       className={cn(
-        "border-b border-border/60 transition-colors hover:bg-muted/50",
+        "border-b border-border/60 transition-colors hover:bg-muted/50 data-[selected=true]:bg-accent/70",
         className,
       )}
       {...props}
@@ -45,6 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
+      scope="col"
       className={cn(
         "h-11 px-4 text-left align-middle text-xs font-medium text-muted-foreground",
         className,

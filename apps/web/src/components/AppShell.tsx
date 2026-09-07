@@ -70,8 +70,9 @@ export function AppShell() {
     [switching, setSwitching] = useState(false);
   useEffect(() => {
     const c = new AbortController();
-    async function get(url: string) {
+    async function get(url: string, optionalOwnerData = false) {
       const r = await fetch(url, { signal: c.signal });
+      if (optionalOwnerData && r.status === 403) return null;
       const value = await r.json();
       if (!r.ok) throw new Error(value.error ?? "Could not load workspace");
       return value;
@@ -83,12 +84,19 @@ export function AppShell() {
       .catch((e) => {
         if (!c.signal.aborted) setError(e.message);
       });
-    void Promise.all([get("/api/v1/account"), get("/api/v1/whoami")])
-      .then(([a, b]) => {
-        if (!c.signal.aborted) {
-          setAccount(accountSummarySchema.parse(a));
-          setWorkspace(b.workspaceId ?? "personal");
-        }
+    // Account totals are owner-only. Their availability must not decide
+    // whether an editor/viewer's selected workspace can be displayed.
+    void get("/api/v1/account", true)
+      .then((value) => {
+        if (!c.signal.aborted)
+          setAccount(value ? accountSummarySchema.parse(value) : null);
+      })
+      .catch((e) => {
+        if (!c.signal.aborted) setError(e.message);
+      });
+    void get("/api/v1/whoami")
+      .then((value) => {
+        if (!c.signal.aborted) setWorkspace(value.workspaceId ?? "personal");
       })
       .catch((e) => {
         if (!c.signal.aborted) {

@@ -1,3 +1,4 @@
+import { FileLink } from "~/components/ui/file-link";
 import { Button } from "~/components/ui/button";
 import { Empty, platform, useAction, useData } from "./shared";
 import { formatBytes } from "~/lib/format";
@@ -8,7 +9,7 @@ export function RecentFiles() {
     <section className="space-y-4" aria-label="Recent files">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold">Recent files</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={data.loading || action.busy}
@@ -52,14 +53,7 @@ export function RecentFiles() {
             className="flex flex-wrap items-center justify-between gap-3 py-3"
           >
             <div className="min-w-0">
-              <a
-                className="break-all font-mono text-sm underline"
-                href={
-                  "/api/v1/fs/download?path=" + encodeURIComponent(file.path)
-                }
-              >
-                {file.path}
-              </a>
+              <FileLink path={file.path} kind={"file"} />
               <p className="text-xs text-muted-foreground">
                 {formatBytes(file.size ?? 0)} · Opened{" "}
                 {new Date(file.openedAt).toLocaleString()}

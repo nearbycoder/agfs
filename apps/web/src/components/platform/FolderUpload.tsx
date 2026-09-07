@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useEffect, useRef, useState } from "react";
 import { useBlocker } from "@tanstack/react-router";
 import { uploadResumable } from "@agfs/contracts";
@@ -112,10 +113,8 @@ export function FolderUpload({
     done = items.filter((i) => i.status === "done").length,
     failed = items.filter((i) => i.status === "failed").length;
   return (
-    <details className="rounded-xl border p-4">
-      <summary className="cursor-pointer font-semibold">
-        Upload a folder
-      </summary>
+    <Disclosure>
+      <DisclosureSummary>Upload a folder</DisclosureSummary>
       <section className="mt-4 space-y-4" aria-label="Folder upload">
         <p className="text-sm text-muted-foreground">
           Choose up to 500 files in one folder. The selected folder and
@@ -232,6 +231,6 @@ export function FolderUpload({
           </>
         ) : null}
       </section>
-    </details>
+    </Disclosure>
   );
 }
