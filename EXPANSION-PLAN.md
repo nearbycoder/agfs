@@ -19,7 +19,7 @@ Each numbered feature ships in its own PR after focused verification and require
 | 13 | Text comparison: compare two accessible files, bounded line diff, change counts. | [#23](https://github.com/nearbycoder/agfs/pull/23) merged |
 | 14 | Folder README: discover/read documentation in the current folder, safe rendering, loading/error states. | [#24](https://github.com/nearbycoder/agfs/pull/24) merged |
 | 15 | Command palette: searchable navigation/actions, keyboard shortcut, accessible focus and Escape behavior. | [#25](https://github.com/nearbycoder/agfs/pull/25) merged |
-| 16 | Recent files: personal workspace history, open/remove/clear, live permission checks. | pending |
+| 16 | Recent files: personal workspace history, open/remove/clear, live permission checks. | [#26](https://github.com/nearbycoder/agfs/pull/26) merged |
 | 17 | Activity explorer: action/path/date filters and formula-safe CSV export of matching loaded records. | pending |
 | 18 | Run comparison: compare statuses, metadata and retained input/output manifests. | pending |
 | 19 | Share review: expiry/status filters, expiry summaries, selected revocation with explicit confirmation/results. | pending |
