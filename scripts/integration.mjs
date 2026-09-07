@@ -168,6 +168,7 @@ try {
     "oauth-smoke",
     "sync-smoke",
     "reliability-smoke",
+    "expansion-smoke",
     "sdk-oauth-smoke",
     "cimd-smoke",
   ]) {

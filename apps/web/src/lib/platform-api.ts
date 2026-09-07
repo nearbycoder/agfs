@@ -32,6 +32,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     "/oauth/consent",
   ].includes(path);
   const auth = await requireRequestAuth(request, personal);
+  const library = await (
+    await import("./library-api")
+  ).libraryApi(request, auth, path);
+  if (library) return library;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);

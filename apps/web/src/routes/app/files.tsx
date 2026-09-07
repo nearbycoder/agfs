@@ -49,6 +49,12 @@ import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 import { cn } from "~/lib/utils";
 
 export const Route = createFileRoute("/app/files")({
+  validateSearch: (search: Record<string, unknown>): { path?: string } => ({
+    path:
+      typeof search.path === "string" && search.path.startsWith("/")
+        ? search.path
+        : "/",
+  }),
   head: () =>
     buildSeoHead({
       title: pageTitle("Files"),
@@ -77,7 +83,8 @@ function triggerDownload(path: string) {
 }
 
 function FilesPage() {
-  const [path, setPath] = useState("/");
+  const search = Route.useSearch();
+  const [path, setPath] = useState(search.path ?? "/");
   const [entries, setEntries] = useState<
     Array<ReturnType<typeof listEntriesResponseSchema.parse>["entries"][number]>
   >([]);
