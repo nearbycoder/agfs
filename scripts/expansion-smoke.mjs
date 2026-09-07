@@ -483,4 +483,63 @@ await assert.rejects(() =>
   }),
 );
 checks++;
+
+await client.upload(root + "/rename-a.txt", new Blob(["a"]));
+await client.upload(root + "/rename-b.txt", new Blob(["b"]));
+const renameA = await api(
+  "/text?path=" + encodeURIComponent(root + "/rename-a.txt"),
+);
+const renameB = await api(
+  "/text?path=" + encodeURIComponent(root + "/rename-b.txt"),
+);
+const renameChanges = [renameA, renameB].map((e) => ({
+  from: e.path,
+  to: e.path.replace(".txt", "-final.txt"),
+  entryId: e.entryId,
+  etag: e.etag,
+}));
+await api("/batch-rename", {
+  method: "POST",
+  body: { changes: renameChanges, dryRun: true },
+});
+await api("/batch-rename", {
+  method: "POST",
+  body: { changes: renameChanges, dryRun: false },
+  session: bob,
+  status: 409,
+});
+await api("/batch-rename", {
+  method: "POST",
+  body: {
+    changes: [renameChanges[0], { ...renameChanges[1], to: renameA.path }],
+    dryRun: false,
+  },
+  status: 409,
+});
+await api("/text?path=" + encodeURIComponent(renameA.path));
+await api("/batch-rename", {
+  method: "POST",
+  body: {
+    changes: [renameChanges[0], { ...renameChanges[1], etag: "stale" }],
+    dryRun: false,
+  },
+  status: 409,
+});
+await api("/text?path=" + encodeURIComponent(renameA.path));
+assert.equal(
+  (
+    await api("/batch-rename", {
+      method: "POST",
+      body: { changes: renameChanges, dryRun: false },
+    })
+  ).renamed.length,
+  2,
+);
+checks++;
+await api("/text?path=" + encodeURIComponent(renameChanges[0].to));
+await api("/batch-rename", {
+  method: "POST",
+  body: { changes: renameChanges, dryRun: false },
+  status: 409,
+});
 console.log(`Expansion checks passed: ${checks}`);

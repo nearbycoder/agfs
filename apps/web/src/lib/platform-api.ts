@@ -33,6 +33,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     "/oauth/consent",
   ].includes(path);
   const auth = await requireRequestAuth(request, personal);
+  const renamed = await (
+    await import("./batch-rename-api")
+  ).batchRenameApi(request, auth, path);
+  if (renamed) return renamed;
   const library = await (
     await import("./library-api")
   ).libraryApi(request, auth, path);
