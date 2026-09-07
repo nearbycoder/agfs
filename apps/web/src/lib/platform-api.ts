@@ -57,6 +57,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./duplicates-api")
   ).duplicatesApi(request, auth, path);
   if (duplicates) return duplicates;
+  const textFile = await (
+    await import("./text-files-api")
+  ).textFilesApi(request, auth, path);
+  if (textFile) return textFile;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);

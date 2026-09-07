@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useBlocker } from "@tanstack/react-router";
+import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 import { Field, platform, useAction } from "./shared";
@@ -19,12 +20,12 @@ export function FileNotes({ initialPath = "" }: { initialPath?: string }) {
     [body, setBody] = useState("");
   const action = useAction(),
     dirty = !!loaded && body !== (loaded.note?.body ?? "");
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  useBlocker({
+    shouldBlockFn: () =>
+      dirty && !window.confirm("Discard unsaved edits and leave this page?"),
+    enableBeforeUnload: dirty,
+    disabled: !dirty,
+  });
   return (
     <section className="space-y-4" aria-label="File notes">
       <p className="text-sm text-zinc-500">
