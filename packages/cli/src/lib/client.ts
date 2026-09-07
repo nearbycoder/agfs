@@ -1,5 +1,5 @@
-import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, stat, open } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { lstat, stat, open } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { lookup as lookupMime } from "mime-types";
@@ -27,6 +27,7 @@ import {
   resolveFolderDestination,
 } from "./download";
 import { summarizeFolderDownload, TransferProgress } from "./progress";
+import { ensureDownloadDirectory, writeDownloadFile } from "./safe-download";
 
 async function parseError(response: Response) {
   try {
@@ -218,7 +219,7 @@ export class AgfsClient {
     let destination = resolveFileDestination(remotePath, localPath);
     if (localPath) {
       try {
-        const localStat = await stat(localPath);
+        const localStat = await lstat(localPath);
         if (localStat.isDirectory()) {
           destination = path.join(localPath, getRemoteLeafName(remotePath));
         }
@@ -227,7 +228,6 @@ export class AgfsClient {
       }
     }
 
-    await mkdir(path.dirname(destination), { recursive: true });
     const totalBytes = Number(response.headers.get("content-length") ?? 0);
     const progress = new TransferProgress(`Download ${path.basename(destination)}`, totalBytes || 0);
     const body = response.body;
@@ -236,50 +236,15 @@ export class AgfsClient {
       throw new Error(`No response body returned for ${remotePath}`);
     }
 
-    const writer = createWriteStream(destination);
-    const reader = body.getReader();
-    let writtenBytes = 0;
-
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        writtenBytes += value.byteLength;
-        progress.update(totalBytes > 0 ? writtenBytes : Math.max(writtenBytes, 1));
-
-        await new Promise<void>((resolve, reject) => {
-          writer.write(Buffer.from(value), (error) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-            resolve();
-          });
-        });
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        writer.end((error: Error | null | undefined) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve();
-        });
-      });
-
-      if (totalBytes > 0) {
-        progress.complete();
-      } else {
-        progress.update(writtenBytes);
-        progress.complete();
-      }
+      // Fetch decodes compressed responses; their wire Content-Length is not the decoded size.
+      const encoding = response.headers.get("content-encoding");
+      const expectedSize = response.headers.has("content-length") && (!encoding || encoding === "identity")
+        ? totalBytes : undefined;
+      await writeDownloadFile(destination, body, (bytes) => progress.update(bytes), expectedSize);
+      progress.complete();
     } catch (error) {
       progress.fail();
-      writer.destroy();
       throw error;
     }
 
@@ -300,13 +265,13 @@ export class AgfsClient {
     }
 
     const destinationRoot = resolveFolderDestination(remotePath, localPath);
-    await mkdir(destinationRoot, { recursive: true });
+    await ensureDownloadDirectory(destinationRoot);
 
     const tree = await this.tree(remotePath);
     const flattened = flattenTree(tree.tree);
 
     for (const directory of flattened.directories) {
-      await mkdir(joinRelativeDestination(destinationRoot, directory), { recursive: true });
+      await ensureDownloadDirectory(joinRelativeDestination(destinationRoot, directory));
     }
 
     for (const file of flattened.files) {

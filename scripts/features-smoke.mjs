@@ -43,6 +43,14 @@ await req("/api/v1/fs/mkdir", { token: scoped.token, body: { path: `${root}/forb
 await req("/api/v1/tokens", { token: scoped.token, body: { label: "Escalate", permissions: ["manage"] }, status: 403 });
 await req("/api/v1/shares", { token: scoped.token, body: { path: `${root}/file.txt`, ttl: "15m" }, status: 403 });
 await req("/api/v1/tokens", { body: { label: "Too long", ttl: "91d" }, status: 400 });
+const mover = await data("/api/v1/tokens", {
+  body: { label: "Local mover", pathPrefix: root, permissions: ["read", "write", "delete"] },
+});
+await req("/api/v1/fs/mkdir", { body: { path: `${root}/move_from/nested` } });
+await req("/api/v1/fs/move", { token: mover.token, body: { from: `${root}/move_from`, to: `${root}-outside` }, status: 403 });
+await req("/api/v1/fs/move", { token: mover.token, body: { from: `${root}/move_from`, to: `${root}/$&` } });
+await req(`/api/v1/fs/list?path=${encodeURIComponent(`${root}/$&/nested`)}`, { token: mover.token });
+await req(`/api/v1/tokens/${mover.record.id}`, { method: "DELETE" });
 const share = await data("/api/v1/shares", { body: { path: `${root}/file.txt`, ttl: "15m" } });
 await write(`${root}/file.txt`, "replacement");
 let history = await data(`/api/v1/recovery?reason=version&path=${root}`);
