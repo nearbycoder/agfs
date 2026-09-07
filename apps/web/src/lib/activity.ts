@@ -3,18 +3,23 @@ import { activity, createAgfsId, now } from "@agfs/db";
 import { db } from "./db";
 import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
-export async function recordActivity(auth: RequestAuth, action: string, path?: string) {
-  await db
-    .insert(activity)
-    .values({
-      id: createAgfsId("evt"),
-      ownerId: auth.user.id,
-      action,
-      path: path ?? null,
-      actor: auth.authSource === "session" ? (auth.user.name ?? auth.user.email) : (auth.tokenLabel ?? "API token"),
-      tokenId: auth.tokenId ?? null,
-      createdAt: now(),
-    });
+export async function recordActivity(
+  auth: RequestAuth,
+  action: string,
+  path?: string,
+) {
+  await db.insert(activity).values({
+    id: createAgfsId("evt"),
+    ownerId: auth.user.id,
+    action,
+    path: path ?? null,
+    actor:
+      auth.authSource === "session"
+        ? ((auth.actor ?? auth.user).name ?? (auth.actor ?? auth.user).email)
+        : (auth.tokenLabel ?? "API token"),
+    tokenId: auth.tokenId ?? null,
+    createdAt: now(),
+  });
 }
 export async function listActivity(auth: RequestAuth, cursor?: string) {
   authorize(auth, "read", auth.pathPrefix ?? "/");

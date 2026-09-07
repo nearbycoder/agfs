@@ -21,7 +21,7 @@ const abandoned=await call('/api/v1/fs/resumable',{path:`${folder}/abandoned`,si
 const unused=await call('/api/v1/tokens',{label:'Unused local device'});
 assert(/^[a-zA-Z0-9_]+$/.test(abandoned.uploadId)&&/^[a-zA-Z0-9_]+$/.test(unused.record.id));
 execFileSync('npx',['--yes','pnpm@10.32.1','--dir','apps/web','exec','wrangler','d1','execute','agfs-db','--local','--env','production','--persist-to','/tmp/agfs-audit-state','--command',`UPDATE uploads SET expires_at=1 WHERE id='${abandoned.uploadId}'; INSERT INTO device_codes(device_code,user_code,owner_id,api_token_id,expires_at) VALUES ('${unused.record.id}','${unused.record.id}','alice','${unused.record.id}',1);`],{stdio:'pipe'});
-assert((await fetch(`${base}/cdn-cgi/local/scheduled`)).ok);
+assert((await fetch(`${base}/cdn-cgi/local/scheduled?cron=17%20*%20*%20*%20*`)).ok);
 let cleaned=false;
 for(let n=0;n<20;n++) {
  const response=await fetch(`${base}/api/v1/fs/resumable/${abandoned.uploadId}`,{headers:{authorization:`Bearer ${token}`}});

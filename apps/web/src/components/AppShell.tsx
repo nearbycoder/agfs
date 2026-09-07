@@ -1,199 +1,188 @@
 import { useEffect, useState } from "react";
 import { accountSummarySchema, type AccountSummary } from "@agfs/contracts";
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { ChevronRight, FolderKanban, HardDrive, KeyRound, Link2, LogOut, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  Search,
+  Users,
+  Play,
+  FileCheck,
+  Webhook,
+  Gauge,
+  FolderKanban,
+  HardDrive,
+  KeyRound,
+  Link2,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
 import { authClient } from "~/lib/auth-client";
-import { Badge } from "~/components/ui/badge";
 import { Button, buttonVariants } from "~/components/ui/button";
-import { Card } from "~/components/ui/card";
-import { formatBytes, formatMonthlyPrice } from "~/lib/format";
-import { STORAGE_PLANS } from "~/lib/storage-plans";
+import { formatBytes } from "~/lib/format";
 import { cn } from "~/lib/utils";
-
+const navigation = [
+  { href: "/app/files", icon: FolderKanban, label: "Files" },
+  { href: "/app/search", icon: Search, label: "Search" },
+  { href: "/app/workspaces", icon: Users, label: "Workspaces" },
+  { href: "/app/runs", icon: Play, label: "Agent runs" },
+  { href: "/app/drafts", icon: FileCheck, label: "Draft changes" },
+  { href: "/app/tokens", icon: KeyRound, label: "Tokens" },
+  { href: "/app/budgets", icon: Gauge, label: "Agent budgets" },
+  { href: "/app/webhooks", icon: Webhook, label: "Webhooks" },
+  { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },
+  { href: "/app/activity", icon: ShieldCheck, label: "Activity" },
+  { href: "/app/shares", icon: Link2, label: "Shares" },
+];
 export function AppShell() {
-  const location = useLocation();
-  const session = authClient.useSession();
-  const [account, setAccount] = useState<AccountSummary | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const navItems = [
-    { href: "/app/files", icon: FolderKanban, label: "Files", match: "/app/files" },
-    { href: "/app/tokens", icon: KeyRound, label: "Tokens", match: "/app/tokens" },
-    { href: "/app/recovery", icon: HardDrive, label: "Trash & versions", match: "/app/recovery" },
-    { href: "/app/activity", icon: ShieldCheck, label: "Activity", match: "/app/activity" },
-    { href: "/app/shares", icon: Link2, label: "Shares", match: "/app/shares" },
-  ];
-  const paidPlan = STORAGE_PLANS.paid;
-  const usageRatio = account ? Math.min((account.storageUsedBytes / account.storageLimitBytes) * 100, 100) : 0;
-  const overageBytes = account ? Math.max(account.storageUsedBytes - account.storageLimitBytes, 0) : 0;
-
+  const location = useLocation(),
+    session = authClient.useSession();
+  const [account, setAccount] = useState<AccountSummary | null>(null),
+    [error, setError] = useState(""),
+    [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]),
+    [workspace, setWorkspace] = useState("personal"),
+    [switching, setSwitching] = useState(false);
   useEffect(() => {
-    if (!session.data?.user?.id) {
-      setAccount(null);
-      return;
+    const c = new AbortController();
+    async function get(url: string) {
+      const r = await fetch(url, { signal: c.signal });
+      const value = await r.json();
+      if (!r.ok) throw new Error(value.error ?? "Could not load workspace");
+      return value;
     }
-
-    let cancelled = false;
-
-    setAccountError(null);
-    void (async () => {
-      try {
-        const response = await fetch("/api/v1/account");
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.error ?? "Failed to load account details");
+    void get("/api/v1/platform/workspaces")
+      .then((v) => {
+        if (!c.signal.aborted) setWorkspaces(v.workspaces);
+      })
+      .catch((e) => {
+        if (!c.signal.aborted) setError(e.message);
+      });
+    void Promise.all([get("/api/v1/account"), get("/api/v1/whoami")])
+      .then(([a, b]) => {
+        if (!c.signal.aborted) {
+          setAccount(accountSummarySchema.parse(a));
+          setWorkspace(b.workspaceId ?? "personal");
         }
-
-        if (!cancelled) {
-          setAccount(accountSummarySchema.parse(payload));
+      })
+      .catch((e) => {
+        if (!c.signal.aborted) {
+          setError(e.message);
+          setWorkspace("unavailable");
         }
-      } catch (cause) {
-        if (!cancelled) {
-          setAccountError(cause instanceof Error ? cause.message : "Failed to load account details");
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session.data?.user?.id]);
-
-  async function handleSignOut() {
-    await authClient.signOut();
-    window.location.href = "/";
+      });
+    return () => c.abort();
+  }, [session.data?.user.id]);
+  async function selectWorkspace(selected: string) {
+    setSwitching(true);
+    setError("");
+    try {
+      const r = await fetch("/api/v1/platform/workspaces/select", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspace: selected }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not switch workspace");
+      setSwitching(false);
+    }
   }
-
+  const ratio = account
+    ? Math.min(
+        100,
+        (100 * account.storageUsedBytes) /
+          Math.max(1, account.storageLimitBytes),
+      )
+    : 0;
   return (
     <div className="page-shell grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="surface-panel flex h-fit flex-col gap-6 p-5 lg:sticky lg:top-24">
-        <div className="space-y-4">
-          <Badge variant="secondary">Private namespace</Badge>
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
-              AGFS control plane
-            </h1>
-            <p className="section-copy">
-              Artifacts, download links, and agent credentials for one account-scoped filesystem.
-            </p>
-          </div>
-          <Card className="border-dashed bg-zinc-50/80 p-4 shadow-none dark:border-zinc-800 dark:bg-zinc-900/70">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 size-4 text-zinc-500 dark:text-zinc-400" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Isolated by owner</p>
-                <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                  D1 enforces ownership, and R2 objects stay namespaced per user.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="border-dashed bg-zinc-50/80 p-4 shadow-none dark:border-zinc-800 dark:bg-zinc-900/70">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Plan and storage</p>
-                  <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                    Current quota and the upcoming paid tier.
-                  </p>
-                </div>
-                <HardDrive className="size-4 text-zinc-500 dark:text-zinc-400" />
-              </div>
-
-              {account ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <Badge variant={account.planId === "paid" ? "success" : "secondary"}>{account.planName}</Badge>
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">
-                      {formatBytes(account.storageUsedBytes)} / {formatBytes(account.storageLimitBytes)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          account.isOverLimit ? "bg-amber-500" : "bg-zinc-950 dark:bg-zinc-100",
-                        )}
-                        style={{ width: `${usageRatio}%` }}
-                      />
-                    </div>
-                    <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                      {account.isOverLimit
-                        ? `Over limit by ${formatBytes(overageBytes)}. Permanently remove items from Trash & versions to free storage.`
-                        : `${formatBytes(account.storageRemainingBytes)} remaining on your ${account.planName.toLowerCase()} plan.`}
-                    </p>
-                  </div>
-
-                  {account.planId === "free" ? (
-                    <div className="rounded-xl border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/75">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="size-4 text-zinc-500 dark:text-zinc-400" />
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Paid plan coming soon</p>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                        {formatBytes(paidPlan.storageLimitBytes)} for{" "}
-                        {formatMonthlyPrice(paidPlan.priceMonthlyCents ?? 0)}/month via Stripe.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                      You&apos;re on the Paid plan today. Self-serve Stripe billing is still coming soon.
-                    </p>
-                  )}
-                </div>
-              ) : accountError ? (
-                <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">{accountError}</p>
-              ) : (
-                <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                  Loading your current plan and storage usage.
-                </p>
+      <aside className="surface-panel flex h-fit flex-col gap-5 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+        <label className="grid gap-2 text-sm font-medium">
+          Workspace
+          <select
+            aria-label="Active workspace"
+            className="w-full rounded-lg border bg-transparent p-2"
+            disabled={switching}
+            value={workspace}
+            onChange={(e) => void selectWorkspace(e.target.value)}
+          >
+            {workspace === "unavailable" ? (
+              <option value="unavailable" disabled>
+                Choose a workspace
+              </option>
+            ) : null}
+            <option value="personal">Personal</option>
+            {workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error ? (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        ) : null}
+        <nav
+          aria-label="Workspace navigation"
+          className="grid grid-cols-2 gap-1 lg:grid-cols-1"
+        >
+          {navigation.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={cn(
+                buttonVariants({
+                  variant: location.pathname.startsWith(item.href)
+                    ? "secondary"
+                    : "ghost",
+                }),
+                "h-9 justify-start gap-3 rounded-lg px-3 text-sm",
               )}
-            </div>
-          </Card>
-        </div>
-
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.match);
-
-            return (
-              <Link
-                className={cn(
-                  buttonVariants({ variant: isActive ? "secondary" : "ghost" }),
-                  "h-11 w-full justify-between rounded-xl px-3",
-                )}
-                key={item.href}
-                to={item.href}
-              >
-                <span className="flex items-center gap-3">
-                  <item.icon className="size-4" />
-                  {item.label}
-                </span>
-                <ChevronRight className="size-4 text-zinc-400 dark:text-zinc-500" />
-              </Link>
-            );
-          })}
+            >
+              <item.icon className="size-4 shrink-0" />
+              {item.label}
+            </Link>
+          ))}
         </nav>
-
-        <div className="rounded-xl border border-zinc-200 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-950/75">
-          <p className="section-label">Signed in as</p>
-          <p className="mt-2 text-sm font-medium text-zinc-950 dark:text-zinc-50">
-            {session.data?.user.email ?? "unknown"}
+        {account ? (
+          <details className="rounded-xl border p-3">
+            <summary className="cursor-pointer text-sm">
+              {formatBytes(account.storageUsedBytes)} /{" "}
+              {formatBytes(account.storageLimitBytes)}
+            </summary>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className="h-full bg-zinc-950 dark:bg-zinc-100"
+                style={{ width: ratio + "%" }}
+              />
+            </div>
+            <p className="mt-3 text-xs text-zinc-500">
+              {account.planName} plan ·{" "}
+              {formatBytes(account.storageRemainingBytes)} remaining. Retained
+              versions count toward storage.
+            </p>
+          </details>
+        ) : null}
+        <div className="border-t pt-4">
+          <p className="truncate text-xs text-zinc-500">
+            {session.data?.user.email}
           </p>
-          <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-            {session.data?.user.name
-              ? `${session.data.user.name} is connected through GitHub.`
-              : "GitHub session active."}
-          </p>
-          <Button className="mt-4 w-full" onClick={handleSignOut} type="button" variant="outline">
+          <Button
+            className="mt-3 w-full"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              void authClient.signOut().then(() => {
+                window.location.href = "/";
+              })
+            }
+          >
             <LogOut className="size-4" />
             Sign out
           </Button>
         </div>
       </aside>
-
       <section className="min-w-0">
         <Outlet />
       </section>

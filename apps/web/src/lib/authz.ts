@@ -21,7 +21,11 @@ import { openDeviceToken, sealDeviceToken } from "./device-token";
 import { auth } from "./auth";
 import { requireStringBindings } from "./bindings";
 import { db } from "./db";
-import { getBearerToken, requireSameOriginMutation, errorResponse } from "./http";
+import {
+  getBearerToken,
+  requireSameOriginMutation,
+  errorResponse,
+} from "./http";
 
 export interface RequestAuth {
   authSource: "session" | "api-token";
@@ -30,9 +34,18 @@ export interface RequestAuth {
   pathPrefix?: string;
   permissions?: Permission[];
   user: SessionUser;
+  actor?: SessionUser;
+  workspaceId?: string;
+  workspaceRole?: "owner" | "editor" | "viewer";
+  workspacePaused?: boolean;
 }
 
-function mapUser(row: { id: string; name: string | null; email: string; image?: string | null }): SessionUser {
+function mapUser(row: {
+  id: string;
+  name: string | null;
+  email: string;
+  image?: string | null;
+}): SessionUser {
   return {
     id: row.id,
     name: row.name,
@@ -41,7 +54,9 @@ function mapUser(row: { id: string; name: string | null; email: string; image?: 
   };
 }
 
-export async function resolveRequestAuth(request: Request): Promise<RequestAuth | null> {
+export async function resolveRequestAuth(
+  request: Request,
+): Promise<RequestAuth | null> {
   const session = getBearerToken(request)
     ? null
     : await auth.api.getSession({
@@ -49,7 +64,10 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
       });
 
   if (session?.user) {
-    requireSameOriginMutation(request, requireStringBindings("APP_URL").APP_URL);
+    requireSameOriginMutation(
+      request,
+      requireStringBindings("APP_URL").APP_URL,
+    );
     return {
       authSource: "session",
       user: mapUser(session.user),
@@ -61,6 +79,10 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
     return null;
   }
 
+  if (bearer.includes("."))
+    return (await import("./oauth")).resolveOAuth(request, bearer);
+  if (request.headers.get("authorization")?.toLowerCase().startsWith("dpop "))
+    return null;
   const tokenHash = hashSecret(bearer);
   const nowAt = now();
   const [record] = await db
@@ -70,6 +92,8 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
       label: apiTokens.label,
       prefix: apiTokens.prefix,
       pathPrefix: apiTokens.pathPrefix,
+      issuedBy: apiTokens.issuedBy,
+      paused: apiTokens.paused,
       permissions: apiTokens.permissions,
       tokenHash: apiTokens.tokenHash,
       userId: users.id,
@@ -87,13 +111,21 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
       ),
     );
 
-  if (!record || !verifyHash(bearer, record.tokenHash)) {
+  if (!record || record.paused || !verifyHash(bearer, record.tokenHash)) {
     return null;
   }
 
-  await db.update(apiTokens).set({ lastUsedAt: nowAt }).where(eq(apiTokens.id, record.id));
+  await db
+    .update(apiTokens)
+    .set({ lastUsedAt: nowAt })
+    .where(eq(apiTokens.id, record.id));
 
+  const issuer = record.issuedBy
+    ? (await db.select().from(users).where(eq(users.id, record.issuedBy)))[0]
+    : null;
   return {
+    actor: issuer ? mapUser(issuer) : undefined,
+    workspaceId: record.userId.startsWith("ws_") ? record.userId : undefined,
     authSource: "api-token",
     tokenId: record.id,
     tokenLabel: record.label,
@@ -108,8 +140,12 @@ export async function resolveRequestAuth(request: Request): Promise<RequestAuth 
   };
 }
 
-export async function requireRequestAuth(request: Request): Promise<RequestAuth> {
-  const result = await resolveRequestAuth(request);
+export async function requireRequestAuth(
+  request: Request,
+  personal = false,
+  charge = true,
+): Promise<RequestAuth> {
+  let result = await resolveRequestAuth(request);
   if (!result) {
     throw new Response(JSON.stringify({ error: "Authentication required" }), {
       status: 401,
@@ -117,13 +153,26 @@ export async function requireRequestAuth(request: Request): Promise<RequestAuth>
     });
   }
 
+  if (!personal)
+    result = await (
+      await import("./workspaces")
+    ).selectNamespace(request, result);
   const context = requestContext.getStore();
+  if (charge && result.tokenId && !context?.budgetCharged) {
+    await (await import("./budgets")).chargeOperation(result);
+    if (context) context.budgetCharged = true;
+  }
   if (context) context.auth = result;
   return result;
 }
 
-export async function listApiTokens(ownerId: string): Promise<ApiTokenRecord[]> {
-  const rows = await db.select().from(apiTokens).where(eq(apiTokens.ownerId, ownerId));
+export async function listApiTokens(
+  ownerId: string,
+): Promise<ApiTokenRecord[]> {
+  const rows = await db
+    .select()
+    .from(apiTokens)
+    .where(eq(apiTokens.ownerId, ownerId));
 
   return rows
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
@@ -142,15 +191,24 @@ export async function listApiTokens(ownerId: string): Promise<ApiTokenRecord[]> 
 
 export async function createApiTokenForUser(
   ownerId: string,
-  input: { label: string; ttl?: string; pathPrefix?: string; permissions?: Permission[] },
+  input: {
+    label: string;
+    ttl?: string;
+    pathPrefix?: string;
+    permissions?: Permission[];
+    issuedBy?: string;
+  },
 ) {
   const token = createApiTokenValue();
   const createdAt = now();
-  const expiresAt = new Date(createdAt.getTime() + parseTtl(input.ttl ?? "30d", { maxDays: 90 }));
+  const expiresAt = new Date(
+    createdAt.getTime() + parseTtl(input.ttl ?? "30d", { maxDays: 90 }),
+  );
   const record = {
     id: createAgfsId("tok"),
     ownerId,
     label: input.label,
+    issuedBy: input.issuedBy ?? ownerId,
     pathPrefix: normalizeAgfsPath(input.pathPrefix ?? "/"),
     permissions: JSON.stringify(input.permissions ?? ALL_PERMISSIONS),
     prefix: secretPrefix(token),
@@ -188,7 +246,10 @@ export async function revokeApiToken(ownerId: string, tokenId: string) {
 
 export async function startDeviceAuthorization(clientName: string) {
   const bindings = requireStringBindings("APP_URL");
-  await db.update(deviceCodes).set({ accessTokenPlaintext: null }).where(lte(deviceCodes.expiresAt, now()));
+  await db
+    .update(deviceCodes)
+    .set({ accessTokenPlaintext: null })
+    .where(lte(deviceCodes.expiresAt, now()));
   const deviceCode = createDeviceCode();
   const userCode = createUserCode();
   const expiresAt = new Date(Date.now() + 10 * 60_000);
@@ -218,7 +279,10 @@ export async function approveDeviceAuthorization(
     userCode: string;
   },
 ) {
-  const [record] = await db.select().from(deviceCodes).where(eq(deviceCodes.userCode, input.userCode));
+  const [record] = await db
+    .select()
+    .from(deviceCodes)
+    .where(eq(deviceCodes.userCode, input.userCode));
 
   if (!record) {
     throw errorResponse(400, "Device code not found");
@@ -241,7 +305,8 @@ export async function approveDeviceAuthorization(
       ),
     )
     .returning({ deviceCode: deviceCodes.deviceCode });
-  if (!claimed) throw errorResponse(409, "Device code already approved or expired");
+  if (!claimed)
+    throw errorResponse(409, "Device code already approved or expired");
   const created = await createApiTokenForUser(ownerId, { label: input.label });
 
   await db
@@ -262,7 +327,10 @@ export async function approveDeviceAuthorization(
 }
 
 export async function pollDeviceAuthorization(deviceCode: string) {
-  const [record] = await db.select().from(deviceCodes).where(eq(deviceCodes.deviceCode, deviceCode));
+  const [record] = await db
+    .select()
+    .from(deviceCodes)
+    .where(eq(deviceCodes.deviceCode, deviceCode));
 
   if (!record) {
     throw errorResponse(400, "Device code not found");
@@ -281,16 +349,25 @@ export async function pollDeviceAuthorization(deviceCode: string) {
         consumedAt: now(),
       })
       .where(
-        and(eq(deviceCodes.deviceCode, deviceCode), isNull(deviceCodes.consumedAt), gt(deviceCodes.expiresAt, now())),
+        and(
+          eq(deviceCodes.deviceCode, deviceCode),
+          isNull(deviceCodes.consumedAt),
+          gt(deviceCodes.expiresAt, now()),
+        ),
       )
       .returning({ deviceCode: deviceCodes.deviceCode });
     if (!consumed) return { status: "expired" as const };
 
     return {
       status: "approved" as const,
-      accessToken: openDeviceToken(accessToken, requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET),
+      accessToken: openDeviceToken(
+        accessToken,
+        requireStringBindings("BETTER_AUTH_SECRET").BETTER_AUTH_SECRET,
+      ),
       tokenType: "Bearer" as const,
-      expiresAt: new Date(record.approvedAt.getTime() + 30 * 86_400_000).toISOString(),
+      expiresAt: new Date(
+        record.approvedAt.getTime() + 30 * 86_400_000,
+      ).toISOString(),
     };
   }
 

@@ -16,9 +16,13 @@ export async function collectGarbage() {
     const key = String(row.r2_key);
     try {
       await requireResourceBindings("FILES_BUCKET").FILES_BUCKET.delete(key);
+      await db.run(sql`DELETE FROM object_usage WHERE object_key=${key}`);
       await db.run(sql`DELETE FROM object_gc WHERE r2_key=${key}`);
     } catch (error) {
-      console.error("Object cleanup will retry", error instanceof Error ? error.name : "Unknown error");
+      console.error(
+        "Object cleanup will retry",
+        error instanceof Error ? error.name : "Unknown error",
+      );
     }
   }
 }

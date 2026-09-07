@@ -10,7 +10,9 @@ interface R2Object {
   httpMetadata?: {
     contentType?: string;
   };
-  size?: number;
+  size: number;
+  text(): Promise<string>;
+  checksums: { sha256?: ArrayBuffer };
 }
 
 interface R2Bucket {
@@ -19,7 +21,12 @@ interface R2Bucket {
   head(key: string): Promise<R2Object | null>;
   put(
     key: string,
-    value: ReadableStream<Uint8Array> | ArrayBuffer | ArrayBufferView | string | Blob,
+    value:
+      | ReadableStream<Uint8Array>
+      | ArrayBuffer
+      | ArrayBufferView
+      | string
+      | Blob,
     options?: {
       onlyIf?: { etagDoesNotMatch: string };
       httpMetadata?: {
@@ -41,15 +48,21 @@ interface R2MultipartUpload {
   abort(): Promise<void>;
 }
 interface R2Bucket {
-  createMultipartUpload(key: string, options?: { httpMetadata?: { contentType?: string } }): Promise<R2MultipartUpload>;
+  createMultipartUpload(
+    key: string,
+    options?: { httpMetadata?: { contentType?: string } },
+  ): Promise<R2MultipartUpload>;
   resumeMultipartUpload(key: string, uploadId: string): R2MultipartUpload;
 }
 interface D1PreparedStatement {
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
   bind(...values: unknown[]): D1PreparedStatement;
 }
 interface D1Database {
   prepare(query: string): D1PreparedStatement;
   batch(
     statements: D1PreparedStatement[],
-  ): Promise<Array<{ results: Record<string, unknown>[]; meta: { changes: number } }>>;
+  ): Promise<
+    Array<{ results: Record<string, unknown>[]; meta: { changes: number } }>
+  >;
 }
