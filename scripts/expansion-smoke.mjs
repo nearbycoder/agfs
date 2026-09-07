@@ -12,12 +12,19 @@ const root = "/expansion-" + Date.now();
 let checks = 0;
 async function api(
   path,
-  { method = "GET", body, session = alice, status = 200, workspace } = {},
+  {
+    method = "GET",
+    body,
+    session = alice,
+    status = 200,
+    workspace,
+    token,
+  } = {},
 ) {
   const response = await fetch(base + "/api/v1/platform" + path, {
     method,
     headers: {
-      cookie: session,
+      ...(token ? { authorization: "Bearer " + token } : { cookie: session }),
       origin: base,
       ...(body === undefined ? {} : { "content-type": "application/json" }),
       ...(workspace ? { "x-agfs-workspace": workspace } : {}),
@@ -124,4 +131,81 @@ await api("/saved-searches", {
   body: { name: "", filters: {} },
   status: 400,
 });
+const notePath = root + "/renamed.txt";
+const emptyNotes = await api("/notes?path=" + encodeURIComponent(notePath));
+assert.equal(emptyNotes.note, null);
+checks++;
+const noteBody = {
+  path: notePath,
+  entryId: emptyNotes.entry.id,
+  body: "Initial shared note",
+  revision: 0,
+};
+const note = await api("/notes", { method: "PUT", body: noteBody });
+assert.equal(note.note.revision, 1);
+checks++;
+await api("/notes", {
+  method: "PUT",
+  body: { ...noteBody, body: "Stale overwrite" },
+  status: 409,
+});
+await api("/notes", {
+  method: "PUT",
+  body: { ...noteBody, revision: 1, entryId: "other" },
+  status: 409,
+});
+await api("/notes?path=" + encodeURIComponent(notePath), {
+  session: bob,
+  status: 404,
+});
+await api("/notes", {
+  method: "PUT",
+  body: { ...noteBody, revision: 1, body: "" },
+});
+assert.equal(
+  (await api("/notes?path=" + encodeURIComponent(notePath))).note.revision,
+  2,
+);
+checks++;
+await api("/notes", {
+  method: "PUT",
+  body: { ...noteBody, revision: 2, body: "x".repeat(4001) },
+  status: 400,
+});
+await client.move(notePath, root + "/noted.txt");
+assert.equal(
+  (await api("/notes?path=" + encodeURIComponent(root + "/noted.txt"))).note
+    .revision,
+  2,
+);
+checks++;
+const readerResponse = await fetch(base + "/api/v1/tokens", {
+  method: "POST",
+  headers: { cookie: alice, origin: base, "content-type": "application/json" },
+  body: JSON.stringify({
+    label: "Expansion reader",
+    pathPrefix: root,
+    permissions: ["read"],
+    ttl: "1d",
+  }),
+});
+assert.equal(readerResponse.status, 200);
+checks++;
+const reader = (await readerResponse.json()).token;
+assert.equal(
+  (
+    await api("/notes?path=" + encodeURIComponent(root + "/noted.txt"), {
+      token: reader,
+    })
+  ).canEdit,
+  false,
+);
+checks++;
+await api("/notes", {
+  method: "PUT",
+  token: reader,
+  body: { ...noteBody, path: root + "/noted.txt", revision: 2 },
+  status: 403,
+});
+await api("/notes?path=/outside-scope", { token: reader, status: 403 });
 console.log(`Expansion checks passed: ${checks}`);

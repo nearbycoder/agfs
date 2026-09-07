@@ -40,6 +40,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./saved-searches-api")
   ).savedSearchesApi(request, auth, path);
   if (saved) return saved;
+  const notes = await (
+    await import("./file-notes-api")
+  ).fileNotesApi(request, auth, path);
+  if (notes) return notes;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);
