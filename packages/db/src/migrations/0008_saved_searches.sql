@@ -1,0 +1,6 @@
+CREATE TABLE saved_searches (
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+ actor_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+ name TEXT NOT NULL COLLATE NOCASE, filters TEXT NOT NULL, created_at INTEGER NOT NULL,
+ UNIQUE(owner_id,actor_id,name)
+);

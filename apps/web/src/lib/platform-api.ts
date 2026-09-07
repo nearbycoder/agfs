@@ -36,6 +36,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./library-api")
   ).libraryApi(request, auth, path);
   if (library) return library;
+  const saved = await (
+    await import("./saved-searches-api")
+  ).savedSearchesApi(request, auth, path);
+  if (saved) return saved;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);

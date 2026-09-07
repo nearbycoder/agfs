@@ -19,7 +19,7 @@ async function api(
     headers: {
       cookie: session,
       origin: base,
-      "content-type": "application/json",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
       ...(workspace ? { "x-agfs-workspace": workspace } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -83,4 +83,45 @@ assert.equal(
   0,
 );
 checks++;
+const saved = await api("/saved-searches", {
+  method: "POST",
+  body: {
+    name: "Report files",
+    filters: { q: "report", path: root, type: "text/plain", tag: "release" },
+  },
+  status: 201,
+});
+assert.equal(
+  (await api("/saved-searches")).searches.find((s) => s.id === saved.id).filters
+    .tag,
+  "release",
+);
+checks++;
+await api("/saved-searches", {
+  method: "POST",
+  body: { name: "report files", filters: {} },
+  status: 409,
+});
+await api("/saved-searches/" + saved.id, {
+  method: "PATCH",
+  body: { name: "Renamed report search" },
+});
+await api("/saved-searches/" + saved.id, {
+  method: "DELETE",
+  session: bob,
+  status: 404,
+});
+assert.equal(
+  (await api("/saved-searches", { workspace: workspace.id })).searches.length,
+  0,
+);
+checks++;
+await api("/saved-searches/" + saved.id, { method: "DELETE" });
+assert(!(await api("/saved-searches")).searches.some((s) => s.id === saved.id));
+checks++;
+await api("/saved-searches", {
+  method: "POST",
+  body: { name: "", filters: {} },
+  status: 400,
+});
 console.log(`Expansion checks passed: ${checks}`);
