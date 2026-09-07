@@ -34,4 +34,12 @@ jobs:
       - name: Publish CLI with OIDC provenance
         run: node scripts/publish-package.mjs cli
       - name: Verify installed CLI
-        run: npm exec --yes --package="@agfs/cli@$(node -p "require('./packages/cli/package.json').version")" -- agfs --version
+        run: |
+          version=$(node -p "require('./packages/cli/package.json').version")
+          for attempt in 1 2 3 4 5 6; do
+            if npm exec --yes --prefer-online --package="@agfs/cli@$version" -- agfs --version; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 6 ]; then sleep 10; fi
+          done
+          exit 1
