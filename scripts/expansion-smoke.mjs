@@ -599,4 +599,50 @@ checks++;
 database
   .prepare("DELETE FROM entries WHERE owner_id='alice' AND parent_path=?")
   .run(root + "/history");
+
+await client.upload(root + "/canonical.txt", new Blob(["canonical"]), {
+  contentType: "text/plain",
+});
+const canonical = await api(
+  "/text?path=" + encodeURIComponent(root + "/canonical.txt"),
+);
+for (const to of [
+  root + "//alias.txt",
+  root + "/alias.txt/",
+  root + "/ alias.txt",
+  root + "/alias.txt ",
+  root + "/./alias.txt",
+]) {
+  await api("/batch-rename", {
+    method: "POST",
+    body: {
+      dryRun: false,
+      changes: [
+        {
+          from: canonical.path,
+          to,
+          entryId: canonical.entryId,
+          etag: canonical.etag,
+        },
+      ],
+    },
+    status: 400,
+  });
+}
+assert.equal(
+  (await api("/text?path=" + encodeURIComponent(canonical.path))).text,
+  "canonical",
+);
+checks++;
+const downloaded = await fetch(
+  base + "/api/v1/fs/download?path=" + encodeURIComponent(canonical.path),
+  { headers: { cookie: alice } },
+);
+assert.equal(downloaded.status, 200);
+await downloaded.arrayBuffer();
+checks++;
+assert(
+  (await api("/recent-files")).recent.some((e) => e.id === canonical.entryId),
+);
+checks++;
 console.log(`Expansion checks passed: ${checks}`);

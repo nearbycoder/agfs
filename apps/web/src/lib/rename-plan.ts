@@ -28,6 +28,7 @@ export function renamePlan(
         options.prefix + stem + options.suffix + entry.name.slice(split);
       if (
         !name ||
+        name.trim() !== name ||
         name === "." ||
         name === ".." ||
         name.length > 255 ||

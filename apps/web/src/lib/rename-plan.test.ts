@@ -38,3 +38,10 @@ describe("batch rename preview", () => {
     expect(() => renamePlan(Array(51).fill(entry), options)).toThrow();
   });
 });
+
+it("rejects whitespace aliases in resulting names", () => {
+  expect(() => renamePlan([entry], { ...options, prefix: " " })).toThrow();
+  expect(() =>
+    renamePlan([entry], { ...options, suffix: " ", preserveExtension: false }),
+  ).toThrow();
+});

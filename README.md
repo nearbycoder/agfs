@@ -142,7 +142,7 @@ The repository is now wired to the live D1 database ID `e40aac3b-5468-468c-b110-
 
 ## Cloudflare Git deploys
 
-Production deploys now come from Cloudflare's Git integration in the Cloudflare dashboard.
+Use `pnpm deploy:production` for a direct production deployment. Cloudflare Git builds can also use the settings below; confirm each build succeeds before relying on automatic deployment.
 
 Recommended settings for this repository:
 
@@ -190,3 +190,8 @@ The feature rollout and verification are documented in [AGENT-UPGRADE.md](./AGEN
 AGFS now includes search and tags, browser OAuth for MCP, shared workspaces, conditional writes, signed webhooks, run manifests, reviewed drafts, CLI sync/watch, TypeScript and Python SDKs, and agent/workspace budgets. See [the platform guide](docs/platform.md) for workflows, API routes, limits, and release verification.
 
 AGFS 0.4 adds recovery snapshots and verified backups, safer public sharing and credential rotation, incremental parallel sync, SDK browser OAuth, queue processing, operational alerts, retained run files, and workspace review/ownership controls. See the [reliability guide](docs/reliability.md) for setup, commands, retention limits, and release configuration.
+
+
+## Browser workspace tools
+
+The dashboard includes twenty additions built on the existing Workers, D1, R2 and browser APIs. No additional services or accounts are needed. See [the browser tools guide](docs/browser-tools.md) for workflows and limits, and [the completed PR checklist](EXPANSION-PLAN.md) for the individual changes.

@@ -29,3 +29,8 @@ describe("JSON inspection", () => {
     );
   });
 });
+
+it("shows nonfinite parsed numbers explicitly instead of null", () => {
+  expect(inspectJson("1e400").nodes[0].value).toBe("Infinity");
+  expect(inspectJson("-1e400").nodes[0].value).toBe("-Infinity");
+});
