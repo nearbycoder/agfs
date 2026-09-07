@@ -49,6 +49,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./collections-api")
   ).collectionsApi(request, auth, path);
   if (collections) return collections;
+  const storage = await (
+    await import("./storage-insights-api")
+  ).storageInsightsApi(request, auth, path);
+  if (storage) return storage;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);
