@@ -1,3 +1,4 @@
+import { JsonInspector } from "./JsonInspector";
 import { CsvInspector } from "./CsvInspector";
 import { Page } from "./shared";
 import { FileNotes } from "./FileNotes";
@@ -35,6 +36,14 @@ export function FileToolsPage() {
         </summary>
         <div className="mt-4">
           <CsvInspector />
+        </div>
+      </details>
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-semibold">
+          JSON inspector
+        </summary>
+        <div className="mt-4">
+          <JsonInspector />
         </div>
       </details>
     </Page>
