@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { TextCompare } from "./TextCompare";
 import { JsonInspector } from "./JsonInspector";
 import { CsvInspector } from "./CsvInspector";
@@ -6,24 +8,33 @@ import { FileNotes } from "./FileNotes";
 import { TextEditor } from "./TextEditor";
 import { FileTemplates } from "./FileTemplates";
 export function FileToolsPage() {
+  const location = useLocation();
+  useEffect(() => {
+    if (!location.hash) return;
+    const target = document.getElementById(location.hash.replace(/^#/, ""));
+    if (target instanceof HTMLDetailsElement) {
+      target.open = true;
+      target.scrollIntoView({ block: "start" });
+    }
+  }, [location.hash]);
   return (
     <Page
       title="File tools"
       description="Inspect and annotate files without leaving your workspace."
     >
-      <details className="rounded-xl border p-4">
+      <details id="file-notes" className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">File notes</summary>
         <div className="mt-4">
           <FileNotes />
         </div>
       </details>
-      <details open className="rounded-xl border p-4">
+      <details id="text-editor" open className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">Text editor</summary>
         <div className="mt-4">
           <TextEditor />
         </div>
       </details>
-      <details className="rounded-xl border p-4">
+      <details id="file-templates" className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">
           File templates
         </summary>
@@ -31,7 +42,7 @@ export function FileToolsPage() {
           <FileTemplates />
         </div>
       </details>
-      <details className="rounded-xl border p-4">
+      <details id="csv-inspector" className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">
           CSV inspector
         </summary>
@@ -39,7 +50,7 @@ export function FileToolsPage() {
           <CsvInspector />
         </div>
       </details>
-      <details className="rounded-xl border p-4">
+      <details id="json-inspector" className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">
           JSON inspector
         </summary>
@@ -47,7 +58,7 @@ export function FileToolsPage() {
           <JsonInspector />
         </div>
       </details>
-      <details className="rounded-xl border p-4">
+      <details id="text-comparison" className="rounded-xl border p-4">
         <summary className="cursor-pointer font-semibold">
           Text comparison
         </summary>
