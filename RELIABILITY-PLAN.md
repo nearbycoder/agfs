@@ -33,6 +33,6 @@ Implementation and local verification are complete. Activation status:
 - PR #7 merged; migration 0006 and the web application are deployed. Main requires the passing `verify` CI job.
 - The private CIMD container is deployed. Its public HTTPS and private-address rejection checks passed. Production discovery and authorization-start checks passed; the local integration suite covers discovery, consent, code exchange, and API access for an unregistered CIMD client.
 - Workspace backup/restore passed. A production database-and-R2 archive was completed and verified on September 7, including database restore, search rebuild, and object checksums.
-- npm 0.4.0 artifacts are prepared in a GitHub draft release. Trusted publisher activation still requires separate npm verification for SDK and CLI.
+- SDK and CLI 0.4.0 are published to npm with GitHub Actions OIDC provenance. Both trusted publishers are active. Registry installation verifies CLI 0.4.0 and the SDK core/OAuth imports; the GitHub release includes npm archives and Python distributions.
 - Optional invitation email requires a verified sender and Resend key. Invitation links work without email.
 - Cloudflare's independent Workers Builds check failed. Direct Wrangler deployment is verified; reading Builds logs requires additional account access unavailable to the current CLI login.

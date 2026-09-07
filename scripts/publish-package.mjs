@@ -16,7 +16,9 @@ const existing = spawnSync(
   { encoding: "utf8" },
 );
 if (existing.status === 0) {
-  if (JSON.parse(existing.stdout) !== integrity)
+  const result = JSON.parse(existing.stdout);
+  const integrities = Array.isArray(result) ? result : [result];
+  if (integrities.length !== 1 || integrities[0] !== integrity)
     throw new Error("This package version exists with different contents");
   console.log(
     `${pkg.name}@${pkg.version} already published with matching integrity`,
