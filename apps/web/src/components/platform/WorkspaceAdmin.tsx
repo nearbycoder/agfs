@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { platform, useAction, selectClass } from "./shared";
+import { platform, useAction } from "./shared";
 export function WorkspaceAdmin({ owner }: { owner: boolean }) {
   const action = useAction(),
     [invites, setInvites] = useState<any[]>([]),
@@ -96,21 +97,22 @@ export function WorkspaceAdmin({ owner }: { owner: boolean }) {
           >
             <label className="grid gap-2 text-sm">
               Transfer ownership to
-              <select
+              <Select
+                placeholder="Select a member"
+                aria-label="Transfer ownership to"
                 required
-                className={selectClass}
                 value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
+                onValueChange={(value) => setRecipient(value)}
               >
-                <option value="">Select a member</option>
+                <SelectItem value="">Select a member</SelectItem>
                 {members
                   .filter((m) => m.role !== "owner")
                   .map((m) => (
-                    <option key={m.user_id} value={m.user_id}>
+                    <SelectItem key={m.user_id} value={m.user_id}>
                       {m.email}
-                    </option>
+                    </SelectItem>
                   ))}
-              </select>
+              </Select>
             </label>
             <p className="text-sm text-muted-foreground">
               The recipient must accept within 24 hours. You become an editor

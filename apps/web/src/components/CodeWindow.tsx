@@ -25,7 +25,7 @@ export function CodeWindow(props: {
   return (
     <div
       className={cn(
-        "min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-[#12201b] text-zinc-100 shadow-lg shadow-black/10",
+        "min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-lg shadow-black/10",
         props.className,
       )}
     >
@@ -42,7 +42,7 @@ export function CodeWindow(props: {
             className="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-white/10 hover:text-white"
           >
             {copied ? (
-              <Check className="size-4 text-emerald-300" />
+              <Check className="size-4 text-zinc-100" />
             ) : (
               <Copy className="size-3.5" />
             )}

@@ -139,8 +139,6 @@ export function Field({
     </label>
   );
 }
-export const selectClass =
-  "h-10 w-full rounded-md border bg-transparent px-3 text-sm";
 export function Empty({ loading, text }: { loading: boolean; text: string }) {
   return (
     <p className="rounded-lg border border-dashed bg-muted/40 px-6 py-12 text-center text-sm leading-6 text-muted-foreground">

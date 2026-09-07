@@ -4,47 +4,47 @@
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
 :root {
-  --background: #f8f9f7;
-  --foreground: #202a29;
+  --background: #fafafa;
+  --foreground: #18181b;
   --card: #fff;
-  --card-foreground: #202a29;
+  --card-foreground: #18181b;
   --popover: #fff;
-  --popover-foreground: #202a29;
-  --primary: #126b5b;
+  --popover-foreground: #18181b;
+  --primary: #18181b;
   --primary-foreground: #fff;
-  --secondary: #edf2ef;
-  --secondary-foreground: #29443b;
-  --muted: #f0f3f0;
-  --muted-foreground: #61706a;
-  --accent: #e1eee7;
-  --accent-foreground: #125a49;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #27272a;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #e4e4e7;
+  --accent-foreground: #18181b;
   --destructive: #bd3232;
   --destructive-foreground: #fff;
-  --border: #dfe5df;
-  --input: #d6ded7;
-  --ring: #388675;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #71717a;
   --radius: 0.65rem;
 }
 .dark {
-  --background: #111816;
-  --foreground: #e8efeb;
-  --card: #19221f;
-  --card-foreground: #e8efeb;
-  --popover: #1c2722;
-  --popover-foreground: #e8efeb;
-  --primary: #8cdbbd;
-  --primary-foreground: #102e23;
-  --secondary: #23332b;
-  --secondary-foreground: #d6e9df;
-  --muted: #202c26;
-  --muted-foreground: #a5b4ac;
-  --accent: #263e32;
-  --accent-foreground: #a1e5c8;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
   --destructive: #ee7777;
   --destructive-foreground: #231111;
-  --border: #304038;
-  --input: #3b4b42;
-  --ring: #8cdbbd;
+  --border: #27272a;
+  --input: #3f3f46;
+  --ring: #fafafa;
 }
 @theme inline {
   --color-background: var(--background);
@@ -130,7 +130,7 @@
     color: var(--accent-foreground);
   }
   dialog::backdrop {
-    background: #071b15a6;
+    background: #09090ba6;
     backdrop-filter: blur(3px);
   }
   @media (prefers-reduced-motion: reduce) {
@@ -266,7 +266,7 @@
     @apply text-balance text-3xl font-semibold leading-tight tracking-[-.045em] sm:text-4xl;
   }
   .product-shot {
-    @apply overflow-hidden rounded-xl border bg-card shadow-[0_24px_70px_-30px_#12392d66];
+    @apply overflow-hidden rounded-xl border bg-card shadow-[0_24px_70px_-30px_#09090b33];
   }
 }
 

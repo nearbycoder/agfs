@@ -1,3 +1,4 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthGate } from "~/components/AuthGate";
@@ -8,7 +9,6 @@ import {
   platform,
   useAction,
   useData,
-  selectClass,
 } from "~/components/platform/shared";
 export const Route = createFileRoute("/oauth/consent")({
   component: () => (
@@ -62,18 +62,18 @@ function Consent() {
         </p>
         <label className="grid gap-2 text-sm">
           Workspace
-          <select
-            className={selectClass}
+          <Select
+            aria-label="Workspace"
             value={workspace}
-            onChange={(e) => setWorkspace(e.target.value)}
+            onValueChange={(value) => setWorkspace(value)}
           >
-            <option value="personal">Personal workspace</option>
+            <SelectItem value="personal">Personal workspace</SelectItem>
             {data.items.map((w) => (
-              <option key={w.id} value={w.id}>
+              <SelectItem key={w.id} value={w.id}>
                 {w.name} ({w.role})
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </Select>
         </label>
         <Field
           label="Allowed folder"

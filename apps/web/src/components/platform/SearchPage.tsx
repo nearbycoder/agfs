@@ -1,7 +1,8 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { SavedSearches, type SearchFilters } from "./SavedSearches";
 import { Button } from "~/components/ui/button";
-import { Page, Field, platform, useAction, Empty, selectClass } from "./shared";
+import { Page, Field, platform, useAction, Empty } from "./shared";
 const empty: SearchFilters = {
   q: "",
   path: "/",
@@ -104,15 +105,16 @@ export function SearchPage() {
               <legend className="sr-only">Advanced filters</legend>
               <label className="grid gap-2 text-sm">
                 Entry kind
-                <select
-                  className={selectClass}
+                <Select
+                  placeholder="Files and folders"
+                  aria-label="Entry kind"
                   value={filters.kind ?? ""}
-                  onChange={(e) => change("kind", e.target.value)}
+                  onValueChange={(value) => change("kind", value)}
                 >
-                  <option value="">Files and folders</option>
-                  <option value="file">Files only</option>
-                  <option value="folder">Folders only</option>
-                </select>
+                  <SelectItem value="">Files and folders</SelectItem>
+                  <SelectItem value="file">Files only</SelectItem>
+                  <SelectItem value="folder">Folders only</SelectItem>
+                </Select>
               </label>
               <Field
                 label="Minimum bytes"

@@ -38,7 +38,7 @@ export const Route = createRootRoute({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { name: "application-name", content: SITE_NAME },
         { name: "apple-mobile-web-app-title", content: SITE_NAME },
-        { name: "theme-color", content: "#10131a" },
+        { name: "theme-color", content: "#18181b" },
         { name: "color-scheme", content: "light dark" },
         ...seo.meta,
       ],
