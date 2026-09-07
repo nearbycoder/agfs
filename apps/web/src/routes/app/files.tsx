@@ -44,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import { FolderReadme } from "~/components/platform/FolderReadme";
 import { BatchRename } from "~/components/platform/BatchRename";
 import { formatBytes } from "~/lib/format";
 import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
@@ -371,6 +372,7 @@ function FilesPage() {
 
   return (
     <div className="space-y-6">
+      <FolderReadme entries={entries} />
       {selectedPaths.length ? (
         <BatchRename
           entries={entries.filter(
