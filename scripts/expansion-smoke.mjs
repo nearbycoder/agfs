@@ -322,4 +322,35 @@ await api(
   pageQuery + "&maxSize=10&cursor=" + encodeURIComponent(firstPage.nextCursor),
   { status: 400 },
 );
+const storage = await api("/storage/insights?path=" + encodeURIComponent(root));
+assert.equal(storage.summary.bytes, 8);
+assert.equal(storage.summary.files, 1);
+checks += 2;
+assert.equal(
+  storage.types.reduce((sum, t) => sum + t.bytes, 0),
+  8,
+);
+checks++;
+assert.equal(storage.largest[0].path, root + "/collected.txt");
+checks++;
+assert.equal(
+  (await api("/storage/insights?path=" + encodeURIComponent(root + "/pages")))
+    .summary.bytes,
+  0,
+);
+checks++;
+await api("/storage/insights?path=" + encodeURIComponent(root), {
+  session: bob,
+  status: 404,
+});
+await api(
+  "/storage/insights?path=" + encodeURIComponent(root + "/collected.txt"),
+  { status: 400 },
+);
+await api("/storage/insights?path=/", { token: reader, status: 403 });
+assert.equal(
+  (await api("/storage/insights", { token: reader })).summary.bytes,
+  8,
+);
+checks++;
 console.log(`Expansion checks passed: ${checks}`);

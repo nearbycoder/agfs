@@ -22,6 +22,7 @@ import { cn } from "~/lib/utils";
 const navigation = [
   { href: "/app/library", icon: FolderKanban, label: "Library" },
   { href: "/app/tools", icon: FileCheck, label: "File tools" },
+  { href: "/app/storage", icon: HardDrive, label: "Storage insights" },
   { href: "/app/files", icon: FolderKanban, label: "Files" },
   { href: "/app/search", icon: Search, label: "Search" },
   { href: "/app/workspaces", icon: Users, label: "Workspaces" },

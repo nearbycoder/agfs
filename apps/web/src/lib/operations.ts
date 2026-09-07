@@ -7,7 +7,7 @@ import type { RequestAuth } from "./authz";
 export function operationKind(path: string) {
   return path === "/mcp"
     ? "mcp"
-    : path.includes("/search")
+    : path.includes("/search") || path.includes("/platform/storage/")
       ? "search"
       : path.includes("/upload")
         ? "upload"
