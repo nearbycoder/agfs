@@ -1,0 +1,7 @@
+CREATE TABLE file_templates (
+ id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+ actor_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+ name TEXT NOT NULL COLLATE NOCASE, body TEXT NOT NULL, content_type TEXT NOT NULL,
+ revision INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+ UNIQUE(owner_id,actor_id,name)
+);

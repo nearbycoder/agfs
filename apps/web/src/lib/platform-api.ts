@@ -61,6 +61,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./text-files-api")
   ).textFilesApi(request, auth, path);
   if (textFile) return textFile;
+  const template = await (
+    await import("./templates-api")
+  ).templatesApi(request, auth, path);
+  if (template) return template;
   const extra = await (
     await import("./reliability-api")
   ).reliabilityApi(request, auth, path);
