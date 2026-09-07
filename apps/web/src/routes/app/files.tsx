@@ -44,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
+import { BatchRename } from "~/components/platform/BatchRename";
 import { formatBytes } from "~/lib/format";
 import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 import { cn } from "~/lib/utils";
@@ -370,6 +371,17 @@ function FilesPage() {
 
   return (
     <div className="space-y-6">
+      {selectedPaths.length ? (
+        <BatchRename
+          entries={entries.filter(
+            (e) => e.kind === "file" && selectedPaths.includes(e.path),
+          )}
+          onComplete={async () => {
+            await refreshEntries(path);
+            setSelectedPaths([]);
+          }}
+        />
+      ) : null}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <Card>
           <CardHeader className="space-y-5">
