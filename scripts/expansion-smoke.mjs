@@ -208,4 +208,53 @@ await api("/notes", {
   status: 403,
 });
 await api("/notes?path=/outside-scope", { token: reader, status: 403 });
+const collection = await api("/collections", {
+  method: "POST",
+  body: { name: "Handoff files" },
+  status: 201,
+});
+await api("/collections", {
+  method: "POST",
+  body: { name: "handoff files" },
+  status: 409,
+});
+const collectionPath = "/collections/" + collection.id;
+await api(collectionPath + "/items", {
+  method: "PUT",
+  body: { path: root + "/noted.txt" },
+});
+await api(collectionPath + "/items", {
+  method: "PUT",
+  body: { path: root + "/noted.txt" },
+});
+assert.equal((await api(collectionPath + "/items")).items.length, 1);
+checks++;
+await api(collectionPath + "/items", { session: bob, status: 404 });
+await api(collectionPath, {
+  method: "DELETE",
+  workspace: workspace.id,
+  status: 404,
+});
+await api(collectionPath, {
+  method: "PATCH",
+  body: { name: "Reviewed files" },
+});
+await client.move(root + "/noted.txt", root + "/collected.txt");
+const member = (await api(collectionPath + "/items")).items[0];
+assert.equal(member.path, root + "/collected.txt");
+checks++;
+await api(collectionPath + "/items", {
+  method: "DELETE",
+  body: { entryId: member.id },
+});
+assert.equal((await api(collectionPath + "/items")).items.length, 0);
+checks++;
+await api(collectionPath + "/items", {
+  method: "PUT",
+  body: { path: root + "/collected.txt" },
+});
+await api(collectionPath, { method: "DELETE" });
+assert.equal(await client.readText(root + "/collected.txt"), "favorite");
+checks++;
+await api(collectionPath + "/items", { status: 404 });
 console.log(`Expansion checks passed: ${checks}`);
