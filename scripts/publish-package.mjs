@@ -7,7 +7,7 @@ const pkg = JSON.parse(readFileSync(`packages/${kind}/package.json`));
 const tag = process.env.GITHUB_REF;
 if (tag?.startsWith("refs/tags/") && tag !== `refs/tags/v${pkg.version}`)
   throw new Error("Release tag and package version differ");
-const file = `release/agfs-${kind}-${pkg.version}.tgz`;
+const file = `./release/agfs-${kind}-${pkg.version}.tgz`;
 const integrity =
   "sha512-" + createHash("sha512").update(readFileSync(file)).digest("base64");
 const existing = spawnSync(
