@@ -1,3 +1,4 @@
+import { RunCompare } from "./RunCompare";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Page, Field, platform, useAction, useData, Empty } from "./shared";
@@ -15,6 +16,7 @@ export function RunsPage() {
       description="Group outputs into a run and save a manifest with retained inputs, artifacts, versions, and provenance."
       error={action.error || data.error}
     >
+      <RunCompare runs={data.items} />
       <form
         className="space-y-4"
         onSubmit={(e) => {
