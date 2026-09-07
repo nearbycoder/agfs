@@ -16,7 +16,7 @@ Each numbered feature ships in its own PR after focused verification and require
 | 10 | Batch rename: preview prefix/suffix replacements, collision validation, atomic all-or-nothing application. | [#20](https://github.com/nearbycoder/agfs/pull/20) merged |
 | 11 | CSV inspector: quoted-field parser, bounded rendering, column filter, malformed input feedback. | [#21](https://github.com/nearbycoder/agfs/pull/21) merged |
 | 12 | JSON inspector: validation, tree inspection, formatted/raw views, copy, safe text rendering. | [#22](https://github.com/nearbycoder/agfs/pull/22) merged |
-| 13 | Text comparison: compare two accessible files, bounded line diff, change counts. | pending |
+| 13 | Text comparison: compare two accessible files, bounded line diff, change counts. | [#23](https://github.com/nearbycoder/agfs/pull/23) merged |
 | 14 | Folder README: discover/read documentation in the current folder, safe rendering, loading/error states. | pending |
 | 15 | Command palette: searchable navigation/actions, keyboard shortcut, accessible focus and Escape behavior. | pending |
 | 16 | Recent files: personal workspace history, open/remove/clear, live permission checks. | pending |
