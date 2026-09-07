@@ -63,6 +63,11 @@ export async function searchFiles(
     path?: string;
     type?: string;
     tag?: string;
+    kind?: "file" | "folder";
+    minSize?: number;
+    maxSize?: number;
+    modifiedAfter?: number;
+    modifiedBefore?: number;
     offset?: number;
     cursor?: string;
   },
@@ -77,6 +82,11 @@ export async function searchFiles(
     input.q,
     input.type,
     input.tag,
+    input.kind,
+    input.minSize,
+    input.maxSize,
+    input.modifiedAfter,
+    input.modifiedBefore,
   ]);
   const cursor = decodeCursor<{ path: string; scope: string }>(
     input.cursor,
@@ -84,9 +94,14 @@ export async function searchFiles(
   );
   const matches =
     await rows(sql`SELECT e.id,e.path,e.name,e.kind,e.size,e.content_type AS contentType,e.etag,
-    d.tags,substr(d.content,1,240) AS excerpt,d.indexed_at AS indexedAt
+    e.updated_at AS updatedAt,d.tags,substr(d.content,1,240) AS excerpt,d.indexed_at AS indexedAt
     FROM entries e LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key
     WHERE e.owner_id=${auth.user.id} AND (e.path=${path} OR substr(e.path,1,length(${prefix}))=${prefix})
+    AND (${input.kind ?? null} IS NULL OR e.kind=${input.kind ?? null})
+    AND (${input.minSize ?? null} IS NULL OR coalesce(e.size,0)>=${input.minSize ?? null})
+    AND (${input.maxSize ?? null} IS NULL OR coalesce(e.size,0)<=${input.maxSize ?? null})
+    AND (${input.modifiedAfter ?? null} IS NULL OR e.updated_at>=${input.modifiedAfter ?? null})
+    AND (${input.modifiedBefore ?? null} IS NULL OR e.updated_at<=${input.modifiedBefore ?? null})
     AND (${input.type ?? null} IS NULL OR e.content_type=${input.type ?? null})
     AND (${input.tag ?? null} IS NULL OR EXISTS(SELECT 1 FROM json_each(coalesce(d.tags,'[]')) WHERE value=${input.tag ?? null}))
     AND (${input.q}='' OR instr(lower(e.name),lower(${input.q}))>0
