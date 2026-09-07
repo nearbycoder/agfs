@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SavedSearches, type SearchFilters } from "./SavedSearches";
 import { Button } from "~/components/ui/button";
 import { Page, Field, platform, useAction, Empty } from "./shared";
 export function SearchPage() {
@@ -12,14 +13,17 @@ export function SearchPage() {
     [tagPath, setTagPath] = useState(""),
     [tags, setTags] = useState("");
   const action = useAction();
-  async function search(cursor?: string) {
+  async function search(
+    cursor?: string,
+    filters: SearchFilters = { q, path, type, tag },
+  ) {
     const data = await platform(
       "/search?" +
         new URLSearchParams({
-          q,
-          path,
-          ...(type ? { type } : {}),
-          ...(tag ? { tag } : {}),
+          q: filters.q,
+          path: filters.path,
+          ...(filters.type ? { type: filters.type } : {}),
+          ...(filters.tag ? { tag: filters.tag } : {}),
           ...(cursor ? { cursor } : {}),
         }),
     );
@@ -34,6 +38,17 @@ export function SearchPage() {
       error={action.error}
       notice={action.notice}
     >
+      <SavedSearches
+        filters={{ q, path, type, tag }}
+        busy={action.busy}
+        onApply={(filters) => {
+          setQ(filters.q);
+          setPath(filters.path);
+          setType(filters.type);
+          setTag(filters.tag);
+          void action.run(() => search(undefined, filters));
+        }}
+      />
       <form
         className="space-y-4"
         onSubmit={(e) => {
