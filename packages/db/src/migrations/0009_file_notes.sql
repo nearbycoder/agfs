@@ -1,0 +1,6 @@
+CREATE TABLE entry_notes (
+ entry_id TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
+ owner_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+ body TEXT NOT NULL, actor_id TEXT NOT NULL, revision INTEGER NOT NULL,
+ updated_at INTEGER NOT NULL
+);
