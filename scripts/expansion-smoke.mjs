@@ -257,4 +257,69 @@ await api(collectionPath, { method: "DELETE" });
 assert.equal(await client.readText(root + "/collected.txt"), "favorite");
 checks++;
 await api(collectionPath + "/items", { status: 404 });
+const searchBase = "/search?path=" + encodeURIComponent(root);
+assert.equal(
+  (await api(searchBase + "&kind=file&minSize=8")).results.length,
+  1,
+);
+checks++;
+assert.equal(
+  (await api(searchBase + "&kind=file&maxSize=7")).results.length,
+  0,
+);
+checks++;
+assert(
+  (await api(searchBase + "&kind=folder")).results.every(
+    (e) => e.kind === "folder",
+  ),
+);
+checks++;
+assert.equal((await api(searchBase + "&modifiedBefore=1")).results.length, 0);
+checks++;
+assert((await api(searchBase + "&modifiedAfter=1")).results.length > 0);
+checks++;
+await api(searchBase + "&minSize=20&maxSize=1", { status: 400 });
+await api(searchBase + "&modifiedAfter=20&modifiedBefore=1", { status: 400 });
+await api(searchBase, { token: reader });
+await api("/search?path=/&minSize=0", { token: reader, status: 403 });
+const advancedSaved = await api("/saved-searches", {
+  method: "POST",
+  body: {
+    name: "Large text",
+    filters: {
+      path: root,
+      q: "",
+      kind: "file",
+      minSize: "8",
+      after: "2026-01-01",
+    },
+  },
+  status: 201,
+});
+assert.equal(
+  (await api("/saved-searches")).searches.find((s) => s.id === advancedSaved.id)
+    .filters.minSize,
+  "8",
+);
+checks++;
+for (let index = 0; index < 51; index++)
+  await client.mkdir(root + "/pages/" + String(index).padStart(3, "0"));
+const pageQuery =
+  "/search?path=" + encodeURIComponent(root + "/pages") + "&kind=folder";
+const firstPage = await api(pageQuery);
+assert.equal(firstPage.results.length, 50);
+assert(firstPage.nextCursor);
+checks += 2;
+const secondPage = await api(
+  pageQuery + "&cursor=" + encodeURIComponent(firstPage.nextCursor),
+);
+assert.equal(
+  new Set([...firstPage.results, ...secondPage.results].map((e) => e.id)).size,
+  52,
+);
+checks++;
+await api(
+  pageQuery + "&maxSize=10&cursor=" + encodeURIComponent(firstPage.nextCursor),
+  { status: 400 },
+);
 console.log(`Expansion checks passed: ${checks}`);

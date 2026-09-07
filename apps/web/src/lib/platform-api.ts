@@ -1,3 +1,4 @@
+import { searchInputSchema } from "./search-input";
 import { z } from "zod";
 import { pathSchema } from "@agfs/contracts";
 import { requireRequestAuth } from "./authz";
@@ -158,16 +159,7 @@ export async function platformApi(request: Request): Promise<Response | null> {
     return json(
       await search.searchFiles(
         auth,
-        z
-          .object({
-            q: z.string().max(200).default(""),
-            path: pathSchema.optional(),
-            type: z.string().max(255).optional(),
-            tag: z.string().max(40).optional(),
-            cursor: z.string().max(4096).optional(),
-            offset: z.coerce.number().int().min(0).max(100000).optional(),
-          })
-          .parse(Object.fromEntries(url.searchParams)),
+        searchInputSchema.parse(Object.fromEntries(url.searchParams)),
       ),
     );
   if (path === "/tags" && method === "PUT") {

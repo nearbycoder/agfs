@@ -1,52 +1,73 @@
 import { useState } from "react";
 import { SavedSearches, type SearchFilters } from "./SavedSearches";
 import { Button } from "~/components/ui/button";
-import { Page, Field, platform, useAction, Empty } from "./shared";
+import { Page, Field, platform, useAction, Empty, selectClass } from "./shared";
+const empty: SearchFilters = {
+  q: "",
+  path: "/",
+  type: "",
+  tag: "",
+  minSize: "",
+  maxSize: "",
+  after: "",
+  before: "",
+  kind: "",
+};
 export function SearchPage() {
-  const [q, setQ] = useState(""),
-    [path, setPath] = useState("/"),
-    [type, setType] = useState(""),
-    [tag, setTag] = useState(""),
+  const [filters, setFilters] = useState<SearchFilters>(empty),
+    [active, setActive] = useState<SearchFilters | null>(null),
     [items, setItems] = useState<any[]>([]),
     [next, setNext] = useState<string | null>(null),
     [searched, setSearched] = useState(false),
     [tagPath, setTagPath] = useState(""),
     [tags, setTags] = useState("");
   const action = useAction();
-  async function search(
-    cursor?: string,
-    filters: SearchFilters = { q, path, type, tag },
-  ) {
-    const data = await platform(
-      "/search?" +
-        new URLSearchParams({
-          q: filters.q,
-          path: filters.path,
-          ...(filters.type ? { type: filters.type } : {}),
-          ...(filters.tag ? { tag: filters.tag } : {}),
-          ...(cursor ? { cursor } : {}),
-        }),
-    );
+  function change(key: keyof SearchFilters, value: string) {
+    setFilters((old) => ({ ...old, [key]: value }));
+  }
+  async function search(cursor?: string, values: SearchFilters = filters) {
+    if (
+      values.minSize &&
+      values.maxSize &&
+      Number(values.minSize) > Number(values.maxSize)
+    )
+      throw new Error("Minimum bytes must not exceed maximum bytes.");
+    if (values.after && values.before && values.after > values.before)
+      throw new Error("The start date must not be after the end date.");
+    const query = new URLSearchParams({ q: values.q, path: values.path });
+    for (const key of ["type", "tag", "kind", "minSize", "maxSize"] as const)
+      if (values[key]) query.set(key, values[key]!);
+    if (values.after)
+      query.set(
+        "modifiedAfter",
+        String(Date.parse(values.after + "T00:00:00Z")),
+      );
+    if (values.before)
+      query.set(
+        "modifiedBefore",
+        String(Date.parse(values.before + "T23:59:59.999Z")),
+      );
+    if (cursor) query.set("cursor", cursor);
+    const data = await platform("/search?" + query);
     setItems((old) => (cursor ? [...old, ...data.results] : data.results));
     setNext(data.nextCursor);
     setSearched(true);
+    setActive({ ...values });
   }
   return (
     <Page
       title="Search"
-      description="Find files by name, text, type, or tags. Text files up to 1 MiB are indexed within a minute."
+      description="Find files by name, text, tags, size, or modification date. Text files up to 1 MiB are indexed within a minute."
       error={action.error}
       notice={action.notice}
     >
       <SavedSearches
-        filters={{ q, path, type, tag }}
+        filters={filters}
         busy={action.busy}
-        onApply={(filters) => {
-          setQ(filters.q);
-          setPath(filters.path);
-          setType(filters.type);
-          setTag(filters.tag);
-          void action.run(() => search(undefined, filters));
+        onApply={(saved) => {
+          const values = { ...empty, ...saved };
+          setFilters(values);
+          void action.run(() => search(undefined, values));
         }}
       />
       <form
@@ -58,31 +79,98 @@ export function SearchPage() {
       >
         <Field
           label="Search files"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+          value={filters.q}
+          maxLength={200}
+          onChange={(e) => change("q", e.target.value)}
           placeholder="release notes"
         />
         <div className="grid gap-4 sm:grid-cols-3">
           <Field
             label="Folder"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
             required
+            value={filters.path}
+            onChange={(e) => change("path", e.target.value)}
           />
           <Field
             label="Content type (optional)"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
+            value={filters.type}
+            onChange={(e) => change("type", e.target.value)}
             placeholder="text/plain"
           />
           <Field
             label="Tag (optional)"
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
+            value={filters.tag}
+            onChange={(e) => change("tag", e.target.value)}
           />
         </div>
-        <Button disabled={action.busy}>Search</Button>
+        <fieldset className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
+          <legend className="px-2 text-sm font-semibold">
+            Advanced filters
+          </legend>
+          <label className="grid gap-2 text-sm">
+            Entry kind
+            <select
+              className={selectClass}
+              value={filters.kind ?? ""}
+              onChange={(e) => change("kind", e.target.value)}
+            >
+              <option value="">Files and folders</option>
+              <option value="file">Files only</option>
+              <option value="folder">Folders only</option>
+            </select>
+          </label>
+          <Field
+            label="Minimum bytes"
+            type="number"
+            min="0"
+            step="1"
+            value={filters.minSize ?? ""}
+            onChange={(e) => change("minSize", e.target.value)}
+          />
+          <Field
+            label="Maximum bytes"
+            type="number"
+            min="0"
+            step="1"
+            value={filters.maxSize ?? ""}
+            onChange={(e) => change("maxSize", e.target.value)}
+          />
+          <Field
+            label="Modified on/after (UTC)"
+            type="date"
+            value={filters.after ?? ""}
+            onChange={(e) => change("after", e.target.value)}
+          />
+          <Field
+            label="Modified on/before (UTC)"
+            type="date"
+            value={filters.before ?? ""}
+            onChange={(e) => change("before", e.target.value)}
+          />
+        </fieldset>
+        <div className="flex gap-3">
+          <Button disabled={action.busy}>Search</Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={action.busy}
+            onClick={() => {
+              setFilters(empty);
+              setActive(null);
+              setItems([]);
+              setNext(null);
+              setSearched(false);
+            }}
+          >
+            Reset filters
+          </Button>
+        </div>
       </form>
+      {active && JSON.stringify(active) !== JSON.stringify(filters) ? (
+        <p role="status" className="text-sm text-zinc-500">
+          Showing the last search. Press Search to apply your changed filters.
+        </p>
+      ) : null}
       {items.length ? (
         <ul className="divide-y">
           {items.map((item) => (
@@ -90,13 +178,18 @@ export function SearchPage() {
               <a
                 className="font-mono text-sm underline break-all"
                 href={
-                  "/api/v1/fs/download?path=" + encodeURIComponent(item.path)
+                  (item.kind === "folder"
+                    ? "/app/files?path="
+                    : "/api/v1/fs/download?path=") +
+                  encodeURIComponent(item.path)
                 }
               >
                 {item.path}
               </a>
               <p className="text-xs text-zinc-500">
-                {item.contentType ?? item.kind} · {item.tags.join(", ")}
+                {item.contentType ?? item.kind} · {item.size ?? 0} bytes ·{" "}
+                {new Date(item.updatedAt).toLocaleString()} ·{" "}
+                {item.tags.join(", ")}
               </p>
               {item.excerpt ? (
                 <p className="whitespace-pre-wrap break-words text-sm text-zinc-500">
@@ -126,11 +219,11 @@ export function SearchPage() {
           }
         />
       )}
-      {next !== null ? (
+      {next && active ? (
         <Button
           disabled={action.busy}
           variant="outline"
-          onClick={() => void action.run(() => search(next))}
+          onClick={() => void action.run(() => search(next, active))}
         >
           Load more
         </Button>

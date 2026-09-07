@@ -2,6 +2,11 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field, platform, useAction, useData } from "./shared";
 export type SearchFilters = {
+  kind?: string;
+  minSize?: string;
+  maxSize?: string;
+  after?: string;
+  before?: string;
   q: string;
   path: string;
   type: string;

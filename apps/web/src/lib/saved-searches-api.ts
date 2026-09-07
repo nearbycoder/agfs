@@ -8,7 +8,17 @@ import { actorId } from "./workspaces";
 import { rows, first } from "./platform-db";
 import { json, parseJson, errorResponse } from "./http";
 const name = z.string().trim().min(1).max(100);
+const numericText = z
+  .string()
+  .regex(/^\d*$/)
+  .refine((v) => !v || Number.isSafeInteger(Number(v)))
+  .optional();
 export const savedFilters = z.object({
+  kind: z.enum(["", "file", "folder"]).optional(),
+  minSize: numericText,
+  maxSize: numericText,
+  after: z.iso.date().or(z.literal("")).optional(),
+  before: z.iso.date().or(z.literal("")).optional(),
   q: z.string().max(200).default(""),
   path: pathSchema.default("/"),
   type: z.string().max(255).default(""),
