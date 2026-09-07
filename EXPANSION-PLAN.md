@@ -10,7 +10,7 @@ Each numbered feature ships in its own PR after focused verification and require
 | 4 | Collections: named sets of existing files, add/remove members, rename/delete, follow file moves. | [#14](https://github.com/nearbycoder/agfs/pull/14) merged |
 | 5 | Advanced search: size, modification date, file/folder filters with stable pagination and reset. | [#15](https://github.com/nearbycoder/agfs/pull/15) merged |
 | 6 | Storage insights: live totals, type distribution, largest files, folder-scoped summaries. | [#16](https://github.com/nearbycoder/agfs/pull/16) merged |
-| 7 | Duplicate finder: checksum/size groups, inspect paths, report potential reclaimable space without deleting. | pending |
+| 7 | Duplicate finder: checksum/size groups, inspect paths, report potential reclaimable space without deleting. | [#17](https://github.com/nearbycoder/agfs/pull/17) merged |
 | 8 | Browser text editor: bounded text loading, conditional save, unsaved-change warning, conflict handling. | pending |
 | 9 | File templates: reusable text templates, built-in starters, safe create-only instantiation. | pending |
 | 10 | Batch rename: preview prefix/suffix replacements, collision validation, per-file outcomes. | pending |

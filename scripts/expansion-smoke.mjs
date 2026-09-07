@@ -388,4 +388,50 @@ assert.equal(
   0,
 );
 checks++;
+await client.upload(root + "/editable.txt", new Blob(["Hello 🌍"]), {
+  contentType: "text/plain",
+});
+const editable = await api(
+  "/text?path=" + encodeURIComponent(root + "/editable.txt"),
+);
+assert.equal(editable.text, "Hello 🌍");
+assert(editable.etag);
+checks += 2;
+assert.equal(
+  (
+    await api("/text?path=" + encodeURIComponent(root + "/editable.txt"), {
+      token: reader,
+    })
+  ).canEdit,
+  false,
+);
+checks++;
+await api("/text?path=" + encodeURIComponent(root + "/editable.txt"), {
+  session: bob,
+  status: 404,
+});
+await client.upload(root + "/binary.txt", new Blob([new Uint8Array([0, 255])]));
+await api("/text?path=" + encodeURIComponent(root + "/binary.txt"), {
+  status: 415,
+});
+await client.upload(root + "/large.txt", new Blob(["x".repeat(262145)]));
+await api("/text?path=" + encodeURIComponent(root + "/large.txt"), {
+  status: 413,
+});
+await client.upload(
+  root + "/editable.txt",
+  new Blob(["Newer remote content"]),
+  { ifMatch: editable.etag },
+);
+await assert.rejects(() =>
+  client.upload(root + "/editable.txt", new Blob(["Stale editor"]), {
+    ifMatch: editable.etag,
+  }),
+);
+checks++;
+assert.equal(
+  (await api("/text?path=" + encodeURIComponent(root + "/editable.txt"))).text,
+  "Newer remote content",
+);
+checks++;
 console.log(`Expansion checks passed: ${checks}`);

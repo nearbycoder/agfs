@@ -1,12 +1,24 @@
 import { Page } from "./shared";
 import { FileNotes } from "./FileNotes";
+import { TextEditor } from "./TextEditor";
 export function FileToolsPage() {
   return (
     <Page
       title="File tools"
       description="Inspect and annotate files without leaving your workspace."
     >
-      <FileNotes />
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-semibold">File notes</summary>
+        <div className="mt-4">
+          <FileNotes />
+        </div>
+      </details>
+      <details open className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-semibold">Text editor</summary>
+        <div className="mt-4">
+          <TextEditor />
+        </div>
+      </details>
     </Page>
   );
 }
