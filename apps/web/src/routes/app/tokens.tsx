@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { Select, SelectItem } from "~/components/ui/select";
 import type { FormEvent } from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -169,15 +170,17 @@ function TokensPage() {
                 <label className="section-label" htmlFor="token-permissions">
                   Access
                 </label>
-                <select
+                <Select
+                  aria-label="Access"
                   id="token-permissions"
-                  className="h-10 w-full rounded-lg border bg-transparent px-3"
                   value={permissionPreset}
-                  onChange={(event) => setPermissionPreset(event.target.value)}
+                  onValueChange={(value) => setPermissionPreset(value)}
                 >
-                  <option value="read">Read only</option>
-                  <option value="edit">Read, write, delete, share</option>
-                </select>
+                  <SelectItem value="read">Read only</SelectItem>
+                  <SelectItem value="edit">
+                    Read, write, delete, share
+                  </SelectItem>
+                </Select>
               </div>
               <div className="flex items-end">
                 <Button className="w-full sm:w-auto" type="submit">

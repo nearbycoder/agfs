@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, platform, useAction, selectClass } from "./shared";
+import { Field, platform, useAction } from "./shared";
 import { inspectJson } from "~/lib/json-inspector";
 export function JsonInspector() {
   const [path, setPath] = useState(""),
@@ -68,15 +69,15 @@ export function JsonInspector() {
           <div className="flex flex-wrap items-end gap-3">
             <label className="grid gap-2 text-sm">
               JSON view
-              <select
-                className={selectClass}
+              <Select
+                aria-label="JSON view"
                 value={view}
-                onChange={(e) => setView(e.target.value)}
+                onValueChange={(value) => setView(value)}
               >
-                <option value="tree">Tree</option>
-                <option value="formatted">Formatted</option>
-                <option value="raw">Raw source</option>
-              </select>
+                <SelectItem value="tree">Tree</SelectItem>
+                <SelectItem value="formatted">Formatted</SelectItem>
+                <SelectItem value="raw">Raw source</SelectItem>
+              </Select>
             </label>
             <Button
               variant="outline"

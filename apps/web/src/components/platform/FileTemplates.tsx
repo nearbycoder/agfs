@@ -1,8 +1,9 @@
+import { Select, SelectItem, SelectGroup } from "~/components/ui/select";
 import { useState } from "react";
 import { useBlocker } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
-import { Field, platform, useAction, useData, selectClass } from "./shared";
+import { Field, platform, useAction, useData } from "./shared";
 import { starterTemplates, renderFileTemplate } from "~/lib/template-format";
 import { saveBrowserText } from "~/lib/browser-text";
 type Template = {
@@ -60,32 +61,32 @@ export function FileTemplates() {
       {action.notice ? <p role="status">{action.notice}</p> : null}
       <label className="grid gap-2 text-sm">
         Choose template
-        <select
-          className={selectClass}
+        <Select
+          aria-label="Choose template"
           value={draft.id}
           disabled={action.busy}
-          onChange={(e) => {
+          onValueChange={(value) => {
             const next = [...starterTemplates, ...data.items].find(
-              (t) => t.id === e.target.value,
+              (t) => t.id === value,
             );
             if (next) choose(next);
           }}
         >
-          <optgroup label="Built-in starters">
+          <SelectGroup label="Built-in starters">
             {starterTemplates.map((t) => (
-              <option key={t.id} value={t.id}>
+              <SelectItem key={t.id} value={t.id}>
                 {t.name}
-              </option>
+              </SelectItem>
             ))}
-          </optgroup>
-          <optgroup label="Your templates">
+          </SelectGroup>
+          <SelectGroup label="Your templates">
             {data.items.map((t) => (
-              <option key={t.id} value={t.id}>
+              <SelectItem key={t.id} value={t.id}>
                 {t.name}
-              </option>
+              </SelectItem>
             ))}
-          </optgroup>
-        </select>
+          </SelectGroup>
+        </Select>
       </label>
       <form
         className="space-y-3"
@@ -104,12 +105,12 @@ export function FileTemplates() {
         />
         <label className="grid gap-2 text-sm">
           Template content type
-          <select
-            className={selectClass}
+          <Select
+            aria-label="Template content type"
             disabled={action.busy}
             value={draft.contentType}
-            onChange={(e) =>
-              setDraft({ ...draft, contentType: e.target.value })
+            onValueChange={(value) =>
+              setDraft({ ...draft, contentType: value })
             }
           >
             {[
@@ -118,9 +119,11 @@ export function FileTemplates() {
               "application/json",
               "text/csv",
             ].map((t) => (
-              <option key={t}>{t}</option>
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="grid gap-2 text-sm">
           Template body

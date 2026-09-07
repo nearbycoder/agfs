@@ -1,15 +1,8 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { LineDiff } from "./LineDiff";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import {
-  Page,
-  Field,
-  platform,
-  useAction,
-  useData,
-  Empty,
-  selectClass,
-} from "./shared";
+import { Page, Field, platform, useAction, useData, Empty } from "./shared";
 export function DraftsPage() {
   const data = useData("/drafts", "drafts"),
     action = useAction(),
@@ -121,14 +114,14 @@ export function DraftsPage() {
                 />
                 <label className="grid gap-2 text-sm">
                   Operation
-                  <select
-                    className={selectClass}
+                  <Select
+                    aria-label="Draft operation"
                     value={operation}
-                    onChange={(e) => setOperation(e.target.value)}
+                    onValueChange={(value) => setOperation(value)}
                   >
-                    <option value="write">Write text</option>
-                    <option value="delete">Delete file</option>
-                  </select>
+                    <SelectItem value="write">Write text</SelectItem>
+                    <SelectItem value="delete">Delete file</SelectItem>
+                  </Select>
                 </label>
               </div>
               {operation === "write" ? (

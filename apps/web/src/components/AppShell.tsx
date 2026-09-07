@@ -1,3 +1,4 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { Brand } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { CommandPalette } from "./CommandPalette";
@@ -149,25 +150,24 @@ export function AppShell() {
         <div className="px-4 pt-5">
           <label className="grid gap-2 text-xs font-medium text-muted-foreground">
             Workspace
-            <select
+            <Select
               aria-label="Active workspace"
-              className="h-10 w-full rounded-lg border px-3 text-sm text-foreground"
               disabled={switching}
               value={workspace}
-              onChange={(e) => void selectWorkspace(e.target.value)}
+              onValueChange={(value) => void selectWorkspace(value)}
             >
               {workspace === "unavailable" ? (
-                <option value="unavailable" disabled>
+                <SelectItem value="unavailable" disabled>
                   Choose a workspace
-                </option>
+                </SelectItem>
               ) : null}
-              <option value="personal">Personal workspace</option>
+              <SelectItem value="personal">Personal workspace</SelectItem>
               {workspaces.map((w) => (
-                <option key={w.id} value={w.id}>
+                <SelectItem key={w.id} value={w.id}>
                   {w.name}
-                </option>
+                </SelectItem>
               ))}
-            </select>
+            </Select>
           </label>
           {error ? (
             <p role="alert" className="mt-2 text-xs text-destructive">

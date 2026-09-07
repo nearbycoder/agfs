@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, selectClass } from "./shared";
+import { Field } from "./shared";
 import {
   shareStatus,
   filterShares,
@@ -92,17 +93,18 @@ export function ShareReview({
         />
         <label className="grid gap-2 text-sm">
           Share status
-          <select
-            className={selectClass}
+          <Select
+            placeholder="All statuses"
+            aria-label="Share status"
             disabled={busy}
             value={filters.status}
-            onChange={(e) => change({ ...filters, status: e.target.value })}
+            onValueChange={(value) => change({ ...filters, status: value })}
           >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="expired">Expired</option>
-            <option value="revoked">Revoked</option>
-          </select>
+            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="revoked">Revoked</SelectItem>
+          </Select>
         </label>
       </div>
       <label className="flex gap-2 text-sm">

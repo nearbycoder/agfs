@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { platform, useAction, selectClass } from "./shared";
+import { platform, useAction } from "./shared";
 import { runSnapshot, compareArtifacts } from "~/lib/run-comparison";
 import { formatBytes } from "~/lib/format";
 export function RunCompare({ runs }: { runs: any[] }) {
@@ -88,20 +89,21 @@ export function RunCompare({ runs }: { runs: any[] }) {
           ].map((f) => (
             <label key={f.label} className="grid gap-2 text-sm">
               {f.label}
-              <select
-                className={selectClass}
+              <Select
+                placeholder="Choose a loaded run"
+                aria-label={f.label}
                 required
                 disabled={action.busy}
                 value={f.value}
-                onChange={(e) => f.set(e.target.value)}
+                onValueChange={(value) => f.set(value)}
               >
-                <option value="">Choose a loaded run</option>
+                <SelectItem value="">Choose a loaded run</SelectItem>
                 {runs.map((r) => (
-                  <option key={r.id} value={r.id}>
+                  <SelectItem key={r.id} value={r.id}>
                     {r.name} · {r.status} · {r.id.slice(-6)}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
           <Button disabled={action.busy || !left || !right || left === right}>

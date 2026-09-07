@@ -1,15 +1,8 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { WorkspaceAdmin } from "./WorkspaceAdmin";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import {
-  Page,
-  Field,
-  platform,
-  useAction,
-  useData,
-  Empty,
-  selectClass,
-} from "./shared";
+import { Page, Field, platform, useAction, useData, Empty } from "./shared";
 export function WorkspacesPage() {
   const data = useData("/workspaces", "workspaces"),
     action = useAction();
@@ -143,14 +136,14 @@ export function WorkspacesPage() {
             />
             <label className="grid gap-2 text-sm">
               Role
-              <select
-                className={selectClass}
+              <Select
+                aria-label="Member role"
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onValueChange={(value) => setRole(value)}
               >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-              </select>
+                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="editor">Editor</SelectItem>
+              </Select>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input

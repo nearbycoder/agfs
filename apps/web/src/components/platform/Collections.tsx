@@ -1,13 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import {
-  Field,
-  Empty,
-  platform,
-  useAction,
-  useData,
-  selectClass,
-} from "./shared";
+import { Field, Empty, platform, useAction, useData } from "./shared";
 type Collection = { id: string; name: string; count: number };
 export function Collections() {
   const data = useData("/collections", "collections"),
@@ -52,18 +46,19 @@ export function Collections() {
       </form>
       <label className="grid gap-2 text-sm">
         Collection
-        <select
-          className={selectClass}
+        <Select
+          placeholder="Choose a collection"
+          aria-label="Collection"
           value={selected}
-          onChange={(e) => setSelected(e.target.value)}
+          onValueChange={(value) => setSelected(value)}
         >
-          <option value="">Choose a collection</option>
+          <SelectItem value="">Choose a collection</SelectItem>
           {data.items.map((c) => (
-            <option key={c.id} value={c.id}>
+            <SelectItem key={c.id} value={c.id}>
               {c.name} ({c.count})
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Select>
       </label>
       {!data.items.length ? (
         <Empty

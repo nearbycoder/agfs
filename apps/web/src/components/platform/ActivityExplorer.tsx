@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, selectClass } from "./shared";
+import { Field } from "./shared";
 import {
   filterActivity,
   activityCsv,
@@ -34,18 +35,21 @@ export function ActivityExplorer({ events }: { events: ActivityEvent[] }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="grid gap-2 text-sm">
           Activity action
-          <select
-            className={selectClass}
+          <Select
+            placeholder="All actions"
+            aria-label="Activity action"
             value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
+            onValueChange={(value) => setFilters({ ...filters, action: value })}
           >
-            <option value="">All actions</option>
-            {Array.from(new Set(events.map((e) => e.action)))
+            <SelectItem value="">All actions</SelectItem>
+            {Array.from(new Set(events.map((event) => event.action)))
               .sort()
               .map((a) => (
-                <option key={a}>{a}</option>
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
               ))}
-          </select>
+          </Select>
         </label>
         <Field
           label="Activity path contains"

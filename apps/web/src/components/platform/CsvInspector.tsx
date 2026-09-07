@@ -1,6 +1,7 @@
+import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, platform, useAction, selectClass } from "./shared";
+import { Field, platform, useAction } from "./shared";
 import { parseCsv } from "~/lib/csv-inspector";
 export function CsvInspector() {
   const [path, setPath] = useState(""),
@@ -61,16 +62,16 @@ export function CsvInspector() {
         />
         <label className="grid gap-2 text-sm">
           Delimiter
-          <select
-            className={selectClass}
+          <Select
+            aria-label="Delimiter"
             disabled={action.busy}
             value={delimiter}
-            onChange={(e) => setDelimiter(e.target.value)}
+            onValueChange={(value) => setDelimiter(value)}
           >
-            <option value=",">Comma</option>
-            <option value=";">Semicolon</option>
-            <option value={"\t"}>Tab</option>
-          </select>
+            <SelectItem value=",">Comma</SelectItem>
+            <SelectItem value=";">Semicolon</SelectItem>
+            <SelectItem value={"\t"}>Tab</SelectItem>
+          </Select>
         </label>
         <Button disabled={action.busy}>Inspect CSV</Button>
       </form>
@@ -100,21 +101,21 @@ export function CsvInspector() {
             />
             <label className="grid gap-2 text-sm">
               Filter column
-              <select
-                className={selectClass}
+              <Select
+                aria-label="Filter column"
                 value={column}
-                onChange={(e) => {
-                  setColumn(Number(e.target.value));
+                onValueChange={(value) => {
+                  setColumn(Number(value));
                   setPage(0);
                 }}
               >
-                <option value={-1}>All columns</option>
+                <SelectItem value={-1}>All columns</SelectItem>
                 {headers.map((h, i) => (
-                  <option key={i} value={i}>
+                  <SelectItem key={i} value={i}>
                     {h}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           <p role="status" className="text-sm">
