@@ -13,7 +13,7 @@ Each numbered feature ships in its own PR after focused verification and require
 | 7 | Duplicate finder: checksum/size groups, inspect paths, report potential reclaimable space without deleting. | [#17](https://github.com/nearbycoder/agfs/pull/17) merged |
 | 8 | Browser text editor: bounded text loading, conditional save, unsaved-change warning, conflict handling. | [#18](https://github.com/nearbycoder/agfs/pull/18) merged |
 | 9 | File templates: reusable text templates, built-in starters, safe create-only instantiation. | [#19](https://github.com/nearbycoder/agfs/pull/19) merged |
-| 10 | Batch rename: preview prefix/suffix replacements, collision validation, atomic all-or-nothing application. | pending |
+| 10 | Batch rename: preview prefix/suffix replacements, collision validation, atomic all-or-nothing application. | [#20](https://github.com/nearbycoder/agfs/pull/20) merged |
 | 11 | CSV inspector: quoted-field parser, bounded rendering, column filter, malformed input feedback. | pending |
 | 12 | JSON inspector: validation, tree inspection, formatted/raw views, copy, safe text rendering. | pending |
 | 13 | Text comparison: compare two accessible files, bounded line diff, change counts. | pending |

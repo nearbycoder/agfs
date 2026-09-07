@@ -1,3 +1,4 @@
+import { CsvInspector } from "./CsvInspector";
 import { Page } from "./shared";
 import { FileNotes } from "./FileNotes";
 import { TextEditor } from "./TextEditor";
@@ -26,6 +27,14 @@ export function FileToolsPage() {
         </summary>
         <div className="mt-4">
           <FileTemplates />
+        </div>
+      </details>
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-semibold">
+          CSV inspector
+        </summary>
+        <div className="mt-4">
+          <CsvInspector />
         </div>
       </details>
     </Page>
