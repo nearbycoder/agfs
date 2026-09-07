@@ -1,3 +1,4 @@
+import { TextCompare } from "./TextCompare";
 import { JsonInspector } from "./JsonInspector";
 import { CsvInspector } from "./CsvInspector";
 import { Page } from "./shared";
@@ -44,6 +45,14 @@ export function FileToolsPage() {
         </summary>
         <div className="mt-4">
           <JsonInspector />
+        </div>
+      </details>
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-semibold">
+          Text comparison
+        </summary>
+        <div className="mt-4">
+          <TextCompare />
         </div>
       </details>
     </Page>
