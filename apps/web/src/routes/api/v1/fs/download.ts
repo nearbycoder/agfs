@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { recordRecentFile } from "~/lib/recent-files";
 import { authorize } from "~/lib/scope";
 import { auditOperation } from "~/lib/request-context";
 import { createFileRoute } from "@tanstack/react-router";
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/api/v1/fs/download")({
           const expected = request.headers.get("if-match");
           if (expected && expected.replace(/^"|"$/g, "") !== entry.etag)
             return errorResponse(412, "File changed");
+          await recordRecentFile(auth, entry.id);
           return streamObject(entry.r2Key, {
             headers: {
               "content-disposition": createContentDisposition(

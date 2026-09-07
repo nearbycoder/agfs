@@ -37,6 +37,10 @@ export async function platformApi(request: Request): Promise<Response | null> {
     await import("./batch-rename-api")
   ).batchRenameApi(request, auth, path);
   if (renamed) return renamed;
+  const recent = await (
+    await import("./recent-files")
+  ).recentFilesApi(request, auth, path);
+  if (recent) return recent;
   const library = await (
     await import("./library-api")
   ).libraryApi(request, auth, path);

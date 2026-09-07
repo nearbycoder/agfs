@@ -1,3 +1,4 @@
+import { RecentFiles } from "./RecentFiles";
 import { useState } from "react";
 import { Collections } from "./Collections";
 import { Button } from "~/components/ui/button";
@@ -72,6 +73,7 @@ export function LibraryPage() {
           text="Add a favorite to keep important files and folders close."
         />
       ) : null}
+      <RecentFiles />
       <Collections />
     </Page>
   );
