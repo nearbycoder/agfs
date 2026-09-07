@@ -4,10 +4,11 @@ export async function saveBrowserText(
   text: string,
   ifMatch: string | null,
   contentType = "text/plain",
+  request: typeof fetch = fetch,
 ) {
   const blob = textBlob(text, contentType);
   async function post(url: string, body: unknown) {
-    const r = await fetch(url, {
+    const r = await request(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -27,7 +28,7 @@ export async function saveBrowserText(
   const token = intent.headers?.["X-AGFS-Upload-Token"];
   if (typeof token !== "string" || !token)
     throw new Error("Missing upload authorization");
-  const response = await fetch(
+  const response = await request(
     "/api/v1/fs/uploads/" + intent.uploadId + "/blob",
     {
       method: "PUT",
