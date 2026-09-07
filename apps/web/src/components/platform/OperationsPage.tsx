@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Page, Field, platform, useAction, useData, Empty } from "./shared";
@@ -5,31 +6,51 @@ export function OperationsPage() {
   const action = useAction(),
     snapshots = useData("/snapshots", "snapshots"),
     [health, setHealth] = useState<any>(null),
+    [healthError, setHealthError] = useState(""),
+    [healthLoading, setHealthLoading] = useState(true),
     [name, setName] = useState(""),
     [path, setPath] = useState("/"),
     [days, setDays] = useState("30"),
     [restore, setRestore] = useState<any>(null),
     [confirmation, setConfirmation] = useState("");
-  const refresh = async () => setHealth(await platform("/health"));
+  const refresh = async () => {
+    setHealthError("");
+    setHealthLoading(true);
+    try {
+      setHealth(await platform("/health"));
+    } finally {
+      setHealthLoading(false);
+    }
+  };
   useEffect(() => {
     const c = new AbortController();
     platform("/health", "GET", undefined, c.signal)
-      .then(setHealth)
-      .catch(() => {});
+      .then((value) => {
+        if (!c.signal.aborted) setHealth(value);
+      })
+      .catch((error) => {
+        if (!c.signal.aborted)
+          setHealthError(
+            error instanceof Error ? error.message : "Could not load health",
+          );
+      })
+      .finally(() => {
+        if (!c.signal.aborted) setHealthLoading(false);
+      });
     return () => c.abort();
   }, []);
   return (
     <Page
       title="Operations & recovery"
       description="Watch service health, keep recoverable snapshots, and act on issues before they interrupt your agents."
-      error={action.error || snapshots.error}
+      error={action.error || healthError || snapshots.error}
       notice={action.notice}
     >
       <div className="flex justify-between gap-4">
         <h2 className="text-lg font-semibold">Last hour</h2>
         <Button
           variant="outline"
-          disabled={action.busy}
+          disabled={action.busy || healthLoading}
           onClick={() => void action.run(refresh)}
         >
           Refresh health
@@ -80,10 +101,8 @@ export function OperationsPage() {
                 {a.message}
               </p>
             ))}
-          <details className="rounded-xl border p-4">
-            <summary className="cursor-pointer font-medium">
-              Alert thresholds
-            </summary>
+          <Disclosure>
+            <DisclosureSummary>Alert thresholds</DisclosureSummary>
             <form
               className="mt-4 grid gap-3 sm:grid-cols-3"
               onSubmit={(e) => {
@@ -123,11 +142,9 @@ export function OperationsPage() {
               />
               <Button disabled={action.busy}>Save thresholds</Button>
             </form>
-          </details>
-          <details className="rounded-xl border p-4">
-            <summary className="cursor-pointer font-medium">
-              Indexing jobs & repair
-            </summary>
+          </Disclosure>
+          <Disclosure>
+            <DisclosureSummary>Indexing jobs & repair</DisclosureSummary>
             <ul className="my-4 space-y-2">
               {health.jobs.map((j: any) => (
                 <li key={j.path} className="break-all text-sm">
@@ -149,7 +166,7 @@ export function OperationsPage() {
             >
               Reindex workspace
             </Button>
-          </details>
+          </Disclosure>
           {health.expiringCredentials.length ? (
             <section>
               <h2 className="font-semibold">
@@ -170,8 +187,9 @@ export function OperationsPage() {
         </>
       ) : (
         <p role="status">
-          Use Refresh health to load operational metrics. Owner access is
-          required.
+          {healthLoading
+            ? "Loading operational metrics…"
+            : "Health is unavailable. Owner access is required; refresh to try again."}
         </p>
       )}
       <section className="space-y-4 border-t pt-6">

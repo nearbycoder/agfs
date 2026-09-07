@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "~/components/ui/table";
 import { Select, SelectItem } from "~/components/ui/select";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -171,86 +179,82 @@ export function ShareReview({
           ))}
         </ul>
       ) : null}
-      <div className="max-h-[40rem] overflow-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr>
-              <th className="p-2">Select</th>
-              <th className="p-2">Path</th>
-              <th className="p-2">Expiry</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.slice(current * 50, current * 50 + 50).map((s) => {
-              const status = shareStatus(s, now);
-              return (
-                <tr key={s.id} className="border-t">
-                  <td className="p-2">
-                    <input
-                      type="checkbox"
-                      aria-label={
-                        "Select share " + s.path + " " + s.id.slice(-6)
-                      }
-                      disabled={
-                        busy ||
-                        status !== "active" ||
-                        (!selected.includes(s.id) && chosen.length >= 50)
-                      }
-                      checked={chosen.some((c) => c.id === s.id)}
-                      onChange={(e) =>
-                        setSelected((old) =>
-                          e.target.checked
-                            ? [...old, s.id]
-                            : old.filter((id) => id !== s.id),
-                        )
-                      }
-                    />
-                  </td>
-                  <td className="break-all p-2 font-mono">{s.path}</td>
-                  <td className="p-2">
-                    <time dateTime={s.expiresAt}>
-                      {new Date(s.expiresAt).toLocaleString()}
-                    </time>
-                    {status === "active" ? (
-                      <p className="text-xs text-muted-foreground">
-                        {Math.ceil(
-                          (new Date(s.expiresAt).getTime() - now) / 3600000,
-                        )}{" "}
-                        hours remaining
-                      </p>
-                    ) : null}
-                  </td>
-                  <td className="p-2">{status}</td>
-                  <td className="p-2">
-                    {status === "active" ? (
-                      <div className="flex gap-2">
-                        <a
-                          className="self-center underline"
-                          href={s.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open
-                        </a>
-                        <Button
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => void revoke([s])}
-                        >
-                          Revoke
-                        </Button>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex gap-3">
+      <Table scrollClassName="max-h-[40rem]" aria-label="Share review">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Select</TableHead>
+            <TableHead>Path</TableHead>
+            <TableHead>Expiry</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visible.slice(current * 50, current * 50 + 50).map((s) => {
+            const status = shareStatus(s, now);
+            return (
+              <TableRow key={s.id} className="border-t">
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    aria-label={"Select share " + s.path + " " + s.id.slice(-6)}
+                    disabled={
+                      busy ||
+                      status !== "active" ||
+                      (!selected.includes(s.id) && chosen.length >= 50)
+                    }
+                    checked={chosen.some((c) => c.id === s.id)}
+                    onChange={(e) =>
+                      setSelected((old) =>
+                        e.target.checked
+                          ? [...old, s.id]
+                          : old.filter((id) => id !== s.id),
+                      )
+                    }
+                  />
+                </TableCell>
+                <TableCell className="break-all font-mono">{s.path}</TableCell>
+                <TableCell>
+                  <time dateTime={s.expiresAt}>
+                    {new Date(s.expiresAt).toLocaleString()}
+                  </time>
+                  {status === "active" ? (
+                    <p className="text-xs text-muted-foreground">
+                      {Math.ceil(
+                        (new Date(s.expiresAt).getTime() - now) / 3600000,
+                      )}{" "}
+                      hours remaining
+                    </p>
+                  ) : null}
+                </TableCell>
+                <TableCell>{status}</TableCell>
+                <TableCell>
+                  {status === "active" ? (
+                    <div className="flex gap-2">
+                      <a
+                        className="self-center underline"
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open
+                      </a>
+                      <Button
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void revoke([s])}
+                      >
+                        Revoke
+                      </Button>
+                    </div>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="outline"
           disabled={busy || current === 0}

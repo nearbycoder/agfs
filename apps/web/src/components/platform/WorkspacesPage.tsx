@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { WorkspaceAdmin } from "./WorkspaceAdmin";
 import { useEffect, useState } from "react";
@@ -33,29 +34,39 @@ export function WorkspacesPage() {
       error={action.error || data.error}
       notice={action.notice}
     >
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void action.run(async () => {
-            await platform("/workspaces", "POST", { name });
-            setName("");
-            await data.refresh();
-            action.setNotice(
-              "Workspace created. Select it to start adding files.",
-            );
-          });
-        }}
-      >
-        <Field
-          label="Workspace name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={100}
-        />
-        <Button disabled={action.busy}>Create workspace</Button>
-      </form>
+      <Disclosure>
+        <DisclosureSummary>
+          <span>
+            <span className="block font-semibold">Create a workspace</span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              Give a project its own files, members, and permissions.
+            </span>
+          </span>
+        </DisclosureSummary>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action.run(async () => {
+              await platform("/workspaces", "POST", { name });
+              setName("");
+              await data.refresh();
+              action.setNotice(
+                "Workspace created. Select it to start adding files.",
+              );
+            });
+          }}
+        >
+          <Field
+            label="Workspace name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={100}
+          />
+          <Button disabled={action.busy}>Create workspace</Button>
+        </form>
+      </Disclosure>
       {data.items.length ? (
         <ul className="divide-y">
           {data.items.map((w) => (

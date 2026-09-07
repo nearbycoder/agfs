@@ -1,5 +1,13 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "~/components/ui/table";
 import { Select, SelectItem } from "~/components/ui/select";
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field, platform, useAction } from "./shared";
 import { parseCsv } from "~/lib/csv-inspector";
@@ -13,20 +21,26 @@ export function CsvInspector() {
     [column, setColumn] = useState(-1),
     [page, setPage] = useState(0),
     [header, setHeader] = useState(true);
-  const action = useAction(),
-    rows = loaded?.rows ?? [],
-    width = rows.reduce((n, r) => Math.max(n, r.length), 0),
-    headers = Array.from({ length: width }, (_, i) =>
-      header ? rows[0]?.[i] || `Column ${i + 1}` : `Column ${i + 1}`,
+  const action = useAction();
+  const deferredQuery = useDeferredValue(query);
+  const rows = loaded?.rows;
+  const { width, headers, filtered } = useMemo(() => {
+    const source = rows ?? [];
+    const width = source.reduce((n, row) => Math.max(n, row.length), 0);
+    const headers = Array.from({ length: width }, (_, i) =>
+      header ? source[0]?.[i] || `Column ${i + 1}` : `Column ${i + 1}`,
     );
-  const filtered = rows
-    .slice(header ? 1 : 0)
-    .map((cells, index) => ({ cells, index: index + (header ? 2 : 1) }))
-    .filter((r) =>
-      (column < 0 ? r.cells : [r.cells[column] ?? ""]).some((c) =>
-        c.toLowerCase().includes(query.toLowerCase()),
-      ),
-    );
+    const normalized = deferredQuery.toLowerCase();
+    const filtered = source
+      .slice(header ? 1 : 0)
+      .map((cells, index) => ({ cells, index: index + (header ? 2 : 1) }))
+      .filter((row) =>
+        (column < 0 ? row.cells : [row.cells[column] ?? ""]).some((cell) =>
+          cell.toLowerCase().includes(normalized),
+        ),
+      );
+    return { width, headers, filtered };
+  }, [rows, header, column, deferredQuery]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / 50)),
     current = Math.min(page, pageCount - 1);
   return (
@@ -119,44 +133,41 @@ export function CsvInspector() {
             </label>
           </div>
           <p role="status" className="text-sm">
+            {query !== deferredQuery ? "Filtering… · " : ""}
             {filtered.length} matching rows · {width} columns · Page{" "}
             {current + 1} of {pageCount}
           </p>
-          {rows.some((r) => r.length !== width) ? (
+          {rows?.some((r) => r.length !== width) ? (
             <p className="text-sm">
               Rows have different column counts. Missing cells are shown empty.
             </p>
           ) : null}
-          <div className="max-h-96 overflow-auto rounded-lg border">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr>
-                  <th className="p-2">Row</th>
-                  {headers.map((h, i) => (
-                    <th className="p-2" key={i}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.slice(current * 50, current * 50 + 50).map((r) => (
-                  <tr className="border-t" key={r.index}>
-                    <th className="p-2">{r.index}</th>
-                    {headers.map((_, i) => (
-                      <td
-                        key={i}
-                        className="max-w-80 break-words whitespace-pre-wrap p-2"
-                      >
-                        {r.cells[i] ?? ""}
-                      </td>
-                    ))}
-                  </tr>
+          <Table scrollClassName="max-h-96" aria-label="CSV preview">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Row</TableHead>
+                {headers.map((h, i) => (
+                  <TableHead key={i}>{h}</TableHead>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex gap-3">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.slice(current * 50, current * 50 + 50).map((r) => (
+                <TableRow className="border-t" key={r.index}>
+                  <TableHead scope="row">{r.index}</TableHead>
+                  {headers.map((_, i) => (
+                    <TableCell
+                      key={i}
+                      className="max-w-80 break-words whitespace-pre-wrap"
+                    >
+                      {r.cells[i] ?? ""}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="outline"
               disabled={current === 0}

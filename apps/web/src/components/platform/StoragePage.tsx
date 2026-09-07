@@ -1,3 +1,4 @@
+import { FileLink } from "~/components/ui/file-link";
 import { useEffect, useState } from "react";
 import { DuplicateFinder } from "./DuplicateFinder";
 import { Button } from "~/components/ui/button";
@@ -110,14 +111,7 @@ export function StoragePage() {
                   key={f.id}
                   className="flex flex-wrap justify-between gap-2 py-3"
                 >
-                  <a
-                    className="font-mono text-sm underline break-all"
-                    href={
-                      "/api/v1/fs/download?path=" + encodeURIComponent(f.path)
-                    }
-                  >
-                    {f.path}
-                  </a>
+                  <FileLink path={f.path} kind={"file"} />
                   <span>{formatBytes(f.size)}</span>
                 </li>
               ))}
@@ -136,12 +130,7 @@ export function StoragePage() {
                   key={f.path}
                   className="flex flex-wrap justify-between gap-2 py-3"
                 >
-                  <a
-                    className="font-mono text-sm underline break-all"
-                    href={"/app/files?path=" + encodeURIComponent(f.path)}
-                  >
-                    {f.path}
-                  </a>
+                  <FileLink path={f.path} kind={"folder"} />
                   <span>
                     {formatBytes(f.bytes)} · {f.files} files
                   </span>

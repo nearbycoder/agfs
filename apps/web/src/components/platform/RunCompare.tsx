@@ -1,3 +1,12 @@
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "~/components/ui/table";
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -26,32 +35,30 @@ export function RunCompare({ runs }: { runs: any[] }) {
           {rows.filter((r) => r.status === "changed").length} changed ·{" "}
           {rows.filter((r) => r.status === "unchanged").length} unchanged
         </p>
-        <div className="max-h-80 overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
-                <th className="p-2">Path</th>
-                <th className="p-2">Change</th>
-                <th className="p-2">Before</th>
-                <th className="p-2">After</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((r) => (
-                <tr key={r.path} className="border-t">
-                  <td className="break-all p-2 font-mono">{r.path}</td>
-                  <td className="p-2">{r.status}</td>
-                  <td className="p-2">
-                    {r.before ? formatBytes(r.before.size ?? 0) : "—"}
-                  </td>
-                  <td className="p-2">
-                    {r.after ? formatBytes(r.after.size ?? 0) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table scrollClassName="max-h-80" aria-label={title + " comparison"}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Path</TableHead>
+              <TableHead>Change</TableHead>
+              <TableHead>Before</TableHead>
+              <TableHead>After</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visible.map((r) => (
+              <TableRow key={r.path} className="border-t">
+                <TableCell className="break-all font-mono">{r.path}</TableCell>
+                <TableCell>{r.status}</TableCell>
+                <TableCell>
+                  {r.before ? formatBytes(r.before.size ?? 0) : "—"}
+                </TableCell>
+                <TableCell>
+                  {r.after ? formatBytes(r.after.size ?? 0) : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         {!visible.length ? (
           <p className="text-sm">No matching manifest entries.</p>
         ) : null}
@@ -59,10 +66,8 @@ export function RunCompare({ runs }: { runs: any[] }) {
     );
   }
   return (
-    <details className="rounded-xl border p-4">
-      <summary className="cursor-pointer font-semibold">
-        Compare agent runs
-      </summary>
+    <Disclosure>
+      <DisclosureSummary>Compare agent runs</DisclosureSummary>
       <div className="mt-4 space-y-4">
         <p className="text-sm text-muted-foreground">
           Compare recorded inputs and completed output manifests. Outputs match
@@ -133,14 +138,12 @@ export function RunCompare({ runs }: { runs: any[] }) {
                       ? new Date(r.retainedUntil).toLocaleString()
                       : "No completed manifest"}
                   </p>
-                  <details>
-                    <summary className="cursor-pointer text-sm">
-                      Run metadata
-                    </summary>
+                  <Disclosure>
+                    <DisclosureSummary>Run metadata</DisclosureSummary>
                     <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
                       {JSON.stringify(r.metadata, null, 2)}
                     </pre>
-                  </details>
+                  </Disclosure>
                 </div>
               ))}
             </div>
@@ -175,6 +178,6 @@ export function RunCompare({ runs }: { runs: any[] }) {
           </>
         ) : null}
       </div>
-    </details>
+    </Disclosure>
   );
 }

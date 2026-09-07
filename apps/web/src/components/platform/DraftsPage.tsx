@@ -1,3 +1,6 @@
+import { DetailSurface } from "./shared";
+import { Badge } from "~/components/ui/badge";
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { LineDiff } from "./LineDiff";
 import { useState } from "react";
@@ -24,31 +27,44 @@ export function DraftsPage() {
       error={action.error || data.error}
       notice={action.notice}
     >
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void action.run(async () => {
-            const d = await platform("/drafts", "POST", { name, path: folder });
-            setDraft(await platform("/drafts/" + d.id));
-            await data.refresh();
-          });
-        }}
-      >
-        <Field
-          label="Draft name"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <Field
-          label="Folder"
-          required
-          value={folder}
-          onChange={(e) => setFolder(e.target.value)}
-        />
-        <Button disabled={action.busy}>New draft</Button>
-      </form>
+      <Disclosure>
+        <DisclosureSummary>
+          <span>
+            <span className="block font-semibold">Create a draft</span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              Propose changes before applying them to live files.
+            </span>
+          </span>
+        </DisclosureSummary>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action.run(async () => {
+              const d = await platform("/drafts", "POST", {
+                name,
+                path: folder,
+              });
+              setDraft(await platform("/drafts/" + d.id));
+              await data.refresh();
+            });
+          }}
+        >
+          <Field
+            label="Draft name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Field
+            label="Folder"
+            required
+            value={folder}
+            onChange={(e) => setFolder(e.target.value)}
+          />
+          <Button disabled={action.busy}>New draft</Button>
+        </form>
+      </Disclosure>
       {data.nextCursor ? (
         <Button
           variant="outline"
@@ -85,7 +101,7 @@ export function DraftsPage() {
         <Empty loading={data.loading} text="No proposed changes yet." />
       )}
       {draft ? (
-        <section className="space-y-5 border-t pt-5">
+        <DetailSurface key={draft.id} label="Draft review">
           <h2 className="text-lg font-semibold">
             {draft.name} · {draft.status}
           </h2>
@@ -147,10 +163,8 @@ export function DraftsPage() {
                 before={c.base_content ?? ""}
                 after={c.operation === "delete" ? "" : (c.content ?? "")}
               />
-              <details>
-                <summary className="cursor-pointer text-sm">
-                  Full before and after
-                </summary>
+              <Disclosure>
+                <DisclosureSummary>Full before and after</DisclosureSummary>
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div>
                     <h4 className="mb-2 text-xs uppercase text-muted-foreground">
@@ -171,7 +185,7 @@ export function DraftsPage() {
                     </pre>
                   </div>
                 </div>
-              </details>
+              </Disclosure>
               {["open", "changes_requested"].includes(draft.status) ? (
                 <Button
                   variant="outline"
@@ -306,7 +320,7 @@ export function DraftsPage() {
               Apply approved changes
             </Button>
           ) : null}
-        </section>
+        </DetailSurface>
       ) : null}
     </Page>
   );

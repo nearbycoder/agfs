@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { platform } from "./shared";
@@ -47,14 +48,12 @@ export function FolderReadme({
   }, [path, etag, open, refresh]);
   if (!file) return null;
   return (
-    <details
-      className="rounded-xl border p-5"
+    <Disclosure
+      className=""
       open={open}
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
-      <summary className="cursor-pointer font-semibold">
-        Folder README · {file.name}
-      </summary>
+      <DisclosureSummary>Folder README · {file.name}</DisclosureSummary>
       <section aria-label="Folder README" className="mt-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <a
@@ -131,6 +130,6 @@ export function FolderReadme({
           and images are displayed as text.
         </p>
       </section>
-    </details>
+    </Disclosure>
   );
 }

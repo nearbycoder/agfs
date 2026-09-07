@@ -1,3 +1,6 @@
+import { DetailSurface } from "./shared";
+import { Badge } from "~/components/ui/badge";
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { RunCompare } from "./RunCompare";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -17,59 +20,69 @@ export function RunsPage() {
       error={action.error || data.error}
     >
       <RunCompare runs={data.items} />
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void action.run(async () => {
-            await platform("/runs", "POST", {
-              name,
-              path,
-              retentionDays: Number(days),
-              inputs: inputs
-                .split("\n")
-                .map((v) => v.trim())
-                .filter(Boolean),
+      <Disclosure>
+        <DisclosureSummary>
+          <span>
+            <span className="block font-semibold">Start a new run</span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              Collect inputs and outputs in a retained manifest.
+            </span>
+          </span>
+        </DisclosureSummary>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action.run(async () => {
+              await platform("/runs", "POST", {
+                name,
+                path,
+                retentionDays: Number(days),
+                inputs: inputs
+                  .split("\n")
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              });
+              setName("");
+              await data.refresh();
             });
-            setName("");
-            await data.refresh();
-          });
-        }}
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Run name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Field
+              label="Output folder"
+              required
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+            />
+          </div>
+          <label className="grid gap-2 text-sm">
+            Input paths, one per line
+            <textarea
+              className="rounded-md border bg-transparent p-3"
+              rows={3}
+              value={inputs}
+              onChange={(e) => setInputs(e.target.value)}
+              placeholder="/inputs/brief.txt"
+            />
+          </label>
           <Field
-            label="Run name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            label="Retain inputs and artifacts (days)"
+            type="number"
+            min={1}
+            max={90}
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
           />
-          <Field
-            label="Output folder"
-            required
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-          />
-        </div>
-        <label className="grid gap-2 text-sm">
-          Input paths, one per line
-          <textarea
-            className="rounded-md border bg-transparent p-3"
-            rows={3}
-            value={inputs}
-            onChange={(e) => setInputs(e.target.value)}
-            placeholder="/inputs/brief.txt"
-          />
-        </label>
-        <Field
-          label="Retain inputs and artifacts (days)"
-          type="number"
-          min={1}
-          max={90}
-          value={days}
-          onChange={(e) => setDays(e.target.value)}
-        />
-        <Button disabled={action.busy}>Start run</Button>
-      </form>
+          <Button disabled={action.busy}>Start run</Button>
+        </form>
+      </Disclosure>
       {data.nextCursor ? (
         <Button
           variant="outline"
@@ -89,7 +102,7 @@ export function RunsPage() {
               <div>
                 <h2 className="font-medium">{r.name}</h2>
                 <p className="section-copy">
-                  {r.path_prefix} · {r.status}
+                  {r.path_prefix} <Badge variant="secondary">{r.status}</Badge>
                 </p>
               </div>
               <Button
@@ -127,8 +140,13 @@ export function RunsPage() {
         />
       )}
       {manifest ? (
-        <section className="space-y-3">
-          <h2 className="font-semibold">Manifest</h2>
+        <DetailSurface key={manifest.runId} label="Run manifest">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Manifest</h2>
+            <Button variant="ghost" size="sm" onClick={() => setManifest(null)}>
+              Close manifest
+            </Button>
+          </div>
           <Button
             variant="outline"
             onClick={() => {
@@ -177,10 +195,13 @@ export function RunsPage() {
               </li>
             ))}
           </ul>
-          <pre className="max-h-96 overflow-auto rounded-xl border p-4 text-xs">
-            {JSON.stringify(manifest, null, 2)}
-          </pre>
-        </section>
+          <Disclosure>
+            <DisclosureSummary>Raw manifest JSON</DisclosureSummary>
+            <pre className="max-h-96 overflow-auto rounded-xl border p-4 text-xs">
+              {JSON.stringify(manifest, null, 2)}
+            </pre>
+          </Disclosure>
+        </DetailSurface>
       ) : null}
     </Page>
   );

@@ -1,3 +1,5 @@
+import { FileLink } from "~/components/ui/file-link";
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { SavedSearches, type SearchFilters } from "./SavedSearches";
@@ -95,10 +97,8 @@ export function SearchPage() {
             onChange={(e) => change("tag", e.target.value)}
           />
         </div>
-        <details className="rounded-lg border p-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            Advanced filters
-          </summary>
+        <Disclosure>
+          <DisclosureSummary>Advanced filters</DisclosureSummary>
           <div className="mt-4">
             {" "}
             <fieldset className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
@@ -146,7 +146,7 @@ export function SearchPage() {
               />
             </fieldset>
           </div>
-        </details>
+        </Disclosure>
         <div className="flex gap-3">
           <Button disabled={action.busy}>Search</Button>
           <Button
@@ -183,17 +183,7 @@ export function SearchPage() {
         <ul className="divide-y">
           {items.map((item) => (
             <li className="space-y-2 py-4" key={item.id}>
-              <a
-                className="font-mono text-sm underline break-all"
-                href={
-                  (item.kind === "folder"
-                    ? "/app/files?path="
-                    : "/api/v1/fs/download?path=") +
-                  encodeURIComponent(item.path)
-                }
-              >
-                {item.path}
-              </a>
+              <FileLink path={item.path} kind={item.kind} />
               <p className="text-xs text-muted-foreground">
                 {item.contentType ?? item.kind} · {item.size ?? 0} bytes ·{" "}
                 {new Date(item.updatedAt).toLocaleString()} ·{" "}

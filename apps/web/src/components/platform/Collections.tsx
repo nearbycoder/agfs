@@ -1,3 +1,4 @@
+import { FileLink } from "~/components/ui/file-link";
 import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -146,16 +147,7 @@ function CollectionDetails({
             key={item.id}
             className="flex flex-wrap items-center justify-between gap-2 py-2"
           >
-            <a
-              className="font-mono text-sm underline break-all"
-              href={
-                (item.kind === "folder"
-                  ? "/app/files?path="
-                  : "/api/v1/fs/download?path=") + encodeURIComponent(item.path)
-              }
-            >
-              {item.path}
-            </a>
+            <FileLink path={item.path} kind={item.kind} />
             <Button
               variant="ghost"
               disabled={action.busy}

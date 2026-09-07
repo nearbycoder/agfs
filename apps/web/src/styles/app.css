@@ -225,37 +225,6 @@
   .workspace-page-body {
     @apply space-y-6 rounded-xl border bg-card p-5 sm:p-6;
   }
-  .tool-panel {
-    @apply overflow-hidden rounded-xl border bg-card;
-  }
-  .tool-panel > summary {
-    @apply flex items-center gap-3 p-4 sm:p-5;
-    list-style: none;
-  }
-  .tool-panel > summary::-webkit-details-marker {
-    display: none;
-  }
-  .tool-panel > summary::after {
-    content: "+";
-    margin-left: auto;
-    font-size: 1.25rem;
-  }
-  .tool-panel[open] > summary::after {
-    content: "−";
-  }
-  .tool-panel[open] > summary {
-    @apply border-b bg-muted/40;
-  }
-  .tool-panel-body {
-    @apply p-4 sm:p-6;
-  }
-  .file-row-actions {
-    @apply flex flex-wrap justify-end gap-1;
-  }
-  .file-row-actions button,
-  .file-row-actions a {
-    @apply px-2;
-  }
   .marketing-section {
     @apply border-t py-16 sm:py-24;
   }
@@ -302,15 +271,6 @@
   .file-table td:nth-child(2) .entry-path {
     display: none;
   }
-  .file-row-actions {
-    flex-direction: column;
-  }
-  .file-row-actions button,
-  .file-row-actions a {
-    white-space: normal;
-    height: auto;
-    min-height: 2.5rem;
-  }
 }
 @media (max-width: 640px) {
   .file-table thead tr,
@@ -330,19 +290,157 @@
   .file-table td:nth-child(2) {
     grid-column: 2;
   }
-  .file-table tr:has(details[open]) td:last-child {
-    grid-column: 1 / -1;
-    grid-row: 2;
+}
+
+/* A shared workbench language for browse, inspect, and review states. */
+@layer components {
+  .workspace-page-heading {
+    @apply relative border-none pb-1;
   }
-  .file-table tr:has(details[open]) td:last-child .file-row-actions {
-    max-width: none;
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 0.5rem;
+  .workspace-page-heading::before {
+    content: "";
+    @apply mb-5 block h-1 w-8 rounded-full bg-foreground;
   }
-  .file-table tr:has(details[open]) td:last-child .file-row-actions button,
-  .file-table tr:has(details[open]) td:last-child .file-row-actions a {
+  .workspace-page-body {
+    @apply rounded-2xl shadow-[0_2px_12px_-8px_#09090b20];
+  }
+  .workspace-content
+    :where(section, article, form, label, li, .grid > *, .flex > *) {
     min-width: 0;
-    white-space: nowrap;
+  }
+  .workspace-content :where(p, h2, h3, strong) {
+    overflow-wrap: anywhere;
+  }
+  .workspace-content a:where([href^="/api/"], [href^="/s/"], [target="_blank"]),
+  .workspace-content a.underline {
+    @apply underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-primary hover:decoration-current;
+    overflow-wrap: anywhere;
+  }
+  .workspace-content :where(a, button, summary, [tabindex="0"]):focus-visible {
+    @apply outline-2 outline-offset-4 outline-ring;
+  }
+  .workspace-content :where(input[type="checkbox"]) {
+    @apply size-4 shrink-0 cursor-pointer accent-primary;
+  }
+  .workspace-content :where(ul.divide-y) {
+    @apply overflow-hidden rounded-xl border bg-card;
+  }
+  .workspace-content :where(ul.divide-y > li) {
+    @apply px-4 transition-colors hover:bg-muted/30;
+  }
+  .workspace-content :where(ul.divide-y > li > div:first-child) {
+    @apply min-w-0;
+  }
+  .data-table {
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+  }
+  .data-table th {
+    @apply whitespace-nowrap;
+  }
+  .data-table td {
+    overflow-wrap: anywhere;
+  }
+  .detail-surface {
+    @apply rounded-xl border bg-muted/20 p-4 sm:p-6;
+  }
+  .disclosure {
+    @apply min-w-0 rounded-xl border bg-card;
+    scroll-margin-top: 5rem;
+  }
+  .disclosure > .disclosure-summary {
+    @apply m-0 flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/60 sm:px-5;
+    list-style: none;
+  }
+  .disclosure-summary::-webkit-details-marker {
+    display: none;
+  }
+  .disclosure-summary::after {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-right: 1.5px solid;
+    border-bottom: 1.5px solid;
+    transform: rotate(-45deg);
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 160ms ease;
+  }
+  .disclosure[open] > .disclosure-summary {
+    @apply m-0 rounded-b-none bg-muted/30;
+  }
+  .disclosure[open] > .disclosure-summary::after {
+    transform: rotate(45deg);
+  }
+  .disclosure-body {
+    @apply min-w-0 space-y-4 border-t p-4 sm:p-5;
+  }
+  .disclosure-body > :first-child {
+    margin-top: 0;
+  }
+  .disclosure-body .disclosure {
+    @apply shadow-none;
+  }
+  .tool-workbench[open] {
+    @apply shadow-[0_6px_24px_-16px_#09090b66];
+  }
+  .action-menu {
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  }
+  .workspace-launcher {
+    @apply flex min-w-0 items-center gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .action-menu[data-state="open"] {
+    animation: menu-in 120ms ease-out;
+  }
+  .detail-surface {
+    animation: panel-in 160ms ease-out;
+  }
+  @supports (interpolate-size: allow-keywords) and
+    (transition-behavior: allow-discrete) {
+    .disclosure {
+      interpolate-size: allow-keywords;
+    }
+    .disclosure::details-content {
+      block-size: 0;
+      opacity: 0;
+      overflow: clip;
+      transition:
+        block-size 180ms ease,
+        opacity 140ms ease,
+        content-visibility 180ms allow-discrete;
+    }
+    .disclosure[open]::details-content {
+      block-size: auto;
+      opacity: 1;
+    }
+  }
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0.5;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .workspace-content ul.divide-y:empty {
+    display: none;
   }
 }

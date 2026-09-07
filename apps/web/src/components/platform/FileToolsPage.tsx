@@ -1,3 +1,5 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
+import { LoadingState } from "./shared";
 import {
   FilePenLine,
   StickyNote,
@@ -6,14 +8,32 @@ import {
   Braces,
   GitCompare,
 } from "lucide-react";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
-import { TextCompare } from "./TextCompare";
-import { JsonInspector } from "./JsonInspector";
-import { CsvInspector } from "./CsvInspector";
-import { FileNotes } from "./FileNotes";
-import { TextEditor } from "./TextEditor";
-import { FileTemplates } from "./FileTemplates";
+const loadTextCompare = () => import("./TextCompare");
+const TextCompare = lazy(() =>
+  loadTextCompare().then((module) => ({ default: module.TextCompare })),
+);
+const loadJsonInspector = () => import("./JsonInspector");
+const JsonInspector = lazy(() =>
+  loadJsonInspector().then((module) => ({ default: module.JsonInspector })),
+);
+const loadCsvInspector = () => import("./CsvInspector");
+const CsvInspector = lazy(() =>
+  loadCsvInspector().then((module) => ({ default: module.CsvInspector })),
+);
+const loadFileNotes = () => import("./FileNotes");
+const FileNotes = lazy(() =>
+  loadFileNotes().then((module) => ({ default: module.FileNotes })),
+);
+const loadTextEditor = () => import("./TextEditor");
+const TextEditor = lazy(() =>
+  loadTextEditor().then((module) => ({ default: module.TextEditor })),
+);
+const loadFileTemplates = () => import("./FileTemplates");
+const FileTemplates = lazy(() =>
+  loadFileTemplates().then((module) => ({ default: module.FileTemplates })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -31,6 +51,7 @@ export function FileToolsPage() {
       description: "Write, edit, and save files safely.",
       icon: FilePenLine,
       component: TextEditor,
+      preload: loadTextEditor,
     },
     {
       id: "file-notes",
@@ -38,6 +59,7 @@ export function FileToolsPage() {
       description: "Leave context for your next review.",
       icon: StickyNote,
       component: FileNotes,
+      preload: loadFileNotes,
     },
     {
       id: "file-templates",
@@ -45,6 +67,7 @@ export function FileToolsPage() {
       description: "Start with a reusable structure.",
       icon: LayoutTemplate,
       component: FileTemplates,
+      preload: loadFileTemplates,
     },
     {
       id: "csv-inspector",
@@ -52,6 +75,7 @@ export function FileToolsPage() {
       description: "Explore rows, columns, and values.",
       icon: Table2,
       component: CsvInspector,
+      preload: loadCsvInspector,
     },
     {
       id: "json-inspector",
@@ -59,6 +83,7 @@ export function FileToolsPage() {
       description: "Validate, format, and explore JSON.",
       icon: Braces,
       component: JsonInspector,
+      preload: loadJsonInspector,
     },
     {
       id: "text-comparison",
@@ -66,6 +91,7 @@ export function FileToolsPage() {
       description: "See exactly what changed between files.",
       icon: GitCompare,
       component: TextCompare,
+      preload: loadTextCompare,
     },
   ];
   return (
@@ -90,13 +116,20 @@ export function FileToolsPage() {
       </nav>
       <div className="space-y-4">
         {tools.map((tool) => (
-          <details
+          <Disclosure
             key={tool.id}
             id={tool.id}
-            open={tool.id === "text-editor" ? true : undefined}
-            className="tool-panel"
+            defaultOpen={tool.id === "text-editor"}
+            lazy
+            onPointerEnter={() => {
+              void tool.preload().catch(() => {});
+            }}
+            onFocus={() => {
+              void tool.preload().catch(() => {});
+            }}
+            className="tool-workbench"
           >
-            <summary>
+            <DisclosureSummary>
               <span className="rounded-lg bg-accent p-2.5 text-accent-foreground">
                 <tool.icon className="size-4" />
               </span>
@@ -106,11 +139,15 @@ export function FileToolsPage() {
                   {tool.description}
                 </span>
               </span>
-            </summary>
-            <div className="tool-panel-body">
+            </DisclosureSummary>
+            <Suspense
+              fallback={
+                <LoadingState label={"Opening " + tool.label.toLowerCase()} />
+              }
+            >
               <tool.component />
-            </div>
-          </details>
+            </Suspense>
+          </Disclosure>
         ))}
       </div>
     </section>
