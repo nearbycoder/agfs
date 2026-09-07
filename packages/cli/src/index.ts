@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { version } from "../package.json";
 import { registerAuthCommands } from "./commands/auth";
 import { registerFsCommands } from "./commands/fs";
 
-const program = new Command().name("agfs").description("AgentFilesystem CLI").version("0.2.0");
+const program = new Command().name("agfs").description("AgentFilesystem CLI").version(version);
 
 registerAuthCommands(program);
 registerFsCommands(program);
