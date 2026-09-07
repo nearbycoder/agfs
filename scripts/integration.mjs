@@ -15,6 +15,9 @@ config.d1_databases[0].migrations_dir = resolve("packages/db/src/migrations");
 delete config.configPath;
 delete config.userConfigPath;
 config.queues = { producers: [], consumers: [] };
+config.services = [
+  { binding: "CIMD_EGRESS", service: "agfs-integration-cimd" },
+];
 config.vars = {
   ...config.vars,
   APP_URL: "http://localhost:8787",
@@ -134,6 +137,26 @@ async function wait(port, child) {
   throw new Error("Worker did not start");
 }
 try {
+  const cimdPath = join(work, "cimd-worker.json"),
+    cimdMain = join(work, "cimd-worker.mjs");
+  writeFileSync(
+    cimdMain,
+    `export default {async fetch(request) {
+    const target=new URL(request.url).searchParams.get('url');
+    if(target!=='https://client.example.com/client.json')return new Response('Missing',{status:404});
+    return Response.json({client_id:target,client_name:'CIMD test client',redirect_uris:['http://127.0.0.1:9876/callback'],token_endpoint_auth_method:'none',grant_types:['authorization_code','refresh_token'],response_types:['code'],scope:'openid offline_access agfs:read'}, {headers:{'cache-control':'public,max-age=60'}});
+  }};`,
+  );
+  writeFileSync(
+    cimdPath,
+    JSON.stringify({
+      name: "agfs-integration-cimd",
+      main: cimdMain,
+      compatibility_date: "2026-09-06",
+    }),
+  );
+  const cimdWorker = launch(cimdPath, 8792);
+  await wait(8792, cimdWorker);
   const web = launch(configPath, 8787),
     preview = launch(previewPath, 8788);
   await Promise.all([wait(8787, web), wait(8788, preview)]);
@@ -146,6 +169,7 @@ try {
     "sync-smoke",
     "reliability-smoke",
     "sdk-oauth-smoke",
+    "cimd-smoke",
   ]) {
     await new Promise((resolve, reject) => {
       const c = spawn(process.execPath, ["scripts/" + script + ".mjs"], {

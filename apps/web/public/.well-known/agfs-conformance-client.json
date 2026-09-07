@@ -1,0 +1,9 @@
+{
+  "client_id": "https://agfs.dev/.well-known/agfs-conformance-client.json",
+  "client_name": "AGFS CIMD conformance check",
+  "redirect_uris": ["http://127.0.0.1:9876/callback"],
+  "token_endpoint_auth_method": "none",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "scope": "openid agfs:read"
+}

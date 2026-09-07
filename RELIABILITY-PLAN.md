@@ -28,11 +28,11 @@ disposable local D1/R2 integration and restore checks, browser verification, pac
 installation, production deployment smoke checks. External configuration gaps must
 be reported explicitly rather than described as activated.
 
-Implementation and local verification are complete. Activation status is separate:
+Implementation and local verification are complete. Activation status:
 
-- CI files are ready; main branch now requires the `verify` job.
-- npm trusted publishers still require account verification for SDK and CLI.
-- CIMD Node egress passes local public-fetch and private-address rejection checks; Cloudflare container activation requires refreshed CLI permissions. CIMD stays disabled until its service binding is configured.
+- PR #7 merged; migration 0006 and the web application are deployed. Main requires the passing `verify` CI job.
+- The private CIMD container is deployed. Its public HTTPS and private-address rejection checks passed. Production discovery and authorization-start checks passed; the local integration suite covers discovery, consent, code exchange, and API access for an unregistered CIMD client.
+- Workspace backup/restore passed. A production database-and-R2 archive was completed and verified on September 7, including database restore, search rebuild, and object checksums.
+- npm 0.4.0 artifacts are prepared in a GitHub draft release. Trusted publisher activation still requires separate npm verification for SDK and CLI.
 - Optional invitation email requires a verified sender and Resend key. Invitation links work without email.
-- Workspace backup/restore passed. Production ordinary-table D1 export restored locally; the full service archive requires R2 read access.
-- Merge, production migration/deployment, and registry release are pending.
+- Cloudflare's independent Workers Builds check failed. Direct Wrangler deployment is verified; reading Builds logs requires additional account access unavailable to the current CLI login.

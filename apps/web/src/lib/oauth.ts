@@ -121,12 +121,19 @@ export async function consentOAuth(
   for (const permission of permissions)
     authorize(namespace, permission, input.path);
   const clientId = query.get("client_id");
-  const client = await first(
-    sql`SELECT name FROM oauth_client WHERE client_id=${clientId ?? ""} AND coalesce(disabled,0)=0`,
-  );
-  if (!client) throw errorResponse(400, "Unknown OAuth client");
+  // Use the provider resolver so both registered and CIMD-discovered clients
+  // receive the same validation and disabled-client checks.
+  let client;
+  try {
+    client = await auth.api.getOAuthClientPublic({
+      headers: request.headers,
+      query: { client_id: clientId ?? "" },
+    });
+  } catch {
+    throw errorResponse(400, "Unknown or unavailable OAuth client");
+  }
   const created = await createApiTokenForUser(namespace.user.id, {
-    label: ("MCP: " + (client.name ?? "Agent")).slice(0, 100),
+    label: ("MCP: " + (client.client_name ?? "Agent")).slice(0, 100),
     pathPrefix: input.path,
     permissions,
     issuedBy: actorId(session),
