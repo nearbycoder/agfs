@@ -5,8 +5,11 @@ import {
   readFile,
   unlink,
   symlink,
+  readdir,
+  access,
   rm,
 } from "node:fs/promises";
+import { hostname } from "node:os";
 import { execFileSync } from "node:child_process";
 import { AgfsClient } from "../packages/sdk/dist/index.js";
 const local = await mkdtemp("/tmp/agfs-sync-smoke-"),
@@ -69,6 +72,50 @@ try {
   assert(
     !(await client.list(remote)).entries.some((e) => e.name === "remote.txt"),
   );
+  checks += 2;
+  for (const choice of ["local", "remote", "both"]) {
+    await writeFile(local + "/local.txt", "chosen local " + choice);
+    await client.upload(
+      remote + "/local.txt",
+      new Blob(["chosen remote " + choice]),
+    );
+    command("--resolve", choice, "--file", "local.txt");
+    const expected =
+      choice === "remote"
+        ? "chosen remote " + choice
+        : "chosen local " + choice;
+    assert.equal(await readFile(local + "/local.txt", "utf8"), expected);
+    assert.equal(await client.readText(remote + "/local.txt"), expected);
+    if (choice === "both") {
+      const files = await readdir(local);
+      const copies = await Promise.all(
+        files
+          .filter((f) => !f.startsWith("."))
+          .map((f) => readFile(local + "/" + f, "utf8")),
+      );
+      assert(copies.includes("chosen remote both"));
+      checks++;
+    }
+    checks += 2;
+  }
+  const unlock = () =>
+    execFileSync(
+      process.execPath,
+      ["packages/cli/dist/index.js", "sync-unlock", local],
+      { encoding: "utf8" },
+    );
+  await writeFile(
+    local + "/.agfs-sync.lock",
+    JSON.stringify({ host: hostname(), pid: process.pid }),
+  );
+  assert.throws(unlock, /still running/);
+  await access(local + "/.agfs-sync.lock");
+  await writeFile(
+    local + "/.agfs-sync.lock",
+    JSON.stringify({ host: hostname(), pid: 2147483647 }),
+  );
+  unlock();
+  await assert.rejects(access(local + "/.agfs-sync.lock"));
   checks += 2;
   await symlink("/tmp", local + "/unsafe");
   assert.throws(() => command(), /refuses symlinks/);

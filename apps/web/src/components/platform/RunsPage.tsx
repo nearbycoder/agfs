@@ -7,11 +7,12 @@ export function RunsPage() {
     [name, setName] = useState(""),
     [path, setPath] = useState("/"),
     [inputs, setInputs] = useState(""),
+    [days, setDays] = useState("30"),
     [manifest, setManifest] = useState<any>(null);
   return (
     <Page
       title="Agent runs"
-      description="Group outputs into a run and save a permanent manifest of its inputs, artifacts, versions, and provenance."
+      description="Group outputs into a run and save a manifest with retained inputs, artifacts, versions, and provenance."
       error={action.error || data.error}
     >
       <form
@@ -22,6 +23,7 @@ export function RunsPage() {
             await platform("/runs", "POST", {
               name,
               path,
+              retentionDays: Number(days),
               inputs: inputs
                 .split("\n")
                 .map((v) => v.trim())
@@ -56,8 +58,25 @@ export function RunsPage() {
             placeholder="/inputs/brief.txt"
           />
         </label>
+        <Field
+          label="Retain inputs and artifacts (days)"
+          type="number"
+          min={1}
+          max={90}
+          value={days}
+          onChange={(e) => setDays(e.target.value)}
+        />
         <Button disabled={action.busy}>Start run</Button>
       </form>
+      {data.nextCursor ? (
+        <Button
+          variant="outline"
+          disabled={data.loading}
+          onClick={() => void data.loadMore()}
+        >
+          Load more
+        </Button>
+      ) : null}
       {data.items.length ? (
         <ul className="divide-y">
           {data.items.map((r) => (
@@ -125,6 +144,37 @@ export function RunsPage() {
           >
             Download JSON
           </Button>
+          <p className="section-copy">
+            Files retained until{" "}
+            {new Date(manifest.retainedUntil).toLocaleString()}.
+          </p>
+          <ul className="space-y-2">
+            {[
+              ...(manifest.inputs ?? []).map((v: any) => ({
+                ...v,
+                kind: "input",
+              })),
+              ...(manifest.artifacts ?? []).map((v: any) => ({
+                ...v,
+                kind: "output",
+              })),
+            ].map((v: any) => (
+              <li key={v.kind + v.path}>
+                <a
+                  className="text-sm underline"
+                  href={
+                    "/api/v1/platform/runs/" +
+                    manifest.runId +
+                    "/file?" +
+                    new URLSearchParams({ path: v.path, kind: v.kind })
+                  }
+                  download
+                >
+                  {v.kind}: {v.path}
+                </a>
+              </li>
+            ))}
+          </ul>
           <pre className="max-h-96 overflow-auto rounded-xl border p-4 text-xs">
             {JSON.stringify(manifest, null, 2)}
           </pre>

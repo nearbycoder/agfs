@@ -20,6 +20,7 @@
   "dependencies": {
     "@agfs/contracts": "workspace:*",
     "@agfs/db": "workspace:*",
+    "@better-auth/cimd": "1.7.3",
     "@better-auth/drizzle-adapter": "^1.7.3",
     "@better-auth/mcp": "^1.7.3",
     "@fontsource-variable/manrope": "^5.3.0",

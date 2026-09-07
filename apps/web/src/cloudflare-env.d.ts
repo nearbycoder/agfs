@@ -1,5 +1,6 @@
 declare module "cloudflare:workers" {
   export const env: unknown;
+  export function waitUntil(promise: Promise<unknown>): void;
 }
 
 interface D1Database {}
@@ -65,4 +66,16 @@ interface D1Database {
   ): Promise<
     Array<{ results: Record<string, unknown>[]; meta: { changes: number } }>
   >;
+}
+
+interface Queue {
+  send(body: unknown): Promise<void>;
+}
+interface MessageBatch<T> {
+  queue: string;
+  messages: Array<{
+    body: T;
+    ack(): void;
+    retry(options?: { delaySeconds: number }): void;
+  }>;
 }

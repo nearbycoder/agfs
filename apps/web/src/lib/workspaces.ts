@@ -66,12 +66,13 @@ export async function createWorkspace(auth: RequestAuth, name: string) {
   const creator = actorId(auth),
     id = createAgfsId("ws"),
     at = Date.now();
-  const result=await atomicBatch([
-    sql`INSERT INTO user(id,name,email) SELECT ${id},${name},${id+'@workspaces.invalid'} WHERE (SELECT count(*) FROM workspaces WHERE created_by=${creator})<10 RETURNING id`,
+  const result = await atomicBatch([
+    sql`INSERT INTO user(id,name,email) SELECT ${id},${name},${id + "@workspaces.invalid"} WHERE (SELECT count(*) FROM workspaces WHERE created_by=${creator})<10 RETURNING id`,
     sql`INSERT INTO workspaces(id,name,created_by,created_at) SELECT ${id},${name},${creator},${at} WHERE EXISTS(SELECT 1 FROM user WHERE id=${id})`,
     sql`INSERT INTO workspace_members SELECT ${id},${creator},'owner',${at} WHERE EXISTS(SELECT 1 FROM workspaces WHERE id=${id})`,
   ]);
-  if(!result[0].results.length)throw errorResponse(409,'Workspace limit reached');
+  if (!result[0].results.length)
+    throw errorResponse(409, "Workspace limit reached");
   return { id, name, role: "owner" };
 }
 export async function requireWorkspaceOwner(auth: RequestAuth) {
@@ -87,9 +88,14 @@ export async function inviteMember(
   await requireWorkspaceOwner(auth);
   const token = createAgfsId("invite"),
     id = createAgfsId("inv");
-  await rows(
-    sql`INSERT INTO workspace_invites VALUES (${id},${auth.workspaceId},${email.toLowerCase()},${role},${hashSecret(token)},${actorId(auth)},${Date.now() + 7 * 86400000})`,
+  const inserted = await rows(
+    sql`INSERT INTO workspace_invites SELECT ${id},${auth.workspaceId},${email.toLowerCase()},${role},${hashSecret(token)},${actorId(auth)},${Date.now() + 7 * 86400000} WHERE (SELECT count(*) FROM workspace_invites WHERE workspace_id=${auth.workspaceId})<100 RETURNING id`,
   );
+  if (!inserted.length)
+    throw errorResponse(
+      409,
+      "Invitation limit reached; revoke old invitations first",
+    );
   return { id, token };
 }
 export async function acceptInvite(auth: RequestAuth, token: string) {
@@ -104,12 +110,14 @@ export async function acceptInvite(auth: RequestAuth, token: string) {
       404,
       "Invitation missing, expired, or issued to a different email",
     );
-  await atomicBatch([
+  const accepted = await atomicBatch([
     sql`INSERT INTO workspace_members(workspace_id,user_id,role,created_at)
       SELECT workspace_id,${actor.id},role,${Date.now()} FROM workspace_invites WHERE id=${invite.id} AND expires_at>${Date.now()}
       ON CONFLICT(workspace_id,user_id) DO NOTHING`,
     sql`DELETE FROM workspace_invites WHERE id=${invite.id}`,
   ]);
+  if (!accepted[1].meta.changes)
+    throw errorResponse(409, "Invitation expired or was revoked");
   return { workspaceId: invite.workspace_id };
 }
 export async function members(auth: RequestAuth) {

@@ -1,0 +1,21 @@
+{
+  "name": "@agfs/cimd-egress",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/server.test.mjs",
+    "deploy": "pnpm build && wrangler deploy"
+  },
+  "dependencies": {
+    "@better-auth/cimd": "1.7.3",
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260906.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.129.0"
+  }
+}

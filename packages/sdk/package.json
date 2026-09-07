@@ -1,17 +1,21 @@
 {
   "name": "@agfs/sdk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Official TypeScript SDK for AGFS",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nearbycoder/agfs.git",
+    "url": "git+https://github.com/nearbycoder/agfs.git",
     "directory": "packages/sdk"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./oauth": {
+      "types": "./dist/oauth.d.ts",
+      "import": "./dist/oauth.js"
     }
   },
   "files": [

@@ -354,7 +354,12 @@ export async function commitUpload(
   };
 
   const [result] = await atomicBatch([
-    commitUploadStatement(row, uploadId, storageDecision.storageLimitBytes, requestContext.getStore()?.auth?.actor?.id ?? ownerId),
+    commitUploadStatement(
+      row,
+      uploadId,
+      storageDecision.storageLimitBytes,
+      requestContext.getStore()?.auth?.actor?.id ?? ownerId,
+    ),
     db
       .update(uploads)
       .set({ status: "committed", committedAt: now() })
@@ -497,6 +502,7 @@ export async function createShare(
   ownerId: string,
   path: string,
   ttl: string,
+  reviewedEtag?: string | null,
 ): Promise<ShareLinkRecord> {
   const entry = await getEntryByPath(ownerId, path);
   if (!entry || entry.kind !== "file") {
@@ -514,7 +520,11 @@ export async function createShare(
     expiresAt: new Date(Date.now() + parseTtl(ttl)),
   };
 
-  await db.insert(shareLinks).values(record);
+  const inserted =
+    await db.run(sql`INSERT INTO share_links(id,owner_id,entry_id,token_hash,prefix,created_at,expires_at)
+    SELECT ${record.id},${ownerId},id,${record.tokenHash},${record.prefix},${record.createdAt.getTime()},${record.expiresAt.getTime()} FROM entries WHERE id=${entry.id} AND etag IS ${reviewedEtag ?? entry.etag} RETURNING id`);
+  if (!inserted.results.length)
+    throw errorResponse(409, "File changed after sharing review");
 
   const bindings = requireStringBindings("APP_URL");
   return {

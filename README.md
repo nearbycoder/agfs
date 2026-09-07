@@ -188,3 +188,5 @@ The feature rollout and verification are documented in [AGENT-UPGRADE.md](./AGEN
 ## Collaborative agent platform
 
 AGFS now includes search and tags, browser OAuth for MCP, shared workspaces, conditional writes, signed webhooks, run manifests, reviewed drafts, CLI sync/watch, TypeScript and Python SDKs, and agent/workspace budgets. See [the platform guide](docs/platform.md) for workflows, API routes, limits, and release verification.
+
+AGFS 0.4 adds recovery snapshots and verified backups, safer public sharing and credential rotation, incremental parallel sync, SDK browser OAuth, queue processing, operational alerts, retained run files, and workspace review/ownership controls. See the [reliability guide](docs/reliability.md) for setup, commands, retention limits, and release configuration.

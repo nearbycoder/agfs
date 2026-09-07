@@ -69,6 +69,16 @@
       },
       "ratelimits": [
         {
+          "name": "OP_RATE_LIMITER",
+          "namespace_id": "94672002",
+          "simple": { "limit": 300, "period": 60 },
+        },
+        {
+          "name": "SEARCH_RATE_LIMITER",
+          "namespace_id": "94672003",
+          "simple": { "limit": 60, "period": 60 },
+        },
+        {
           "name": "AUTH_RATE_LIMITER",
           "namespace_id": "94672001",
           "simple": {
@@ -77,12 +87,41 @@
           },
         },
       ],
+      "queues": {
+        "producers": [
+          { "binding": "BACKGROUND_QUEUE", "queue": "agfs-background" },
+        ],
+        "consumers": [
+          {
+            "queue": "agfs-background",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 3,
+            "dead_letter_queue": "agfs-background-dead",
+          },
+          {
+            "queue": "agfs-background-dead",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+          },
+        ],
+      },
       "triggers": {
         "crons": ["* * * * *"],
       },
     },
   },
   "ratelimits": [
+    {
+      "name": "OP_RATE_LIMITER",
+      "namespace_id": "94672002",
+      "simple": { "limit": 300, "period": 60 },
+    },
+    {
+      "name": "SEARCH_RATE_LIMITER",
+      "namespace_id": "94672003",
+      "simple": { "limit": 60, "period": 60 },
+    },
     {
       "name": "AUTH_RATE_LIMITER",
       "namespace_id": "94672001",
@@ -92,6 +131,25 @@
       },
     },
   ],
+  "queues": {
+    "producers": [
+      { "binding": "BACKGROUND_QUEUE", "queue": "agfs-background" },
+    ],
+    "consumers": [
+      {
+        "queue": "agfs-background",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "agfs-background-dead",
+      },
+      {
+        "queue": "agfs-background-dead",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+      },
+    ],
+  },
   "triggers": {
     "crons": ["* * * * *"],
   },

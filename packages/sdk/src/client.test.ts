@@ -25,9 +25,9 @@ it("paginates search and forwards conditional writes", async () => {
   const transport = vi.fn(async (url, init) => {
     if (String(url).includes("search"))
       return Response.json(
-        String(url).includes("offset=50")
-          ? { results: [{ path: "/b" }], nextOffset: null }
-          : { results: [{ path: "/a" }], nextOffset: 50 },
+        String(url).includes("cursor=second")
+          ? { results: [{ path: "/b" }], nextCursor: null }
+          : { results: [{ path: "/a" }], nextCursor: "second" },
       );
     const body = JSON.parse(init.body);
     expect(body.ifMatch).toBe(null);

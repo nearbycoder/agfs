@@ -73,7 +73,35 @@ export function WebhooksPage() {
                 {h.path_prefix} · {JSON.parse(h.events).join(", ")} ·{" "}
                 {h.enabled ? "Enabled" : "Paused"}
               </p>
-              <div className="flex gap-3">
+              <p className="text-xs text-zinc-500">
+                Last delivery:{" "}
+                {h.last_used_at
+                  ? new Date(h.last_used_at).toLocaleString()
+                  : "never"}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={action.busy}
+                  onClick={() =>
+                    void action.run(async () => {
+                      const v = await platform(
+                        "/webhooks/" + h.id + "/rotate",
+                        "POST",
+                        {},
+                      );
+                      action.setNotice(
+                        "New secret: " +
+                          v.secret +
+                          " · Old signature remains valid for 15 minutes.",
+                      );
+                      await data.refresh();
+                    })
+                  }
+                >
+                  Rotate secret
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

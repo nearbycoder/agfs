@@ -62,7 +62,7 @@ export async function createWebhook(
 export async function listWebhooks(auth: RequestAuth) {
   authorize(auth, "manage");
   return rows(
-    sql`SELECT id,url,path_prefix,events,enabled,created_at FROM webhooks WHERE owner_id=${auth.user.id} ORDER BY created_at DESC`,
+    sql`SELECT id,url,path_prefix,events,enabled,created_at,last_used_at,previous_secret_until FROM webhooks WHERE owner_id=${auth.user.id} ORDER BY created_at DESC`,
   );
 }
 export async function webhookDeliveries(auth: RequestAuth, id: string) {
@@ -81,11 +81,11 @@ export async function setWebhook(
   );
   return { ok: true };
 }
-export async function deliverWebhooks() {
+export async function deliverWebhooks(id?: string) {
   const at = Date.now();
   const pending =
     await rows(sql`SELECT d.id FROM webhook_deliveries d JOIN webhooks w ON w.id=d.webhook_id
-    WHERE d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1 ORDER BY d.next_attempt LIMIT 20`);
+    WHERE (${id ?? null} IS NULL OR d.id=${id ?? null}) AND d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1 ORDER BY d.next_attempt LIMIT 20`);
   for (const item of pending) {
     const claimed =
       await first(sql`UPDATE webhook_deliveries SET status='sending',attempts=attempts+1,next_attempt=${Date.now() + 60000}
@@ -104,6 +104,14 @@ export async function deliverWebhooks() {
           timestamp,
           claimed.payload,
         );
+      const oldSignature =
+        hook.previous_secret && hook.previous_secret_until > Date.now()
+          ? await webhookSignature(
+              hook.previous_secret,
+              timestamp,
+              claimed.payload,
+            )
+          : null;
       const response = await fetch(webhookUrl(hook.url), {
         method: "POST",
         redirect: "manual",
@@ -112,10 +120,14 @@ export async function deliverWebhooks() {
           "content-type": "application/json",
           "x-agfs-event-id": claimed.event_id,
           "x-agfs-timestamp": timestamp,
-          "x-agfs-signature": "v1=" + signature,
+          "x-agfs-signature":
+            "v1=" + signature + (oldSignature ? ",v1=" + oldSignature : ""),
         },
         body: claimed.payload,
       });
+      await rows(
+        sql`UPDATE webhooks SET last_used_at=${Date.now()} WHERE id=${hook.id}`,
+      );
       status = response.status;
       await response.body?.cancel();
       if (!response.ok) error = "Endpoint returned HTTP " + status;

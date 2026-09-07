@@ -11,7 +11,8 @@ it("checks quota and folder conflicts in the actual SQLite write", () => {
     CREATE TABLE api_tokens(id TEXT,paused INTEGER,revoked_at INTEGER,expires_at INTEGER,storage_limit INTEGER);
     CREATE TABLE workspaces(id TEXT,paused INTEGER,storage_limit INTEGER);
     CREATE TABLE workspace_members(workspace_id TEXT,user_id TEXT,role TEXT);
-    CREATE TABLE object_usage(token_id TEXT,size INTEGER);
+    CREATE TABLE object_usage(token_id TEXT,size INTEGER,owner_id TEXT,object_key TEXT);
+    CREATE TABLE object_pins(object_key TEXT,expires_at INTEGER);
     INSERT INTO uploads (id,owner_id,status) VALUES ('u1','owner','pending'),('u2','owner','pending'),('u3','owner','pending');`);
   const commit = (
     id: string,

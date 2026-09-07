@@ -1,4 +1,5 @@
-import {workspaceWriteSql} from "./workspace-write";
+import { page, timeCursor } from "./cursor";
+import { workspaceWriteSql } from "./workspace-write";
 import { sql } from "drizzle-orm";
 import {
   createAgfsId,
@@ -38,11 +39,15 @@ export async function createDraft(
   );
   return { id, name, path, status: "open" };
 }
-export async function listDrafts(auth: RequestAuth) {
+export async function listDrafts(auth: RequestAuth, cursor?: string) {
   const prefix = auth.pathPrefix ?? "/";
   authorize(auth, "read", prefix);
-  return rows(sql`SELECT id,name,path_prefix,status,created_at FROM draft_sets WHERE owner_id=${auth.user.id}
-    AND (${prefix}='/' OR path_prefix=${prefix} OR substr(path_prefix,1,length(${prefix + "/"}))=${prefix + "/"}) ORDER BY created_at DESC LIMIT 100`);
+  const c = timeCursor(cursor);
+  const result = page(
+    await rows(sql`SELECT id,name,path_prefix,status,created_at FROM draft_sets WHERE owner_id=${auth.user.id}
+    AND (${prefix}='/' OR path_prefix=${prefix} OR substr(path_prefix,1,length(${prefix + "/"}))=${prefix + "/"}) AND (${c?.at ?? null} IS NULL OR created_at<${c?.at ?? 0} OR (created_at=${c?.at ?? 0} AND id<${c?.id ?? ""})) ORDER BY created_at DESC,id DESC LIMIT 51`),
+  );
+  return { drafts: result.results, nextCursor: result.nextCursor };
 }
 export async function draftDetail(auth: RequestAuth, id: string) {
   const item = await draft(auth, id);
@@ -50,7 +55,10 @@ export async function draftDetail(auth: RequestAuth, id: string) {
     sql`SELECT * FROM draft_changes WHERE draft_id=${id} ORDER BY path`,
   );
   for (const c of changes) authorize(auth, "read", c.path);
-  return { ...item, changes } as Record<string, any> & {
+  const comments = await rows(
+    sql`SELECT c.id,c.body,c.path,c.line,c.created_at,u.name AS author FROM draft_comments c JOIN user u ON u.id=c.actor_id WHERE c.draft_id=${id} ORDER BY c.created_at LIMIT 200`,
+  );
+  return { ...item, changes, comments } as Record<string, any> & {
     changes: Record<string, any>[];
   };
 }
@@ -73,7 +81,7 @@ export async function changeDraft(
   ))
     throw errorResponse(403, "Change is outside the draft folder");
   if (item.actor_id !== actorId(auth)) authorize(auth, "manage");
-  if (item.status !== "open")
+  if (!["open", "changes_requested"].includes(item.status))
     throw errorResponse(409, "Reviewed drafts cannot be edited");
   if (input.operation === "delete") authorize(auth, "delete", path);
   if (path === "/") throw errorResponse(400, "Root cannot be a draft file");
@@ -93,7 +101,7 @@ export async function changeDraft(
   const changed =
     await rows(sql`INSERT INTO draft_changes(draft_id,path,operation,base_etag,base_exists,content,content_type,base_content)
     SELECT ${id},${path},${input.operation},${existing?.etag ?? null},${existing ? 1 : 0},${input.content ?? null},${input.contentType ?? "text/plain"},${base}
-    WHERE EXISTS(SELECT 1 FROM draft_sets WHERE id=${id} AND status='open')
+    WHERE EXISTS(SELECT 1 FROM draft_sets WHERE id=${id} AND status IN ('open','changes_requested'))
       AND ((SELECT count(*) FROM draft_changes WHERE draft_id=${id})<30 OR EXISTS(SELECT 1 FROM draft_changes WHERE draft_id=${id} AND path=${path}))
     ON CONFLICT(draft_id,path) DO UPDATE SET operation=excluded.operation,content=excluded.content,content_type=excluded.content_type
     RETURNING path`);
@@ -101,18 +109,38 @@ export async function changeDraft(
     throw errorResponse(409, "Draft changed or has reached its 30-file limit");
   return { ok: true };
 }
+export async function requireDraftReviewer(
+  auth: RequestAuth,
+  item: Record<string, any>,
+) {
+  if (auth.authSource !== "session")
+    throw errorResponse(403, "A person must review drafts in the browser");
+  const independent = auth.workspaceId
+    ? !!(
+        await first(
+          sql`SELECT independent_review FROM workspaces WHERE id=${auth.workspaceId}`,
+        )
+      )?.independent_review
+    : false;
+  if (independent && auth.workspaceRole === "editor")
+    authorize(auth, "write", item.path_prefix);
+  else authorize(auth, "manage");
+  return independent;
+}
 export async function reviewDraft(
   auth: RequestAuth,
   id: string,
   accept: boolean,
 ) {
-  await draft(auth, id);
-  authorize(auth, "manage");
+  const item = await draft(auth, id);
+  const independent = await requireDraftReviewer(auth, item);
+  if (accept && independent && item.actor_id === actorId(auth))
+    throw errorResponse(403, "Another person must approve this draft");
   if (auth.authSource !== "session")
     throw errorResponse(403, "A person must review drafts in the browser");
   const reviewed =
     await rows(sql`UPDATE draft_sets SET status=${accept ? "approved" : "rejected"},reviewed_by=${actorId(auth)},reviewed_at=${Date.now()}
-    WHERE id=${id} AND status='open' AND EXISTS(SELECT 1 FROM draft_changes WHERE draft_id=${id}) RETURNING id`);
+    WHERE id=${id} AND status='open' AND (${accept ? 1 : 0}=0 OR actor_id!=${actorId(auth)} OR NOT EXISTS(SELECT 1 FROM workspaces WHERE id=${auth.workspaceId ?? ""} AND independent_review=1)) AND EXISTS(SELECT 1 FROM draft_changes WHERE draft_id=${id}) RETURNING id`);
   if (!reviewed.length)
     throw errorResponse(409, "Draft is empty or already reviewed");
   return { ok: true };
@@ -195,8 +223,8 @@ export async function applyDraft(auth: RequestAuth, id: string) {
     AND NOT EXISTS(SELECT 1 FROM draft_changes c LEFT JOIN entries e ON e.owner_id=${auth.user.id} AND e.path=c.path WHERE c.draft_id=${id}
       AND ((c.base_exists=0 AND e.id IS NOT NULL) OR (c.base_exists=1 AND (e.id IS NULL OR e.etag IS NOT c.base_etag OR e.kind!='file'))))
     AND (${ready.length ? sql.join(ready, sql` AND `) : sql`1`}) AND (${parents.length ? sql.join(parents, sql` AND `) : sql`1`})
-    AND ${workspaceWriteSql(auth.user.id,actorId(auth),incoming)}
-    AND (${auth.tokenId ?? null} IS NULL OR EXISTS(SELECT 1 FROM api_tokens WHERE id=${auth.tokenId ?? null} AND paused=0 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>${at}) AND (storage_limit IS NULL OR (SELECT coalesce(sum(size),0) FROM object_usage WHERE token_id=${auth.tokenId??null})+${incoming}<=storage_limit)))
+    AND ${workspaceWriteSql(auth.user.id, actorId(auth), incoming)}
+    AND (${auth.tokenId ?? null} IS NULL OR EXISTS(SELECT 1 FROM api_tokens WHERE id=${auth.tokenId ?? null} AND paused=0 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>${at}) AND (storage_limit IS NULL OR (SELECT coalesce(sum(size),0) FROM object_usage WHERE token_id=${auth.tokenId ?? null})+${incoming}<=storage_limit)))
     AND ${storageUsageSql(auth.user.id)}+${incoming}<=${decision.storageLimitBytes} RETURNING id`,
   ];
   for (const c of changes) {

@@ -1,7 +1,9 @@
 import { DatabaseSync } from "node:sqlite";
 import { readdirSync } from "node:fs";
 import { createHmac } from "node:crypto";
-const directory = "/tmp/agfs-audit-state/v3/d1/miniflare-D1DatabaseObject";
+const directory =
+  (process.env.AGFS_TEST_STATE ?? "/tmp/agfs-audit-state") +
+  "/v3/d1/miniflare-D1DatabaseObject";
 export const database = new DatabaseSync(
   directory +
     "/" +

@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+import { first } from "./platform-db";
 import { requestContext } from "./request-context";
 import { ALL_PERMISSIONS, type Permission } from "./scope";
 import { and, eq, gt, isNull, or, lte } from "drizzle-orm";
@@ -84,6 +86,9 @@ export async function resolveRequestAuth(
   if (request.headers.get("authorization")?.toLowerCase().startsWith("dpop "))
     return null;
   const tokenHash = hashSecret(bearer);
+  const alias = await first(
+    sql`SELECT token_id,token_hash FROM token_rotation_aliases WHERE token_hash=${tokenHash} AND expires_at>${Date.now()}`,
+  );
   const nowAt = now();
   const [record] = await db
     .select({
@@ -105,20 +110,38 @@ export async function resolveRequestAuth(
     .innerJoin(users, eq(users.id, apiTokens.ownerId))
     .where(
       and(
-        eq(apiTokens.tokenHash, tokenHash),
+        or(
+          eq(apiTokens.tokenHash, tokenHash),
+          eq(apiTokens.id, alias?.token_id ?? ""),
+        ),
         isNull(apiTokens.revokedAt),
         or(isNull(apiTokens.expiresAt), gt(apiTokens.expiresAt, nowAt)),
       ),
     );
 
-  if (!record || record.paused || !verifyHash(bearer, record.tokenHash)) {
+  if (
+    !record ||
+    record.paused ||
+    !(
+      verifyHash(bearer, record.tokenHash) ||
+      (alias && verifyHash(bearer, alias.token_hash))
+    )
+  ) {
     return null;
   }
 
   await db
     .update(apiTokens)
     .set({ lastUsedAt: nowAt })
-    .where(eq(apiTokens.id, record.id));
+    .where(
+      and(
+        eq(apiTokens.id, record.id),
+        or(
+          isNull(apiTokens.lastUsedAt),
+          lte(apiTokens.lastUsedAt, new Date(Date.now() - 60000)),
+        ),
+      ),
+    );
 
   const issuer = record.issuedBy
     ? (await db.select().from(users).where(eq(users.id, record.issuedBy)))[0]
@@ -163,6 +186,10 @@ export async function requireRequestAuth(
     if (context) context.budgetCharged = true;
   }
   if (context) context.auth = result;
+  if (!context?.burstCharged) {
+    await (await import("./operations")).limitOperation(request, result);
+    if (context) context.burstCharged = true;
+  }
   return result;
 }
 

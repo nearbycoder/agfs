@@ -26,6 +26,7 @@ const navigation = [
   { href: "/app/runs", icon: Play, label: "Agent runs" },
   { href: "/app/drafts", icon: FileCheck, label: "Draft changes" },
   { href: "/app/tokens", icon: KeyRound, label: "Tokens" },
+  { href: "/app/operations", icon: Gauge, label: "Operations & recovery" },
   { href: "/app/budgets", icon: Gauge, label: "Agent budgets" },
   { href: "/app/webhooks", icon: Webhook, label: "Webhooks" },
   { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },

@@ -4,6 +4,7 @@ export const requestContext = new AsyncLocalStorage<{
   oauthGrantId?: string;
   verifiedOAuth?: { bearer: string; claims: Record<string, any> };
   budgetCharged?: boolean;
+  burstCharged?: boolean;
   auth?: RequestAuth;
   action?: string;
   path?: string;

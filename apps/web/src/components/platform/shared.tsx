@@ -43,6 +43,7 @@ export function useAction() {
   return { busy, error, notice, setNotice, run };
 }
 export function useData(path: string, key: string) {
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [items, setItems] = useState<any[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
@@ -52,7 +53,10 @@ export function useData(path: string, key: string) {
       setError("");
       try {
         const data = await platform(path, "GET", undefined, signal);
-        if (!signal?.aborted) setItems(data[key]);
+        if (!signal?.aborted) {
+          setItems(data[key]);
+          setNextCursor(data.nextCursor ?? null);
+        }
       } catch (e) {
         if (!signal?.aborted)
           setError(e instanceof Error ? e.message : "Could not load items");
@@ -67,7 +71,28 @@ export function useData(path: string, key: string) {
     void refresh(controller.signal);
     return () => controller.abort();
   }, [refresh]);
-  return { items, refresh, error, loading };
+  async function loadMore() {
+    if (!nextCursor || loading) return;
+    setLoading(true);
+    try {
+      const data = await platform(
+        path +
+          (path.includes("?") ? "&" : "?") +
+          "cursor=" +
+          encodeURIComponent(nextCursor),
+      );
+      setItems((old) => [
+        ...old,
+        ...data[key].filter((r: any) => !old.some((v) => v.id === r.id)),
+      ]);
+      setNextCursor(data.nextCursor ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load page");
+    } finally {
+      setLoading(false);
+    }
+  }
+  return { items, refresh, error, loading, nextCursor, loadMore };
 }
 export function Page({
   title,

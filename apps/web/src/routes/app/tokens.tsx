@@ -7,9 +7,22 @@ import { tokenListResponseSchema } from "@agfs/contracts";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table";
 import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 
 export const Route = createFileRoute("/app/tokens")({
@@ -24,7 +37,9 @@ export const Route = createFileRoute("/app/tokens")({
 });
 
 function TokensPage() {
-  const [tokens, setTokens] = useState<ReturnType<typeof tokenListResponseSchema.parse>["tokens"]>([]);
+  const [tokens, setTokens] = useState<
+    ReturnType<typeof tokenListResponseSchema.parse>["tokens"]
+  >([]);
   const [label, setLabel] = useState("");
   const [ttl, setTtl] = useState("30d");
   const [pathPrefix, setPathPrefix] = useState("/");
@@ -45,7 +60,9 @@ function TokensPage() {
 
   useEffect(() => {
     void refresh().catch((cause: unknown) => {
-      setError(cause instanceof Error ? cause.message : "Failed to load tokens");
+      setError(
+        cause instanceof Error ? cause.message : "Failed to load tokens",
+      );
     });
   }, []);
 
@@ -61,7 +78,10 @@ function TokensPage() {
         label,
         ttl,
         pathPrefix,
-        permissions: permissionPreset === "read" ? ["read"] : ["read", "write", "delete", "share"],
+        permissions:
+          permissionPreset === "read"
+            ? ["read"]
+            : ["read", "write", "delete", "share"],
       }),
     });
     const payload = await response.json();
@@ -100,10 +120,12 @@ function TokensPage() {
             <Badge className="w-fit" variant="secondary">
               Agent tokens
             </Badge>
-            <CardTitle className="dashboard-title">Headless access for remote workers.</CardTitle>
+            <CardTitle className="dashboard-title">
+              Headless access for remote workers.
+            </CardTitle>
             <CardDescription>
-              Limit each agent to the access it needs. Tokens expire after 30 days by default, with a maximum of 90
-              days.
+              Limit each agent to the access it needs. Tokens expire after 30
+              days by default, with a maximum of 90 days.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -123,7 +145,12 @@ function TokensPage() {
                 <label className="section-label" htmlFor="token-ttl">
                   TTL
                 </label>
-                <Input id="token-ttl" onChange={(event) => setTtl(event.target.value)} placeholder="7d" value={ttl} />
+                <Input
+                  id="token-ttl"
+                  onChange={(event) => setTtl(event.target.value)}
+                  placeholder="7d"
+                  value={ttl}
+                />
               </div>
               <div className="space-y-2">
                 <label className="section-label" htmlFor="token-path">
@@ -162,10 +189,13 @@ function TokensPage() {
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
                 <div className="flex items-center gap-3">
                   <ShieldCheck className="size-4 text-zinc-600 dark:text-zinc-300" />
-                  <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">Token hygiene</p>
+                  <p className="text-sm font-medium text-zinc-950 dark:text-zinc-50">
+                    Token hygiene
+                  </p>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                  AGFS stores token hashes in D1 and only reveals the raw token once at creation time.
+                  AGFS stores token hashes in D1 and only reveals the raw token
+                  once at creation time.
                 </p>
               </div>
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
@@ -184,7 +214,10 @@ function TokensPage() {
               Latest secret
             </Badge>
             <CardTitle>Copy this now.</CardTitle>
-            <CardDescription>After this screen changes, the raw token value cannot be retrieved again.</CardDescription>
+            <CardDescription>
+              After this screen changes, the raw token value cannot be retrieved
+              again.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {secret ? (
@@ -199,7 +232,8 @@ function TokensPage() {
               </div>
             ) : (
               <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                Create a token and the latest value will appear here for a one-time copy.
+                Create a token and the latest value will appear here for a
+                one-time copy.
               </p>
             )}
           </CardContent>
@@ -217,13 +251,15 @@ function TokensPage() {
         <CardHeader>
           <CardTitle>Issued tokens</CardTitle>
           <CardDescription>
-            Keep labels clear so automation hosts are easy to identify and retire when they are no longer needed.
+            Keep labels clear so automation hosts are easy to identify and
+            retire when they are no longer needed.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {tokens.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
-              No tokens issued yet. Create one above for CI, remote agents, or personal scripts.
+              No tokens issued yet. Create one above for CI, remote agents, or
+              personal scripts.
             </div>
           ) : (
             <Table>
@@ -238,7 +274,9 @@ function TokensPage() {
               <TableBody>
                 {tokens.map((token) => (
                   <TableRow key={token.id}>
-                    <TableCell className="font-medium text-zinc-950 dark:text-zinc-50">{token.label}</TableCell>
+                    <TableCell className="font-medium text-zinc-950 dark:text-zinc-50">
+                      {token.label}
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
                       {token.pathPrefix}
                       <br />
@@ -246,13 +284,47 @@ function TokensPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={token.revokedAt ? "warning" : "success"}>
-                        {token.revokedAt ? "Revoked" : token.expiresAt ? `Expires ${token.expiresAt}` : "Active"}
+                        {token.revokedAt
+                          ? "Revoked"
+                          : token.expiresAt
+                            ? `Expires ${token.expiresAt}`
+                            : "Active"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
                         {!token.revokedAt ? (
-                          <Button onClick={() => handleRevoke(token.id)} size="sm" type="button" variant="ghost">
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const r = await fetch(
+                                  "/api/v1/platform/tokens/" +
+                                    token.id +
+                                    "/rotate",
+                                  { method: "POST" },
+                                );
+                                const v = await r.json();
+                                if (!r.ok) throw new Error(v.error);
+                                setSecret(v.token);
+                                await refresh();
+                              } catch (e) {
+                                setError(e.message);
+                              }
+                            }}
+                          >
+                            Rotate token
+                          </Button>
+                        ) : null}
+                        {!token.revokedAt ? (
+                          <Button
+                            onClick={() => handleRevoke(token.id)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
                             <Trash2 className="size-4 text-red-500" />
                             Revoke
                           </Button>

@@ -1,3 +1,4 @@
+import { LineDiff } from "./LineDiff";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -17,7 +18,8 @@ export function DraftsPage() {
     [draft, setDraft] = useState<any>(null),
     [path, setPath] = useState(""),
     [operation, setOperation] = useState("write"),
-    [content, setContent] = useState("");
+    [content, setContent] = useState(""),
+    [comment, setComment] = useState("");
   async function reload() {
     if (draft) setDraft(await platform("/drafts/" + draft.id));
     await data.refresh();
@@ -54,6 +56,15 @@ export function DraftsPage() {
         />
         <Button disabled={action.busy}>New draft</Button>
       </form>
+      {data.nextCursor ? (
+        <Button
+          variant="outline"
+          disabled={data.loading}
+          onClick={() => void data.loadMore()}
+        >
+          Load more
+        </Button>
+      ) : null}
       {data.items.length ? (
         <ul className="divide-y">
           {data.items.map((d) => (
@@ -84,7 +95,7 @@ export function DraftsPage() {
           <h2 className="text-lg font-semibold">
             {draft.name} · {draft.status}
           </h2>
-          {draft.status === "open" ? (
+          {["open", "changes_requested"].includes(draft.status) ? (
             <form
               className="space-y-3"
               onSubmit={(e) => {
@@ -138,27 +149,36 @@ export function DraftsPage() {
               <h3 className="break-all font-mono text-sm">
                 {c.operation} {c.path}
               </h3>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div>
-                  <h4 className="mb-2 text-xs uppercase text-zinc-500">
-                    Before{c.base_exists ? "" : " · new file"}
-                  </h4>
-                  <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100">
-                    {c.base_content || "(empty)"}
-                  </pre>
+              <LineDiff
+                before={c.base_content ?? ""}
+                after={c.operation === "delete" ? "" : (c.content ?? "")}
+              />
+              <details>
+                <summary className="cursor-pointer text-sm">
+                  Full before and after
+                </summary>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div>
+                    <h4 className="mb-2 text-xs uppercase text-zinc-500">
+                      Before{c.base_exists ? "" : " · new file"}
+                    </h4>
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100">
+                      {c.base_content || "(empty)"}
+                    </pre>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-xs uppercase text-zinc-500">
+                      After
+                    </h4>
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-950 dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
+                      {c.operation === "delete"
+                        ? "(deleted)"
+                        : c.content || "(empty)"}
+                    </pre>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="mb-2 text-xs uppercase text-zinc-500">
-                    After
-                  </h4>
-                  <pre className="max-h-64 overflow-auto rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-950 dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
-                    {c.operation === "delete"
-                      ? "(deleted)"
-                      : c.content || "(empty)"}
-                  </pre>
-                </div>
-              </div>
-              {draft.status === "open" ? (
+              </details>
+              {["open", "changes_requested"].includes(draft.status) ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -204,6 +224,78 @@ export function DraftsPage() {
               </Button>
             </div>
           ) : null}
+          <section className="space-y-3">
+            <h3 className="font-semibold">Review discussion</h3>
+            {draft.comments?.map((c: any) => (
+              <div key={c.id} className="rounded-lg border p-3">
+                <p className="text-xs text-zinc-500">
+                  {c.author} · {new Date(c.created_at).toLocaleString()}
+                </p>
+                <p className="whitespace-pre-wrap">{c.body}</p>
+              </div>
+            ))}
+            <Field
+              label="Comment or requested changes"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              maxLength={4000}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                disabled={action.busy || !comment.trim()}
+                onClick={() =>
+                  void action.run(async () => {
+                    await platform(
+                      "/drafts/" + draft.id + "/comments",
+                      "POST",
+                      { body: comment },
+                    );
+                    setComment("");
+                    await reload();
+                  })
+                }
+              >
+                Add comment
+              </Button>
+              {draft.status === "open" ? (
+                <Button
+                  variant="outline"
+                  disabled={action.busy || !comment.trim()}
+                  onClick={() =>
+                    void action.run(async () => {
+                      await platform(
+                        "/drafts/" + draft.id + "/request-changes",
+                        "POST",
+                        { body: comment },
+                      );
+                      setComment("");
+                      await reload();
+                    })
+                  }
+                >
+                  Request changes
+                </Button>
+              ) : null}
+              {draft.status === "changes_requested" ? (
+                <Button
+                  disabled={action.busy}
+                  onClick={() =>
+                    void action.run(async () => {
+                      await platform(
+                        "/drafts/" + draft.id + "/resubmit",
+                        "POST",
+                        {},
+                      );
+                      await reload();
+                    })
+                  }
+                >
+                  Resubmit for review
+                </Button>
+              ) : null}
+            </div>
+          </section>
           {draft.status === "approved" ? (
             <Button
               disabled={action.busy}

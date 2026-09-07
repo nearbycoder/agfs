@@ -8,8 +8,8 @@ class ClientTests(unittest.TestCase):
         AgfsClient('secret','http://localhost:8787')
     def test_pagination(self):
         client=AgfsClient('secret')
-        client.search=lambda **filters: {'results':[filters['offset']],'nextOffset':50 if filters['offset']==0 else None}
-        self.assertEqual(list(client.search_all()),[0,50])
+        client.search=lambda **filters: {'results':[filters['cursor']],'nextCursor':'second' if filters['cursor'] is None else None}
+        self.assertEqual(list(client.search_all()),[None,'second'])
     def test_arbitrary_paths(self):
         with self.assertRaises(ValueError):
             AgfsClient('secret').request('//evil.com/api/v1')

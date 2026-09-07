@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "agfs-sdk"
-version = "0.3.0"
+version = "0.4.0"
 description = "Official Python SDK for AGFS"
 readme = "README.md"
 requires-python = ">=3.10"

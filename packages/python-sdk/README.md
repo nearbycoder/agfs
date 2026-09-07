@@ -25,6 +25,20 @@ with agfs.download(entry['path']) as response:
 
 `start_run`, `complete_run`, `create_draft`, `change_draft`, `apply_draft`, `tags`, and `search_all` cover common agent workflows. `json('/platform/...', method, body)` exposes all API endpoints. A person approves drafts in the web interface before an agent can apply them.
 
-The token selects the workspace; the optional `workspace` argument asserts that namespace. GET, HEAD, and PUT retry transient failures with bounded backoff; POST never automatically retries. Redirects are rejected. HTTP is allowed only for localhost development. Use the context manager returned by `download` to close the response.
+The token selects the workspace; the optional `workspace` argument asserts that namespace. GET, HEAD, and PUT retry transient failures with bounded backoff; POST retries only with an explicit `idempotency_key` on `json`. Redirects are rejected. HTTP is allowed only for localhost development. Use the context manager returned by `download` to close the response.
 
-OAuth applications can pass a current bearer token. Interactive OAuth login, refresh orchestration, and DPoP signing belong to the calling application. Do not publish tokens in shared notebooks or source code.
+Interactive login and refresh are available through `agfs_sdk.oauth`:
+
+```python
+import webbrowser
+from pathlib import Path
+from agfs_sdk.oauth import OAuthSession, FileCredentialStore
+
+session = OAuthSession.login(
+    webbrowser.open,
+    store=FileCredentialStore(Path.home() / '.config/agfs-sdk/credentials.json'),
+)
+client = AgfsClient(session.token)
+```
+
+Login uses PKCE and a loopback callback. The optional credential directory must be private (0700); files use 0600. Refresh is serialized within a session and persists rotated tokens. Use one session per store/process. DPoP signing belongs to the calling application. Do not publish tokens in notebooks or source code.

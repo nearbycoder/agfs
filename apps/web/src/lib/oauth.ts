@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { requireMcpAuth } from "@better-auth/mcp";
 import { auth } from "./auth";
-import { first } from "./platform-db";
+import { first, rows } from "./platform-db";
 import { requestContext } from "./request-context";
 import { errorResponse } from "./http";
 import { requireStringBindings } from "./bindings";
@@ -54,6 +54,9 @@ export async function resolveOAuth(
   if (typeof claims.agfs_grant !== "string" || typeof claims.sub !== "string")
     throw errorResponse(401, "Invalid AGFS connection");
   const grant = await oauthGrant(claims.agfs_grant, claims.sub);
+  await rows(
+    sql`UPDATE api_tokens SET last_used_at=${Date.now()} WHERE id=${grant.id} AND (last_used_at IS NULL OR last_used_at<${Date.now() - 60000})`,
+  );
   const actor = {
     id: grant.issued_by,
     name: grant.name,
