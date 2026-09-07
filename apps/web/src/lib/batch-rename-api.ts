@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { pathSchema } from "@agfs/contracts";
-import { getParentPath, getBaseName } from "@agfs/db";
+import { getParentPath, getBaseName, normalizeAgfsPath } from "@agfs/db";
 import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { json, parseJson, errorResponse } from "./http";
@@ -33,6 +33,14 @@ export async function batchRenameApi(
   const ids = new Set(),
     targets = new Set();
   for (const c of input.changes) {
+    if (
+      normalizeAgfsPath(c.from) !== c.from ||
+      normalizeAgfsPath(c.to) !== c.to
+    )
+      throw errorResponse(
+        400,
+        "Rename paths must be canonical: no repeated slashes, trailing slash or surrounding spaces",
+      );
     authorize(auth, "write", c.from, c.to);
     if (
       c.from === c.to ||

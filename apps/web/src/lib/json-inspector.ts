@@ -30,7 +30,9 @@ export function inspectJson(text: string) {
         ? Array.isArray(value)
           ? `Array (${value.length})`
           : `Object (${Object.keys(value).length})`
-        : JSON.stringify(value),
+        : typeof value === "number" && !Number.isFinite(value)
+          ? String(value)
+          : JSON.stringify(value),
     });
     if (container)
       for (const [key, child] of Object.entries(value))

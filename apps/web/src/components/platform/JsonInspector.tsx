@@ -28,7 +28,8 @@ export function JsonInspector() {
       <p className="text-sm text-zinc-500">
         Validate JSON up to 256 KiB, 40 levels and 10,000 values. Inspect
         escaped JSON Pointer paths, search values, or copy the formatted
-        document.
+        document. Tree values use JavaScript number precision. Formatted and raw
+        views preserve exact number literals and duplicate keys.
       </p>
       <form
         className="flex flex-wrap items-end gap-3"
