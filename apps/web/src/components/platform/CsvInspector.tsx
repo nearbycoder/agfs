@@ -1,3 +1,4 @@
+import { CsvProfile } from "./CsvProfile";
 import {
   Table,
   TableHeader,
@@ -142,6 +143,10 @@ export function CsvInspector() {
               Rows have different column counts. Missing cells are shown empty.
             </p>
           ) : null}
+          <CsvProfile
+            rows={(rows ?? []).slice(header ? 1 : 0)}
+            headers={headers}
+          />
           <Table scrollClassName="max-h-96" aria-label="CSV preview">
             <TableHeader>
               <TableRow>
