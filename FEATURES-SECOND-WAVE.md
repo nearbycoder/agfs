@@ -16,7 +16,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 | 10 | CSV column profiles | Missing/distinct counts, numeric summaries, common values and malformed-row reporting | Implemented and verified |
 | 11 | Filtered CSV download | Export all matched rows or current page with chosen delimiter and spreadsheet protection | Implemented and verified |
 | 12 | CSV to JSON | Header validation, explicit string preservation, preview and downloadable records | Implemented and verified |
-| 13 | JSON to CSV | Object-array validation, union columns, nested-value serialization, protected CSV export | Planned |
+| 13 | JSON to CSV | Object-array validation, union columns, nested-value serialization, protected CSV export | Implemented and verified |
 | 14 | JSONL log explorer | Parse line-delimited logs, expose malformed lines, search/filter levels and paginate | Planned |
 | 15 | JSON Pointer extraction | Resolve escaped pointer paths, distinguish missing/null, preview and export selected data | Planned |
 | 16 | JSON structural comparison | Added/removed/changed paths, type-aware comparison, bounded results and export | Planned |

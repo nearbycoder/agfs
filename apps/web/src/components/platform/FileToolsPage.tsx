@@ -3,6 +3,7 @@ import { LoadingState } from "./shared";
 import {
   BookOpen,
   FileJson,
+  TableProperties,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -44,6 +45,10 @@ const loadCsvToJson = () => import("./CsvToJson");
 const CsvToJson = lazy(() =>
   loadCsvToJson().then((m) => ({ default: m.CsvToJson })),
 );
+const loadJsonToCsv = () => import("./JsonToCsv");
+const JsonToCsv = lazy(() =>
+  loadJsonToCsv().then((m) => ({ default: m.JsonToCsv })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -55,6 +60,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "json-to-csv",
+      label: "JSON to CSV",
+      description: "Turn object arrays into spreadsheet-ready tables.",
+      icon: TableProperties,
+      component: JsonToCsv,
+      preload: loadJsonToCsv,
+    },
     {
       id: "csv-to-json",
       label: "CSV to JSON",
