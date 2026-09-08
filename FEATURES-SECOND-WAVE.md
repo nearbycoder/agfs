@@ -6,7 +6,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 |---|---|---|---|
 | 1 | Directory browser controls | Name/path filtering, file/folder filter, natural name/size/date sort, 100-row pages, selection across pages | Implemented and verified |
 | 2 | File properties | Inspect metadata, timestamps, MIME, size and ETag; copy paths/checksum | Implemented and verified |
-| 3 | Go to folder | Validated direct-path navigation with parent/root shortcuts and browser history | Planned |
+| 3 | Go to folder | Validated direct-path navigation with parent/root shortcuts and browser history | Implemented and verified |
 | 4 | Selection clipboard | Copy selected paths as lines, JSON or shell-safe arguments; visible count and clipboard errors | Planned |
 | 5 | Directory inventory export | Export all matching entries as metadata-rich JSON or spreadsheet-safe CSV | Planned |
 | 6 | Editor find & replace | Literal case-sensitive/insensitive matching, preview counts, replace in draft, undo before save | Planned |
