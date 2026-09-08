@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 type Command = { label: string; href: string; keywords?: string };
 const tools: Command[] = [
+  { label: "Markdown reading room", href: "/app/tools#markdown-reader" },
   {
     label: "Write or edit text",
     href: "/app/tools#text-editor",

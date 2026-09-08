@@ -1,6 +1,7 @@
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { LoadingState } from "./shared";
 import {
+  BookOpen,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -34,6 +35,10 @@ const loadFileTemplates = () => import("./FileTemplates");
 const FileTemplates = lazy(() =>
   loadFileTemplates().then((module) => ({ default: module.FileTemplates })),
 );
+const loadMarkdownReader = () => import("./MarkdownReader");
+const MarkdownReader = lazy(() =>
+  loadMarkdownReader().then((m) => ({ default: m.MarkdownReader })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -45,6 +50,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "markdown-reader",
+      label: "Markdown reading room",
+      description: "Read documents with an outline and quiet typography.",
+      icon: BookOpen,
+      component: MarkdownReader,
+      preload: loadMarkdownReader,
+    },
     {
       id: "text-editor",
       label: "Text editor",

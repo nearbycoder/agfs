@@ -12,7 +12,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 | 6 | Editor find & replace | Literal case-sensitive/insensitive matching, preview counts, replace in draft, undo before save | Implemented and verified |
 | 7 | Editor line navigation | Go to a valid line, select it, wrap control and cursor/selection position | Implemented and verified |
 | 8 | Text cleanup recipes | Preview line-ending, trailing-space, tab and blank-line cleanup; apply to draft and undo | Implemented and verified |
-| 9 | Markdown reading room | Safe document preview, navigable heading outline, reading statistics and source view | Planned |
+| 9 | Markdown reading room | Safe document preview, navigable heading outline, reading statistics and source view | Implemented and verified |
 | 10 | CSV column profiles | Missing/distinct counts, numeric summaries, common values and malformed-row reporting | Planned |
 | 11 | Filtered CSV download | Export all matched rows or current page with chosen delimiter and spreadsheet protection | Planned |
 | 12 | CSV to JSON | Header validation, explicit string preservation, preview and downloadable records | Planned |
