@@ -797,6 +797,11 @@ function FilesPage() {
                             if (propertiesOpened.current) {
                               event.preventDefault();
                               propertiesOpened.current = false;
+                              document
+                                .querySelector<HTMLElement>(
+                                  '[aria-label="File properties"]',
+                                )
+                                ?.focus({ preventScroll: true });
                             }
                           }}
                           label={`Actions for ${entry.name}`}
