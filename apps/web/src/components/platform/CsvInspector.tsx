@@ -1,3 +1,4 @@
+import { CsvDownload } from "./CsvDownload";
 import { CsvProfile } from "./CsvProfile";
 import {
   Table,
@@ -143,6 +144,12 @@ export function CsvInspector() {
               Rows have different column counts. Missing cells are shown empty.
             </p>
           ) : null}
+          <CsvDownload
+            rows={filtered.map((r) => r.cells)}
+            page={current}
+            headers={headers}
+            hasHeader={header}
+          />
           <CsvProfile
             rows={(rows ?? []).slice(header ? 1 : 0)}
             headers={headers}
