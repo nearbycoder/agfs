@@ -5,6 +5,7 @@ import {
   FileJson,
   TableProperties,
   Logs,
+  LocateFixed,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -54,6 +55,10 @@ const loadJsonlExplorer = () => import("./JsonlExplorer");
 const JsonlExplorer = lazy(() =>
   loadJsonlExplorer().then((m) => ({ default: m.JsonlExplorer })),
 );
+const loadJsonPointer = () => import("./JsonPointer");
+const JsonPointer = lazy(() =>
+  loadJsonPointer().then((m) => ({ default: m.JsonPointer })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -65,6 +70,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "json-pointer",
+      label: "JSON Pointer extraction",
+      description: "Extract exactly the value you need.",
+      icon: LocateFixed,
+      component: JsonPointer,
+      preload: loadJsonPointer,
+    },
     {
       id: "jsonl-explorer",
       label: "JSONL log explorer",
