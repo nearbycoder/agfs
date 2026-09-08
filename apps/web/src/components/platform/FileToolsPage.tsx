@@ -2,6 +2,7 @@ import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { LoadingState } from "./shared";
 import {
   BookOpen,
+  FileJson,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -39,6 +40,10 @@ const loadMarkdownReader = () => import("./MarkdownReader");
 const MarkdownReader = lazy(() =>
   loadMarkdownReader().then((m) => ({ default: m.MarkdownReader })),
 );
+const loadCsvToJson = () => import("./CsvToJson");
+const CsvToJson = lazy(() =>
+  loadCsvToJson().then((m) => ({ default: m.CsvToJson })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -50,6 +55,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "csv-to-json",
+      label: "CSV to JSON",
+      description: "Turn rows into portable JSON records.",
+      icon: FileJson,
+      component: CsvToJson,
+      preload: loadCsvToJson,
+    },
     {
       id: "markdown-reader",
       label: "Markdown reading room",
