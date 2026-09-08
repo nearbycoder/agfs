@@ -1,3 +1,4 @@
+import { TextReplace } from "./TextReplace";
 import { useBlocker } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -85,6 +86,12 @@ export function TextEditor() {
             {document.path}
             {document.isNew ? " (new)" : ""}
           </h2>
+          <TextReplace
+            key={document.path + (document.etag ?? "new")}
+            value={text}
+            onChange={setText}
+            disabled={!document.canEdit || action.busy}
+          />
           <label className="grid gap-2 text-sm">
             File contents
             <Textarea

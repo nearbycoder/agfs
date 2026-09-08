@@ -9,7 +9,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 | 3 | Go to folder | Validated direct-path navigation with parent/root shortcuts and browser history | Implemented and verified |
 | 4 | Selection clipboard | Copy selected paths as lines, JSON or shell-safe arguments; visible count and clipboard errors | Implemented and verified |
 | 5 | Directory inventory export | Export all matching entries as metadata-rich JSON or spreadsheet-safe CSV | Implemented and verified |
-| 6 | Editor find & replace | Literal case-sensitive/insensitive matching, preview counts, replace in draft, undo before save | Planned |
+| 6 | Editor find & replace | Literal case-sensitive/insensitive matching, preview counts, replace in draft, undo before save | Implemented and verified |
 | 7 | Editor line navigation | Go to a valid line, select it, wrap control and cursor/selection position | Planned |
 | 8 | Text cleanup recipes | Preview line-ending, trailing-space, tab and blank-line cleanup; apply to draft and undo | Planned |
 | 9 | Markdown reading room | Safe document preview, navigable heading outline, reading statistics and source view | Planned |
