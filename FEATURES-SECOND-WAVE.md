@@ -19,7 +19,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 | 13 | JSON to CSV | Object-array validation, union columns, nested-value serialization, protected CSV export | Implemented and verified |
 | 14 | JSONL log explorer | Parse line-delimited logs, expose malformed lines, search/filter levels and paginate | Implemented and verified |
 | 15 | JSON Pointer extraction | Resolve escaped pointer paths, distinguish missing/null, preview and export selected data | Implemented and verified |
-| 16 | JSON structural comparison | Added/removed/changed paths, type-aware comparison, bounded results and export | Planned |
+| 16 | JSON structural comparison | Added/removed/changed paths, type-aware comparison, bounded results and export | Implemented and verified |
 | 17 | SHA-256 verification | Hash a local file in-browser, compare an expected checksum, copy/download receipt | Planned |
 | 18 | Encoding workbench | Strict UTF-8/Base64/hex conversion with validation, preview and download | Planned |
 | 19 | Release handoff builder | Assemble selected artifacts with release notes into a previewed, downloadable or create-only Markdown handoff | Planned |

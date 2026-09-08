@@ -6,6 +6,7 @@ import {
   TableProperties,
   Logs,
   LocateFixed,
+  GitCompareArrows,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -59,6 +60,10 @@ const loadJsonPointer = () => import("./JsonPointer");
 const JsonPointer = lazy(() =>
   loadJsonPointer().then((m) => ({ default: m.JsonPointer })),
 );
+const loadJsonCompare = () => import("./JsonCompare");
+const JsonCompare = lazy(() =>
+  loadJsonCompare().then((m) => ({ default: m.JsonCompare })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -70,6 +75,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "json-compare",
+      label: "JSON structural comparison",
+      description: "Review added, removed, and changed values.",
+      icon: GitCompareArrows,
+      component: JsonCompare,
+      preload: loadJsonCompare,
+    },
     {
       id: "json-pointer",
       label: "JSON Pointer extraction",
