@@ -1,8 +1,10 @@
+import { platform } from "~/components/platform/shared";
+import { fileSearchCommands } from "~/lib/command-search";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
-type Command = { label: string; href: string; keywords?: string };
+type Command = { label: string; href: string; keywords?: string; id?: string };
 const tools: Command[] = [
   { label: "Encoding workbench", href: "/app/tools#encoding-workbench" },
   { label: "SHA-256 verification", href: "/app/tools#file-integrity" },
@@ -44,13 +46,70 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
     input = useRef<HTMLInputElement>(null),
     [query, setQuery] = useState(""),
     [active, setActive] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [remote, setRemote] = useState<{
+    query: string;
+    commands: Command[];
+    error: string;
+    more: boolean;
+  } | null>(null);
+  const needle = query.trim();
   const navigate = useNavigate();
-  const commands = [...navigation, ...tools].filter((c) =>
+  useEffect(() => {
+    if (!isOpen || needle.length < 2) {
+      setRemote(null);
+      setSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    setSearching(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await platform(
+          "/search?" + new URLSearchParams({ q: needle, path: "/" }),
+          "GET",
+          undefined,
+          controller.signal,
+        );
+        if (!controller.signal.aborted)
+          setRemote({
+            query: needle,
+            commands: fileSearchCommands(data.results),
+            error: "",
+            more: (data.results?.length ?? 0) > 20 || !!data.nextCursor,
+          });
+      } catch (error) {
+        if (!controller.signal.aborted)
+          setRemote({
+            query: needle,
+            commands: [],
+            error:
+              error instanceof Error
+                ? error.message
+                : "File search unavailable.",
+            more: false,
+          });
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isOpen, needle]);
+  const localCommands = [...navigation, ...tools].filter((c) =>
     (c.label + " " + (c.keywords ?? ""))
       .toLowerCase()
       .includes(query.trim().toLowerCase()),
   );
+  const currentRemote = isOpen && remote?.query === needle ? remote : null;
+  const commands = [...localCommands, ...(currentRemote?.commands ?? [])];
+  const selected = Math.min(active, Math.max(0, commands.length - 1));
   function open() {
+    setRemote(null);
+    setIsOpen(true);
     setQuery("");
     setActive(0);
     dialog.current?.showModal();
@@ -74,13 +133,17 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
   useEffect(() => {
     if (dialog.current?.open)
       document
-        .getElementById("command-" + active)
+        .getElementById("command-" + selected)
         ?.scrollIntoView({ block: "nearest" });
-  }, [active, query]);
+  }, [selected, query, commands.length]);
   function execute(command: Command) {
     dialog.current?.close();
-    const [to, hash] = command.href.split("#");
-    void navigate({ to, hash });
+    const target = new URL(command.href, window.location.origin);
+    void navigate({
+      to: target.pathname,
+      hash: target.hash.slice(1),
+      search: Object.fromEntries(target.searchParams),
+    });
   }
   return (
     <>
@@ -98,6 +161,10 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
       </Button>
       <dialog
         ref={dialog}
+        onClose={() => {
+          setIsOpen(false);
+          setRemote(null);
+        }}
         aria-labelledby="commands-title"
         className="m-auto w-[calc(100%_-_2rem)] max-w-[34rem] rounded-xl border bg-white p-5 text-zinc-950 shadow-xl backdrop:bg-black/60 dark:bg-zinc-950 dark:text-zinc-100"
         onClick={(e) => {
@@ -106,16 +173,17 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 id="commands-title" className="font-semibold">
-            Commands
+            Commands & files
           </h2>
           <Button variant="ghost" onClick={() => dialog.current?.close()}>
             Close
           </Button>
         </div>
         <label className="grid gap-2 text-sm">
-          Search commands
+          Search commands and files
           <input
             ref={input}
+            maxLength={200}
             className="rounded-lg border bg-transparent p-3"
             value={query}
             role="combobox"
@@ -123,7 +191,7 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
             aria-controls="command-results"
             aria-autocomplete="list"
             aria-activedescendant={
-              commands.length ? "command-" + active : undefined
+              commands.length ? "command-" + selected : undefined
             }
             onChange={(e) => {
               setQuery(e.target.value);
@@ -134,13 +202,15 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
                 e.preventDefault();
                 setActive((i) =>
                   commands.length
-                    ? (i + (e.key === "ArrowDown" ? 1 : -1) + commands.length) %
+                    ? (selected +
+                        (e.key === "ArrowDown" ? 1 : -1) +
+                        commands.length) %
                       commands.length
                     : 0,
                 );
-              } else if (e.key === "Enter" && commands[active]) {
+              } else if (e.key === "Enter" && commands[selected]) {
                 e.preventDefault();
-                execute(commands[active]);
+                execute(commands[selected]);
               }
             }}
           />
@@ -155,14 +225,14 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
             <li
               id={"command-" + i}
               role="option"
-              aria-selected={active === i}
-              key={c.href}
+              aria-selected={selected === i}
+              key={c.id ?? c.href}
             >
               <button
                 type="button"
                 className={
-                  "w-full rounded-lg px-3 py-2 text-left text-sm " +
-                  (active === i ? "bg-zinc-100 dark:bg-zinc-800" : "")
+                  "w-full rounded-lg px-3 py-2 text-left text-sm break-all " +
+                  (selected === i ? "bg-zinc-100 dark:bg-zinc-800" : "")
                 }
                 onMouseEnter={() => setActive(i)}
                 onClick={() => execute(c)}
@@ -172,13 +242,30 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
             </li>
           ))}
         </ul>
-        {!commands.length ? (
+        {searching ? (
+          <p role="status" className="py-2 text-sm">
+            Searching workspace files…
+          </p>
+        ) : null}
+        {currentRemote?.error ? (
+          <p role="alert" className="py-2 text-sm">
+            {currentRemote.error}
+          </p>
+        ) : null}
+        {currentRemote?.more ? (
+          <p className="py-2 text-xs text-muted-foreground">
+            Showing the first 20 file matches. Refine your query or use the
+            Search page for more results.
+          </p>
+        ) : null}
+        {!commands.length && !searching ? (
           <p role="status" className="py-4 text-sm">
-            No matching commands.
+            No matching commands or files.
           </p>
         ) : null}
         <p className="mt-3 text-xs text-zinc-500">
-          ↑ ↓ to choose · Enter to open · Escape to close
+          Type 2 characters to search this workspace. File results open their
+          containing folder. ↑ ↓ to choose · Enter to open · Escape to close
         </p>
       </dialog>
     </>
