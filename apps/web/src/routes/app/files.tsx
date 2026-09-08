@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { FileProperties } from "~/components/platform/FileProperties";
 import { Select, SelectItem } from "~/components/ui/select";
 import { directoryView, type DirectorySort } from "~/lib/directory-view";
 import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
@@ -114,6 +115,7 @@ function EntryIcon({ name }: { name: string }) {
 }
 
 function FilesPage() {
+  const [propertyPath, setPropertyPath] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [sort, setSort] = useState<DirectorySort>("name");
@@ -608,6 +610,13 @@ function FilesPage() {
         </Alert>
       ) : null}
 
+      {entries.find((e) => e.path === propertyPath) ? (
+        <FileProperties
+          key={propertyPath}
+          entry={entries.find((e) => e.path === propertyPath)!}
+          onClose={() => setPropertyPath(null)}
+        />
+      ) : null}
       {selectedPaths.length ? (
         <BatchRename
           entries={entries.filter(
@@ -780,6 +789,11 @@ function FilesPage() {
                           label={`Actions for ${entry.name}`}
                           disabled={isBusy}
                         >
+                          <ActionMenuItem
+                            onSelect={() => setPropertyPath(entry.path)}
+                          >
+                            Properties
+                          </ActionMenuItem>
                           {entry.kind === "file" ? (
                             <>
                               <ActionMenuItem asChild>
