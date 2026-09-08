@@ -115,6 +115,7 @@ function EntryIcon({ name }: { name: string }) {
 }
 
 function FilesPage() {
+  const propertiesOpened = useRef(false);
   const [propertyPath, setPropertyPath] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
@@ -614,7 +615,12 @@ function FilesPage() {
         <FileProperties
           key={propertyPath}
           entry={entries.find((e) => e.path === propertyPath)!}
-          onClose={() => setPropertyPath(null)}
+          onClose={() => {
+            const entry = entries.find((e) => e.path === propertyPath);
+            setPropertyPath(null);
+            if (entry)
+              document.getElementById("file-menu-" + entry.id)?.focus();
+          }}
         />
       ) : null}
       {selectedPaths.length ? (
@@ -786,11 +792,21 @@ function FilesPage() {
                     <TableCell>
                       <div className="flex justify-end">
                         <ActionMenu
+                          triggerId={"file-menu-" + entry.id}
+                          onCloseAutoFocus={(event) => {
+                            if (propertiesOpened.current) {
+                              event.preventDefault();
+                              propertiesOpened.current = false;
+                            }
+                          }}
                           label={`Actions for ${entry.name}`}
                           disabled={isBusy}
                         >
                           <ActionMenuItem
-                            onSelect={() => setPropertyPath(entry.path)}
+                            onSelect={() => {
+                              propertiesOpened.current = true;
+                              setPropertyPath(entry.path);
+                            }}
                           >
                             Properties
                           </ActionMenuItem>
