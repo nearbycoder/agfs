@@ -1,6 +1,7 @@
+import { EditorNavigation } from "./EditorNavigation";
 import { TextReplace } from "./TextReplace";
 import { useBlocker } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 import { Field, platform, useAction } from "./shared";
@@ -17,6 +18,8 @@ export function TextEditor() {
   const [path, setPath] = useState(""),
     [document, setDocument] = useState<Document | null>(null),
     [text, setText] = useState("");
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const [wrap, setWrap] = useState(true);
   const action = useAction();
   const dirty = !!document && (text !== document.text || !!document.isNew);
   useBlocker({
@@ -92,9 +95,17 @@ export function TextEditor() {
             onChange={setText}
             disabled={!document.canEdit || action.busy}
           />
+          <EditorNavigation
+            editor={editor}
+            value={text}
+            wrap={wrap}
+            onWrap={setWrap}
+          />
           <label className="grid gap-2 text-sm">
             File contents
             <Textarea
+              ref={editor}
+              wrap={wrap ? "soft" : "off"}
               className="font-mono text-sm"
               rows={18}
               value={text}
