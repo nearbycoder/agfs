@@ -8,6 +8,7 @@ import {
   LocateFixed,
   GitCompareArrows,
   ShieldCheck,
+  Binary,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -69,6 +70,10 @@ const loadFileIntegrity = () => import("./FileIntegrity");
 const FileIntegrity = lazy(() =>
   loadFileIntegrity().then((m) => ({ default: m.FileIntegrity })),
 );
+const loadEncodingWorkbench = () => import("./EncodingWorkbench");
+const EncodingWorkbench = lazy(() =>
+  loadEncodingWorkbench().then((m) => ({ default: m.EncodingWorkbench })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -80,6 +85,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "encoding-workbench",
+      label: "Encoding workbench",
+      description: "Convert UTF-8, Base64, and hex with strict validation.",
+      icon: Binary,
+      component: EncodingWorkbench,
+      preload: loadEncodingWorkbench,
+    },
     {
       id: "file-integrity",
       label: "SHA-256 verification",
