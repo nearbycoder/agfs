@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { Select, SelectItem } from "~/components/ui/select";
+import { directoryView, type DirectorySort } from "~/lib/directory-view";
 import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { LoadingState, DetailSurface } from "~/components/platform/shared";
@@ -112,6 +114,10 @@ function EntryIcon({ name }: { name: string }) {
 }
 
 function FilesPage() {
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
+  const [sort, setSort] = useState<DirectorySort>("name");
+  const [page, setPage] = useState(0);
   const search = Route.useSearch();
   const path = search.path ?? "/";
   const navigate = Route.useNavigate();
@@ -165,6 +171,8 @@ function FilesPage() {
 
   useEffect(() => {
     setEntries([]);
+    setQuery("");
+    setPage(0);
     setSelectedPaths([]);
     void refreshEntries(path);
     return () => request.current?.abort();
@@ -199,7 +207,17 @@ function FilesPage() {
   const folderCount = entries.filter((entry) => entry.kind === "folder").length;
   const fileCount = entries.filter((entry) => entry.kind === "file").length;
   const totalBytes = entries.reduce((sum, entry) => sum + (entry.size ?? 0), 0);
-  const visibleFiles = entries.filter((entry) => entry.kind === "file");
+  const matchingEntries = useMemo(
+    () => directoryView(entries, query, kindFilter, sort),
+    [entries, query, kindFilter, sort],
+  );
+  const pages = Math.max(1, Math.ceil(matchingEntries.length / 100));
+  const currentPage = Math.min(page, pages - 1);
+  const pageEntries = matchingEntries.slice(
+    currentPage * 100,
+    currentPage * 100 + 100,
+  );
+  const visibleFiles = pageEntries.filter((entry) => entry.kind === "file");
   const allVisibleFilesSelected =
     visibleFiles.length > 0 &&
     visibleFiles.every((entry) => selectedPaths.includes(entry.path));
@@ -405,11 +423,15 @@ function FilesPage() {
 
   function toggleSelectAll() {
     if (allVisibleFilesSelected) {
-      setSelectedPaths([]);
+      setSelectedPaths((old) =>
+        old.filter((p) => !visibleFiles.some((e) => e.path === p)),
+      );
       return;
     }
 
-    setSelectedPaths(visibleFiles.map((entry) => entry.path));
+    setSelectedPaths((old) => [
+      ...new Set([...old, ...visibleFiles.map((entry) => entry.path)]),
+    ]);
   }
 
   function handleDownloadSelected() {
@@ -604,7 +626,55 @@ function FilesPage() {
             Select a file, or open its actions to preview, share, and manage it.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
+            <label className="grid gap-2 text-sm">
+              Filter this folder
+              <Input
+                value={query}
+                placeholder="Name or path…"
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              Show
+              <Select
+                aria-label="Entry types"
+                value={kindFilter}
+                onValueChange={(value) => {
+                  setKindFilter(value);
+                  setPage(0);
+                }}
+              >
+                <SelectItem value="">All entries</SelectItem>
+                <SelectItem value="file">Files</SelectItem>
+                <SelectItem value="folder">Folders</SelectItem>
+              </Select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              Sort
+              <Select
+                aria-label="Sort entries"
+                value={sort}
+                onValueChange={(value) => {
+                  setSort(value as DirectorySort);
+                  setPage(0);
+                }}
+              >
+                <SelectItem value="name">Name A–Z</SelectItem>
+                <SelectItem value="name-desc">Name Z–A</SelectItem>
+                <SelectItem value="size">Largest first</SelectItem>
+                <SelectItem value="updated">Recently updated</SelectItem>
+              </Select>
+            </label>
+          </div>
+          <p role="status" className="text-xs text-muted-foreground">
+            {matchingEntries.length} matching entries · {selectedPaths.length}{" "}
+            files selected across pages · Folders sort first
+          </p>
           {loading ? (
             <LoadingState label="Loading folder" />
           ) : entries.length === 0 ? (
@@ -624,7 +694,7 @@ function FilesPage() {
                 <TableRow>
                   <TableHead className="w-14">
                     <input
-                      aria-label="Select all files"
+                      aria-label="Select all files on this page"
                       checked={allVisibleFilesSelected}
                       className="size-4 rounded border-zinc-300 accent-zinc-950 dark:border-zinc-700 dark:accent-zinc-100"
                       onChange={toggleSelectAll}
@@ -638,7 +708,7 @@ function FilesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => (
+                {pageEntries.map((entry) => (
                   <TableRow
                     key={entry.id}
                     data-selected={selectedPaths.includes(entry.path)}
@@ -807,6 +877,35 @@ function FilesPage() {
               </TableBody>
             </Table>
           )}
+          {!loading && !!entries.length && !matchingEntries.length ? (
+            <p className="empty-state rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+              No entries match. Clear the name or type filter to show more.
+            </p>
+          ) : null}
+          {pages > 1 ? (
+            <nav
+              aria-label="Directory pages"
+              className="flex flex-wrap items-center gap-3"
+            >
+              <Button
+                variant="outline"
+                disabled={currentPage === 0}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                Previous entries
+              </Button>
+              <span className="text-sm">
+                Page {currentPage + 1} of {pages}
+              </span>
+              <Button
+                variant="outline"
+                disabled={currentPage + 1 >= pages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Next entries
+              </Button>
+            </nav>
+          ) : null}
         </CardContent>
       </Card>
       <div className="grid gap-5">
