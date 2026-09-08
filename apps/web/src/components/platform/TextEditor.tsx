@@ -1,3 +1,4 @@
+import { TextCleanup } from "./TextCleanup";
 import { EditorNavigation } from "./EditorNavigation";
 import { TextReplace } from "./TextReplace";
 import { useBlocker } from "@tanstack/react-router";
@@ -90,6 +91,12 @@ export function TextEditor() {
             {document.isNew ? " (new)" : ""}
           </h2>
           <TextReplace
+            key={document.path + (document.etag ?? "new")}
+            value={text}
+            onChange={setText}
+            disabled={!document.canEdit || action.busy}
+          />
+          <TextCleanup
             key={document.path + (document.etag ?? "new")}
             value={text}
             onChange={setText}
