@@ -4,6 +4,7 @@ import {
   BookOpen,
   FileJson,
   TableProperties,
+  Logs,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -49,6 +50,10 @@ const loadJsonToCsv = () => import("./JsonToCsv");
 const JsonToCsv = lazy(() =>
   loadJsonToCsv().then((m) => ({ default: m.JsonToCsv })),
 );
+const loadJsonlExplorer = () => import("./JsonlExplorer");
+const JsonlExplorer = lazy(() =>
+  loadJsonlExplorer().then((m) => ({ default: m.JsonlExplorer })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -60,6 +65,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "jsonl-explorer",
+      label: "JSONL log explorer",
+      description: "Find signals in line-delimited event logs.",
+      icon: Logs,
+      component: JsonlExplorer,
+      preload: loadJsonlExplorer,
+    },
     {
       id: "json-to-csv",
       label: "JSON to CSV",
