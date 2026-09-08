@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { GoToFolder } from "~/components/platform/GoToFolder";
 import { FileProperties } from "~/components/platform/FileProperties";
 import { Select, SelectItem } from "~/components/ui/select";
 import { directoryView, type DirectorySort } from "~/lib/directory-view";
@@ -531,6 +532,7 @@ function FilesPage() {
         </div>
       </div>
 
+      <GoToFolder path={path} onNavigate={setPath} />
       {uploadProgress ? (
         <p className="section-copy" role="status">
           {uploadProgress}
