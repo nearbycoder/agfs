@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { SelectionClipboard } from "~/components/platform/SelectionClipboard";
 import { GoToFolder } from "~/components/platform/GoToFolder";
 import { FileProperties } from "~/components/platform/FileProperties";
 import { Select, SelectItem } from "~/components/ui/select";
@@ -624,6 +625,9 @@ function FilesPage() {
               document.getElementById("file-menu-" + entry.id)?.focus();
           }}
         />
+      ) : null}
+      {selectedPaths.length ? (
+        <SelectionClipboard paths={selectedPaths} />
       ) : null}
       {selectedPaths.length ? (
         <BatchRename
