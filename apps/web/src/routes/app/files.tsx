@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { DirectoryExport } from "~/components/platform/DirectoryExport";
 import { SelectionClipboard } from "~/components/platform/SelectionClipboard";
 import { GoToFolder } from "~/components/platform/GoToFolder";
 import { FileProperties } from "~/components/platform/FileProperties";
@@ -696,6 +697,13 @@ function FilesPage() {
             {matchingEntries.length} matching entries · {selectedPaths.length}{" "}
             files selected across pages · Folders sort first
           </p>
+          {!loading ? (
+            <DirectoryExport
+              entries={matchingEntries}
+              page={pageEntries}
+              folder={path}
+            />
+          ) : null}
           {loading ? (
             <LoadingState label="Loading folder" />
           ) : entries.length === 0 ? (
