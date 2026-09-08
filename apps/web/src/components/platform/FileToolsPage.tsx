@@ -7,6 +7,7 @@ import {
   Logs,
   LocateFixed,
   GitCompareArrows,
+  ShieldCheck,
   FilePenLine,
   StickyNote,
   LayoutTemplate,
@@ -64,6 +65,10 @@ const loadJsonCompare = () => import("./JsonCompare");
 const JsonCompare = lazy(() =>
   loadJsonCompare().then((m) => ({ default: m.JsonCompare })),
 );
+const loadFileIntegrity = () => import("./FileIntegrity");
+const FileIntegrity = lazy(() =>
+  loadFileIntegrity().then((m) => ({ default: m.FileIntegrity })),
+);
 export function FileToolsPage() {
   const location = useLocation();
   useEffect(() => {
@@ -75,6 +80,14 @@ export function FileToolsPage() {
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "file-integrity",
+      label: "SHA-256 verification",
+      description: "Check local file integrity without uploading.",
+      icon: ShieldCheck,
+      component: FileIntegrity,
+      preload: loadFileIntegrity,
+    },
     {
       id: "json-compare",
       label: "JSON structural comparison",
