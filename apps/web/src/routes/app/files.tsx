@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { ReleaseHandoff } from "~/components/platform/ReleaseHandoff";
 import { DirectoryExport } from "~/components/platform/DirectoryExport";
 import { SelectionClipboard } from "~/components/platform/SelectionClipboard";
 import { GoToFolder } from "~/components/platform/GoToFolder";
@@ -627,6 +628,12 @@ function FilesPage() {
           }}
         />
       ) : null}
+      <ReleaseHandoff
+        entries={entries.filter(
+          (e) => e.kind === "file" && selectedPaths.includes(e.path),
+        )}
+        onSaved={() => refreshEntries(path)}
+      />
       {selectedPaths.length ? (
         <SelectionClipboard paths={selectedPaths} />
       ) : null}
