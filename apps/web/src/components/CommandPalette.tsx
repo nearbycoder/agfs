@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 type Command = { label: string; href: string; keywords?: string };
 const tools: Command[] = [
+  { label: "Encoding workbench", href: "/app/tools#encoding-workbench" },
   { label: "SHA-256 verification", href: "/app/tools#file-integrity" },
   { label: "JSON structural comparison", href: "/app/tools#json-compare" },
   { label: "JSON Pointer extraction", href: "/app/tools#json-pointer" },

@@ -21,7 +21,7 @@ Twenty independent additions, each delivered in its own verified PR. No new host
 | 15 | JSON Pointer extraction | Resolve escaped pointer paths, distinguish missing/null, preview and export selected data | Implemented and verified |
 | 16 | JSON structural comparison | Added/removed/changed paths, type-aware comparison, bounded results and export | Implemented and verified |
 | 17 | SHA-256 verification | Hash a local file in-browser, compare an expected checksum, copy/download receipt | Implemented and verified |
-| 18 | Encoding workbench | Strict UTF-8/Base64/hex conversion with validation, preview and download | Planned |
+| 18 | Encoding workbench | Strict UTF-8/Base64/hex conversion with validation, preview and download | Implemented and verified |
 | 19 | Release handoff builder | Assemble selected artifacts with release notes into a previewed, downloadable or create-only Markdown handoff | Planned |
 | 20 | Command palette file search | Debounced permission-checked file search, keyboard navigation and folder/tool shortcuts | Planned |
 
