@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { FileProperties } from "~/components/platform/FileProperties";
 import { Select, SelectItem } from "~/components/ui/select";
 import { directoryView, type DirectorySort } from "~/lib/directory-view";
 import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
@@ -114,6 +115,8 @@ function EntryIcon({ name }: { name: string }) {
 }
 
 function FilesPage() {
+  const propertiesOpened = useRef(false);
+  const [propertyPath, setPropertyPath] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [sort, setSort] = useState<DirectorySort>("name");
@@ -608,6 +611,18 @@ function FilesPage() {
         </Alert>
       ) : null}
 
+      {entries.find((e) => e.path === propertyPath) ? (
+        <FileProperties
+          key={propertyPath}
+          entry={entries.find((e) => e.path === propertyPath)!}
+          onClose={() => {
+            const entry = entries.find((e) => e.path === propertyPath);
+            setPropertyPath(null);
+            if (entry)
+              document.getElementById("file-menu-" + entry.id)?.focus();
+          }}
+        />
+      ) : null}
       {selectedPaths.length ? (
         <BatchRename
           entries={entries.filter(
@@ -777,9 +792,29 @@ function FilesPage() {
                     <TableCell>
                       <div className="flex justify-end">
                         <ActionMenu
+                          triggerId={"file-menu-" + entry.id}
+                          onCloseAutoFocus={(event) => {
+                            if (propertiesOpened.current) {
+                              event.preventDefault();
+                              propertiesOpened.current = false;
+                              document
+                                .querySelector<HTMLElement>(
+                                  '[aria-label="File properties"]',
+                                )
+                                ?.focus({ preventScroll: true });
+                            }
+                          }}
                           label={`Actions for ${entry.name}`}
                           disabled={isBusy}
                         >
+                          <ActionMenuItem
+                            onSelect={() => {
+                              propertiesOpened.current = true;
+                              setPropertyPath(entry.path);
+                            }}
+                          >
+                            Properties
+                          </ActionMenuItem>
                           {entry.kind === "file" ? (
                             <>
                               <ActionMenuItem asChild>

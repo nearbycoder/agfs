@@ -8,15 +8,20 @@ export function ActionMenu({
   label,
   children,
   disabled,
+  triggerId,
+  onCloseAutoFocus,
 }: {
   label: string;
   children: ReactNode;
   disabled?: boolean;
+  triggerId?: string;
+  onCloseAutoFocus?: ComponentProps<typeof Menu.Content>["onCloseAutoFocus"];
 }) {
   return (
     <Menu.Root>
       <Menu.Trigger asChild>
         <Button
+          id={triggerId}
           variant="ghost"
           size="icon"
           aria-label={label}
@@ -27,6 +32,7 @@ export function ActionMenu({
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Content
+          onCloseAutoFocus={onCloseAutoFocus}
           sideOffset={6}
           align="end"
           collisionPadding={12}
