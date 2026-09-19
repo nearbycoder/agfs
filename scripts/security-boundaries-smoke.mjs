@@ -103,6 +103,10 @@ await req("/api/v1/platform/members", {
   status: 409,
 });
 await req("/api/v1/fs/list?path=/", { token: own.token });
+await req("/api/v1/platform/ownership", {
+  workspace: workspace.id,
+  body: { userId: "bob" },
+});
 await req("/api/v1/platform/members", {
   workspace: workspace.id,
   method: "PATCH",
@@ -117,6 +121,12 @@ checks++;
 for (const token of [member.token, alias])
   await req("/api/v1/fs/list?path=/", { token, status: 401 });
 await invite();
+await req("/api/v1/platform/ownership/accept", {
+  workspace: workspace.id,
+  session: bob,
+  body: {},
+  status: 404,
+});
 for (const token of [member.token, alias])
   await req("/api/v1/fs/list?path=/", { token, status: 401 });
 await req("/api/v1/platform/workspaces", { token: member.token, status: 401 });
