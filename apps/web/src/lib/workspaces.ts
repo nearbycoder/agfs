@@ -57,6 +57,8 @@ export async function selectNamespace(
   };
 }
 export async function listWorkspaces(auth: RequestAuth) {
+  if (auth.authSource !== "session")
+    throw errorResponse(403, "Sign in to list your workspaces");
   return rows(sql`SELECT w.id,w.name,w.paused,w.storage_limit,m.role FROM workspaces w
     JOIN workspace_members m ON m.workspace_id=w.id WHERE m.user_id=${actorId(auth)} ORDER BY w.created_at`);
 }
@@ -133,13 +135,24 @@ export async function updateMember(
 ) {
   await requireWorkspaceOwner(auth);
   // The original owner stays responsible for billing and cannot be removed or demoted.
-  const result = role
-    ? await rows(
-        sql`UPDATE workspace_members SET role=${role} WHERE workspace_id=${auth.workspaceId} AND user_id=${userId} AND role!='owner' RETURNING user_id`,
-      )
-    : await rows(
-        sql`DELETE FROM workspace_members WHERE workspace_id=${auth.workspaceId} AND user_id=${userId} AND role!='owner' RETURNING user_id`,
-      );
+  const guard = sql`workspace_id=${auth.workspaceId} AND user_id=${userId} AND role!='owner'`;
+  let result: unknown[];
+  if (role) {
+    result = await rows(
+      sql`UPDATE workspace_members SET role=${role} WHERE ${guard} RETURNING user_id`,
+    );
+  } else {
+    // Removing membership is a permanent credential revocation, even if this
+    // person later accepts another invitation. Both raw tokens and OAuth grants
+    // share these records; rotation aliases cannot bypass revoked_at.
+    const removed = await atomicBatch([
+      sql`UPDATE api_tokens SET revoked_at=coalesce(revoked_at,${Date.now()})
+        WHERE owner_id=${auth.workspaceId} AND issued_by=${userId}
+        AND EXISTS(SELECT 1 FROM workspace_members WHERE ${guard})`,
+      sql`DELETE FROM workspace_members WHERE ${guard} RETURNING user_id`,
+    ]);
+    result = removed[1].results;
+  }
   if (!result.length)
     throw errorResponse(409, "Member missing or is the workspace owner");
   return { ok: true };

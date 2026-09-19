@@ -46,16 +46,27 @@ export function handleRouteError(error: unknown): Response {
   return errorResponse(500, "Request failed");
 }
 
+export function isJsonRequest(request: Request): boolean {
+  return (
+    request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ===
+    "application/json"
+  );
+}
+
+export function securityPathname(request: Request): string {
+  try {
+    return decodeURIComponent(new URL(request.url).pathname).toLowerCase();
+  } catch {
+    throw errorResponse(400, "Invalid request path");
+  }
+}
+
 export async function parseJson<T>(
   request: Request,
   schema: ZodType<T>,
 ): Promise<T> {
-  if (
-    request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !==
-    "application/json"
-  ) {
-    throw errorResponse(415, "Content-Type must be application/json");
-  }
+  // Consume a bounded body even for unsupported media types so rejecting a
+  // request does not leave unread bytes on a reusable upstream connection.
   const reader = request.body?.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -71,6 +82,8 @@ export async function parseJson<T>(
       chunks.push(value);
     }
   }
+  if (!isJsonRequest(request))
+    throw errorResponse(415, "Content-Type must be application/json");
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) {

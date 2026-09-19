@@ -163,6 +163,7 @@ try {
   console.log("Disposable Workers ready; state: " + state);
   for (const script of [
     "security-smoke",
+    "security-boundaries-smoke",
     "features-smoke",
     "platform-smoke",
     "oauth-smoke",
