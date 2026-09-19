@@ -149,9 +149,11 @@ export async function updateMember(
       sql`UPDATE api_tokens SET revoked_at=coalesce(revoked_at,${Date.now()})
         WHERE owner_id=${auth.workspaceId} AND issued_by=${userId}
         AND EXISTS(SELECT 1 FROM workspace_members WHERE ${guard})`,
+      sql`DELETE FROM ownership_transfers WHERE workspace_id=${auth.workspaceId}
+        AND to_id=${userId} AND EXISTS(SELECT 1 FROM workspace_members WHERE ${guard})`,
       sql`DELETE FROM workspace_members WHERE ${guard} RETURNING user_id`,
     ]);
-    result = removed[1].results;
+    result = removed[2].results;
   }
   if (!result.length)
     throw errorResponse(409, "Member missing or is the workspace owner");

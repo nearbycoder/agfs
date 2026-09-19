@@ -4,6 +4,7 @@ import { db } from "./db";
 import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { errorResponse } from "./http";
+import { readUploadPart } from "./upload-body";
 import { requireResourceBindings } from "./bindings";
 import { commitUpload, createUploadIntent } from "./fs";
 
@@ -126,9 +127,7 @@ export async function putPart(
   const expected = Math.min(PART_SIZE, row.size - (partNumber - 1) * PART_SIZE);
   if (Number(request.headers.get("content-length")) !== expected)
     throw errorResponse(400, "Part length does not match upload");
-  const bytes = await request.arrayBuffer();
-  if (bytes.byteLength !== expected)
-    throw errorResponse(400, "Invalid part size");
+  const bytes = await readUploadPart(request, expected);
   const digest = Array.from(
     new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
   )

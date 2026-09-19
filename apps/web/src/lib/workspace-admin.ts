@@ -73,7 +73,7 @@ export async function proposeTransfer(auth: RequestAuth, to: string) {
       "An owner must select another member in the browser",
     );
   const result = await rows(
-    sql`INSERT INTO ownership_transfers SELECT ${auth.workspaceId},${actorId(auth)},user_id,${Date.now() + 86400000} FROM workspace_members WHERE workspace_id=${auth.workspaceId} AND user_id=${to} AND role!='owner' ON CONFLICT(workspace_id) DO UPDATE SET from_id=excluded.from_id,to_id=excluded.to_id,expires_at=excluded.expires_at RETURNING workspace_id`,
+    sql`INSERT INTO ownership_transfers SELECT ${auth.workspaceId},${actorId(auth)},user_id,${Date.now() + 86400000} FROM workspace_members WHERE workspace_id=${auth.workspaceId} AND user_id=${to} AND role!='owner' AND EXISTS(SELECT 1 FROM workspaces WHERE id=${auth.workspaceId} AND created_by=${actorId(auth)}) ON CONFLICT(workspace_id) DO UPDATE SET from_id=excluded.from_id,to_id=excluded.to_id,expires_at=excluded.expires_at RETURNING workspace_id`,
   );
   if (!result.length)
     throw errorResponse(400, "Select an existing workspace member");
@@ -90,7 +90,9 @@ export async function acceptTransfer(auth: RequestAuth) {
   const summary = await (
     await import("./account")
   ).getAccountSummaryForUser(auth.actor ?? auth.user);
-  const guard = sql`EXISTS(SELECT 1 FROM ownership_transfers t JOIN workspaces w ON w.id=t.workspace_id WHERE t.workspace_id=${auth.workspaceId} AND t.from_id=${t.from_id} AND t.to_id=${actor} AND t.expires_at>${Date.now()} AND w.created_by=t.from_id) AND (SELECT count(*) FROM workspaces WHERE created_by=${actor})<10 AND (SELECT coalesce(sum(size),0) FROM object_usage WHERE owner_id=${auth.workspaceId})<=${summary.storageLimitBytes}`;
+  // Recheck both memberships inside the transaction. A post-batch row count
+  // cannot roll back ownership changes if either member disappeared meanwhile.
+  const guard = sql`EXISTS(SELECT 1 FROM ownership_transfers t JOIN workspaces w ON w.id=t.workspace_id WHERE t.workspace_id=${auth.workspaceId} AND t.from_id=${t.from_id} AND t.to_id=${actor} AND t.expires_at>${Date.now()} AND w.created_by=t.from_id) AND (SELECT count(*) FROM workspace_members WHERE workspace_id=${auth.workspaceId} AND user_id IN (${actor},${t.from_id}))=2 AND (SELECT count(*) FROM workspaces WHERE created_by=${actor})<10 AND (SELECT coalesce(sum(size),0) FROM object_usage WHERE owner_id=${auth.workspaceId})<=${summary.storageLimitBytes}`;
   const result = await atomicBatch([
     sql`UPDATE workspace_members SET role=CASE WHEN user_id=${actor} THEN 'owner' ELSE 'editor' END WHERE workspace_id=${auth.workspaceId} AND user_id IN (${actor},${t.from_id}) AND ${guard} RETURNING user_id`,
     sql`UPDATE workspaces SET created_by=${actor},storage_limit=min(storage_limit,${summary.storageLimitBytes}) WHERE id=${auth.workspaceId} AND ${guard}`,
