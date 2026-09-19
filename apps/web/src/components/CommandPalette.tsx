@@ -150,11 +150,13 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
       <Button
         variant="outline"
         aria-label="Find a command"
-        className="gap-3 px-3"
+        className="command-trigger gap-3 border-transparent bg-muted/70 px-3 shadow-none hover:border-border"
         onClick={open}
       >
         <Search />
-        <span className="hidden md:inline">Find a command</span>
+        <span className="hidden md:inline text-muted-foreground">
+          Search anything…
+        </span>
         <kbd className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
           ⌘ / Ctrl K
         </kbd>
@@ -166,7 +168,7 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
           setRemote(null);
         }}
         aria-labelledby="commands-title"
-        className="m-auto w-[calc(100%_-_2rem)] max-w-[34rem] rounded-xl border bg-white p-5 text-zinc-950 shadow-xl backdrop:bg-black/60 dark:bg-zinc-950 dark:text-zinc-100"
+        className="command-dialog m-auto w-[calc(100%_-_2rem)] max-w-[34rem] rounded-xl border bg-white p-5 text-zinc-950 shadow-xl backdrop:bg-black/60 dark:bg-zinc-950 dark:text-zinc-100"
         onClick={(e) => {
           if (e.target === dialog.current) dialog.current.close();
         }}

@@ -28,7 +28,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       className={cn(
-        "sticky top-0 z-10 bg-muted [&_tr]:border-b [&_tr]:border-border",
+        "sticky top-0 z-10 bg-muted/60 [&_tr]:border-b [&_tr]:border-border",
         className,
       )}
       {...props}
@@ -46,7 +46,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       className={cn(
-        "border-b border-border/60 transition-colors hover:bg-muted/50 data-[selected=true]:bg-accent/70",
+        "border-b border-border/60 transition-colors hover:bg-muted/50 data-[selected=true]:bg-accent/70 data-[selected=true]:shadow-[inset_2px_0_0_var(--foreground)]",
         className,
       )}
       {...props}
@@ -59,7 +59,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       scope="col"
       className={cn(
-        "h-11 px-4 text-left align-middle text-xs font-medium text-muted-foreground",
+        "h-10 px-4 text-left align-middle text-[11px] font-medium tracking-wide text-muted-foreground",
         className,
       )}
       {...props}
@@ -70,7 +70,10 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
-      className={cn("px-4 py-3 align-middle text-foreground", className)}
+      className={cn(
+        "px-4 py-3 align-middle text-[13px] text-foreground",
+        className,
+      )}
       {...props}
     />
   );

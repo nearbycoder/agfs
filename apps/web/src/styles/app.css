@@ -4,7 +4,7 @@
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
 :root {
-  --background: #fafafa;
+  --background: #f6f6f7;
   --foreground: #18181b;
   --card: #fff;
   --card-foreground: #18181b;
@@ -15,7 +15,7 @@
   --secondary: #f4f4f5;
   --secondary-foreground: #27272a;
   --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --muted-foreground: #64646e;
   --accent: #e4e4e7;
   --accent-foreground: #18181b;
   --destructive: #bd3232;
@@ -23,10 +23,10 @@
   --border: #e4e4e7;
   --input: #d4d4d8;
   --ring: #71717a;
-  --radius: 0.65rem;
+  --radius: 0.5rem;
 }
 .dark {
-  --background: #09090b;
+  --background: #101012;
   --foreground: #fafafa;
   --card: #18181b;
   --card-foreground: #fafafa;
@@ -42,7 +42,7 @@
   --accent-foreground: #fafafa;
   --destructive: #ee7777;
   --destructive-foreground: #231111;
-  --border: #27272a;
+  --border: #2d2d32;
   --input: #3f3f46;
   --ring: #fafafa;
 }
@@ -148,10 +148,10 @@
     @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
   }
   .surface-panel {
-    @apply rounded-xl border bg-card shadow-sm;
+    @apply rounded-xl border bg-card shadow-[0_1px_3px_#09090b05];
   }
   .section-label {
-    @apply text-[11px] font-semibold uppercase tracking-[.13em] text-muted-foreground;
+    @apply text-[11px] font-medium uppercase tracking-[.1em] text-muted-foreground;
   }
   .section-copy {
     @apply text-sm leading-6 text-muted-foreground;
@@ -184,25 +184,26 @@
     @apply min-h-dvh lg:pl-60;
   }
   .workspace-sidebar {
-    @apply fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card lg:flex;
+    @apply fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-background lg:flex;
   }
   .workspace-nav {
-    @apply flex-1 space-y-4 overflow-y-auto px-3 py-4;
+    @apply flex-1 space-y-5 overflow-y-auto px-3 py-5;
+    scrollbar-width: thin;
   }
   .workspace-nav-label {
     @apply mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.14em] text-muted-foreground;
   }
   .workspace-link {
-    @apply flex min-h-8 items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+    @apply relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground;
   }
   .workspace-link[aria-current="page"] {
-    @apply bg-accent text-accent-foreground;
+    @apply bg-card text-foreground shadow-[0_1px_4px_#09090b0a] ring-1 ring-border;
   }
   .workspace-topbar {
-    @apply sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-background/95 px-5 backdrop-blur sm:px-8;
+    @apply sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-background/95 px-5 backdrop-blur-sm sm:px-8;
   }
   .workspace-content {
-    @apply mx-auto min-w-0 max-w-[1500px] px-5 py-7 sm:px-8 sm:py-9;
+    @apply mx-auto min-w-0 max-w-[1440px] px-4 py-6 sm:px-8 sm:py-8 lg:px-10;
   }
   .workspace-content > * {
     min-width: 0;
@@ -220,10 +221,10 @@
     @apply space-y-7;
   }
   .workspace-page-heading {
-    @apply space-y-2 border-b pb-6;
+    @apply space-y-2 pb-2;
   }
   .workspace-page-body {
-    @apply space-y-6 rounded-xl border bg-card p-5 sm:p-6;
+    @apply space-y-6 rounded-xl border bg-card p-4 sm:p-6;
   }
   .marketing-section {
     @apply border-t py-16 sm:py-24;
@@ -294,16 +295,6 @@
 
 /* A shared workbench language for browse, inspect, and review states. */
 @layer components {
-  .workspace-page-heading {
-    @apply relative border-none pb-1;
-  }
-  .workspace-page-heading::before {
-    content: "";
-    @apply mb-5 block h-1 w-8 rounded-full bg-foreground;
-  }
-  .workspace-page-body {
-    @apply rounded-2xl shadow-[0_2px_12px_-8px_#09090b20];
-  }
   .workspace-content
     :where(section, article, form, label, li, .grid > *, .flex > *) {
     min-width: 0;
@@ -341,11 +332,14 @@
   .data-table td {
     overflow-wrap: anywhere;
   }
+  .data-table table:not(.file-table) {
+    min-width: 36rem;
+  }
   .detail-surface {
-    @apply rounded-xl border bg-muted/20 p-4 sm:p-6;
+    @apply rounded-xl border bg-card p-4 shadow-[0_8px_30px_-20px_#09090b50] sm:p-6;
   }
   .disclosure {
-    @apply min-w-0 rounded-xl border bg-card;
+    @apply min-w-0 rounded-xl border bg-card transition-colors;
     scroll-margin-top: 5rem;
   }
   .disclosure > .disclosure-summary {
@@ -367,13 +361,13 @@
     transition: transform 160ms ease;
   }
   .disclosure[open] > .disclosure-summary {
-    @apply m-0 rounded-b-none bg-muted/30;
+    @apply m-0 rounded-b-none bg-muted/40;
   }
   .disclosure[open] > .disclosure-summary::after {
     transform: rotate(45deg);
   }
   .disclosure-body {
-    @apply min-w-0 space-y-4 border-t p-4 sm:p-5;
+    @apply min-w-0 space-y-5 border-t p-4 sm:p-6;
   }
   .disclosure-body > :first-child {
     margin-top: 0;
@@ -447,9 +441,6 @@
 
 /* Quiet defaults: everyday navigation and one task at a time. */
 @layer components {
-  .workspace-link {
-    @apply min-h-9;
-  }
   .advanced-navigation.disclosure {
     @apply rounded-none border-x-0 border-b-0 bg-transparent pt-2;
   }
@@ -463,7 +454,7 @@
     @apply rounded-lg bg-muted/50 text-foreground;
   }
   .advanced-settings.disclosure {
-    @apply border-dashed bg-transparent shadow-none;
+    @apply border-solid bg-muted/20 shadow-none;
   }
   .advanced-settings[open] {
     @apply border-solid;
@@ -486,4 +477,166 @@
 /* Validation must reveal a field immediately so native focus and error hints work. */
 .advanced-settings[data-invalid-reveal]::details-content {
   transition: none;
+}
+
+/* Zinc workspace: quiet chrome, clear content, and restrained depth. */
+@layer components {
+  .workspace-link[aria-current="page"]::before {
+    content: "";
+    @apply absolute -left-3 h-4 w-0.5 rounded-r bg-foreground;
+  }
+  .workspace-sidebar .brand {
+    @apply gap-2 text-xl;
+  }
+  .workspace-sidebar .brand-mark {
+    @apply size-7 rounded-md;
+  }
+  .workspace-switcher [role="combobox"] {
+    @apply h-11 border-border bg-card text-xs font-medium shadow-none;
+  }
+  .workspace-content .ui-card .ui-card,
+  .disclosure-body > .ui-card {
+    @apply border-0 bg-transparent shadow-none;
+  }
+  .disclosure-body > .ui-card > .ui-card-header,
+  .disclosure-body > .ui-card > .ui-card-content {
+    @apply px-0;
+  }
+  .workspace-content :where(form) > :where(label, .space-y-2) {
+    @apply text-xs font-medium;
+  }
+  .workspace-content :where(h2, h3) {
+    letter-spacing: -0.02em;
+  }
+  .workspace-content :where(dl) > div {
+    @apply bg-muted/30;
+  }
+  .workspace-content :where(dd) {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.035em;
+  }
+  .workspace-content .empty-state {
+    @apply rounded-xl border border-dashed border-input bg-muted/20 py-14;
+    background-image: radial-gradient(var(--border) 0.7px, transparent 0.7px);
+    background-size: 12px 12px;
+  }
+  .workspace-content .empty-state p {
+    @apply rounded-lg bg-card px-3 py-1;
+  }
+  .files-heading-grid {
+    @apply flex flex-wrap items-start justify-between gap-5;
+  }
+  .files-heading-grid h1 {
+    @apply mb-2;
+  }
+  .files-heading-actions {
+    @apply items-center sm:pt-1;
+  }
+  .files-location {
+    @apply mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4;
+  }
+  .file-breadcrumbs {
+    @apply font-mono text-xs;
+  }
+  .file-breadcrumbs button {
+    @apply min-h-8;
+  }
+  .directory-card .data-table {
+    @apply rounded-lg;
+  }
+  .file-table .entry-path {
+    @apply mt-1 font-mono text-[10px] text-muted-foreground;
+  }
+  .file-filters input {
+    @apply bg-muted/30 shadow-none;
+  }
+  .file-filters label {
+    @apply gap-0;
+  }
+  .product-shot-caption {
+    @apply flex min-h-12 flex-wrap items-center justify-between gap-2 border-b bg-card px-5 py-3 font-mono text-[10px] text-muted-foreground;
+  }
+  .marketing-hero {
+    position: relative;
+  }
+  .marketing-hero::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 top-0 -z-10 h-full opacity-35;
+    background-image: linear-gradient(
+      to right,
+      var(--border) 1px,
+      transparent 1px
+    );
+    background-size: 25% 100%;
+    mask-image: linear-gradient(black, transparent 85%);
+  }
+  .marketing-home .hero-title {
+    @apply font-medium;
+  }
+  .hero-terminal {
+    @apply relative;
+  }
+  .hero-terminal::before {
+    content: "";
+    @apply pointer-events-none absolute -inset-5 -z-10 rounded-3xl border border-dashed border-border/70;
+  }
+  .feature-story {
+    @apply relative transition-colors;
+  }
+  .feature-story > svg {
+    @apply box-content rounded-lg border bg-card p-3;
+  }
+  .documentation-page > .grid > aside {
+    @apply lg:border-r lg:pr-4;
+  }
+  .documentation-page section {
+    scroll-margin-top: 7rem;
+  }
+  .marketing-footer {
+    @apply bg-card;
+  }
+  .marketing-header nav a,
+  .marketing-footer a:not(.brand) {
+    @apply transition-colors hover:text-foreground;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .workspace-content > *,
+  .marketing-hero > * {
+    animation: panel-in 180ms ease-out both;
+  }
+  .marketing-hero > :nth-child(2) {
+    animation-delay: 70ms;
+  }
+  .command-dialog[open],
+  .workspace-mobile-nav[open] {
+    animation: panel-in 140ms ease-out;
+  }
+}
+@media (max-width: 639px) {
+  .files-heading-actions {
+    width: 100%;
+  }
+  .files-heading-actions > :is(button, label) {
+    flex: 1;
+  }
+  .files-location {
+    margin-top: 1.25rem;
+  }
+  .hero-terminal::before {
+    inset: -0.5rem;
+  }
+}
+@media (max-width: 639px) {
+  .data-table:has(table:not(.file-table))::before {
+    content: "Scroll to see all columns →";
+    display: block;
+    position: sticky;
+    left: 0;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+  }
 }

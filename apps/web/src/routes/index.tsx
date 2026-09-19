@@ -78,8 +78,8 @@ function HomePage() {
     : "Sign in with GitHub";
 
   return (
-    <main className="page-shell">
-      <section className="grid items-center gap-10 pb-14 pt-16 sm:pt-24 lg:grid-cols-[1.15fr_.85fr] lg:gap-16 lg:pb-20">
+    <main className="page-shell marketing-home">
+      <section className="marketing-hero grid items-center gap-10 pb-14 pt-16 sm:pt-24 lg:grid-cols-[1.15fr_.85fr] lg:gap-16 lg:pb-20">
         <div>
           <p className="marketing-kicker">
             <span className="size-1.5 rounded-full bg-primary" /> The filesystem
@@ -117,7 +117,10 @@ function HomePage() {
             1 GB free storage · Open source · Built for humans and agents
           </p>
         </div>
-        <div className="min-w-0 lg:pt-8">
+        <div className="hero-terminal min-w-0 lg:pt-8">
+          <p className="mb-4 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+            01 — Create. Store. Share.
+          </p>
           <CodeWindow title="From agent to workspace">{`# Give your work a home
 agfs upload ./report.md /runs/report.md
 
@@ -145,6 +148,12 @@ agfs upload ./report.md /runs/report.md --share 1h`}</CodeWindow>
           </Link>
         </div>
         <div className="product-shot">
+          <div className="product-shot-caption">
+            <span className="flex items-center gap-2">
+              <FolderKanban className="size-4" /> agfs / workspace
+            </span>
+            <span>Built around your files</span>
+          </div>
           <img
             src="/workspace-preview.png"
             alt="AGFS file workspace with grouped navigation, folder breadcrumbs, artifact files, and file actions. Sample workspace."
@@ -191,7 +200,7 @@ agfs upload ./report.md /runs/report.md --share 1h`}</CodeWindow>
               copy: "Create expiring links, scope agent access, and review activity. Recover previous versions when something needs a second look.",
             },
           ].map((item) => (
-            <article key={item.title} className="border-t pt-6">
+            <article key={item.title} className="feature-story border-t pt-6">
               <item.icon className="mb-6 size-6 text-primary" />
               <h3 className="text-lg font-semibold tracking-tight">
                 {item.title}

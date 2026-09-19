@@ -25,7 +25,7 @@ export function CodeWindow(props: {
   return (
     <div
       className={cn(
-        "min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-lg shadow-black/10",
+        "code-window min-w-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-lg shadow-black/10",
         props.className,
       )}
     >
