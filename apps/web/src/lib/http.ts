@@ -76,12 +76,19 @@ export async function parseJson<T>(
       if (done) break;
       size += value.byteLength;
       if (size > 16_384) {
-        await reader.cancel();
-        throw errorResponse(413, "Request body too large");
+        // Drain small over-limit bodies without retaining them. Cancelling an
+        // incompletely forwarded body can reset the proxy's next request.
+        // Larger streams still stop at a fixed bound; never drain unbounded input.
+        if (size > 65_536) {
+          await reader.cancel();
+          throw errorResponse(413, "Request body too large");
+        }
+        continue;
       }
       chunks.push(value);
     }
   }
+  if (size > 16_384) throw errorResponse(413, "Request body too large");
   if (!isJsonRequest(request))
     throw errorResponse(415, "Content-Type must be application/json");
   const bytes = new Uint8Array(size);

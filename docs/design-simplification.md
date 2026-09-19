@@ -23,4 +23,6 @@ Advanced controls retain their values when collapsed. Invalid fields reopen thei
 - Browser interactions verified: folder creation, search filter retention and reset, invalid-field reveal/focus, tool search, category switching with retained input, direct tool links, automatic advanced navigation, and mobile Escape/focus restoration.
 - Token creation verified from the form through the API and local database: read-only access with a seven-day expiration.
 - Handoff notes verified to survive clearing and restoring the file selection.
-- Web build and type checks pass. Repository tests pass, including 158 web tests. The full disposable Workers integration suite passes with Node 24, matching CI. Dependency audit is clean.
+- Web build and type checks pass. Repository tests pass, including 160 web tests. The full disposable Workers integration suite passes with Node 24, matching CI. Dependency audit is clean.
+
+CI also exposed a request-stream regression from the preceding security pass. The JSON parser now discards small oversized tails without retaining them, with a 64 KiB threshold before cancelling larger streams. The accepted JSON limit stays at 16 KiB. Two stream tests, 36 HTTP security checks, and 75 consecutive oversized/follow-up requests verify bounded rejection and reuse.
