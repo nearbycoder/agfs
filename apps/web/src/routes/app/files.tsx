@@ -1,3 +1,4 @@
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 // @ts-nocheck
 import { ReleaseHandoff } from "~/components/platform/ReleaseHandoff";
 import { DirectoryExport } from "~/components/platform/DirectoryExport";
@@ -137,6 +138,7 @@ function FilesPage() {
     Array<ReturnType<typeof listEntriesResponseSchema.parse>["entries"][number]>
   >([]);
   const [folderName, setFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -203,7 +205,7 @@ function FilesPage() {
     const segments = path.split("/").filter(Boolean);
 
     return [
-      { label: "root", value: "/" },
+      { label: "All files", value: "/" },
       ...segments.map((segment, index) => ({
         label: segment,
         value: `/${segments.slice(0, index + 1).join("/")}`,
@@ -260,6 +262,7 @@ function FilesPage() {
       }
       successResponseSchema.parse(payload);
       setFolderName("");
+      setCreatingFolder(false);
     });
   }
 
@@ -487,7 +490,8 @@ function FilesPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Button
-                disabled={path === "/" || isBusy}
+                disabled={isBusy}
+                className={path === "/" ? "hidden" : undefined}
                 onClick={() =>
                   startTransition(() =>
                     setPath(path.slice(0, path.lastIndexOf("/")) || "/"),
@@ -516,26 +520,72 @@ function FilesPage() {
                 />
               </label>
               <Button
-                disabled={!selectedPaths.length}
-                onClick={handleDownloadSelected}
                 type="button"
                 variant="outline"
+                id="new-folder-trigger"
+                aria-expanded={creatingFolder}
+                aria-controls="create-folder-panel"
+                onClick={() => setCreatingFolder((open) => !open)}
               >
-                <Download className="size-4" />
-                Download selected
-                {selectedPaths.length ? ` (${selectedPaths.length})` : ""}
+                <FolderPlus className="size-4" />
+                New folder
               </Button>
+              {selectedPaths.length ? (
+                <Button
+                  disabled={!selectedPaths.length}
+                  onClick={handleDownloadSelected}
+                  type="button"
+                  variant="outline"
+                >
+                  <Download className="size-4" />
+                  Download selected
+                  {selectedPaths.length ? ` (${selectedPaths.length})` : ""}
+                </Button>
+              ) : null}
             </div>
           </CardHeader>
           <p className="mt-4 border-t pt-4 text-xs text-muted-foreground">
-            {folderCount} folders <span className="mx-2">·</span> {fileCount}{" "}
-            files <span className="mx-2">·</span> {formatBytes(totalBytes)} in
-            this folder
+            {folderCount} {folderCount === 1 ? "folder" : "folders"}{" "}
+            <span className="mx-2">·</span> {fileCount}{" "}
+            {fileCount === 1 ? "file" : "files"} <span className="mx-2">·</span>{" "}
+            {formatBytes(totalBytes)} in this folder
           </p>
         </div>
       </div>
 
-      <GoToFolder path={path} onNavigate={setPath} />
+      {creatingFolder ? (
+        <Disclosure
+          id="create-folder-panel"
+          open={creatingFolder}
+          onToggle={(e) => {
+            setCreatingFolder(e.currentTarget.open);
+            if (!e.currentTarget.open)
+              document.getElementById("new-folder-trigger")?.focus();
+          }}
+          hidden={!creatingFolder}
+        >
+          <DisclosureSummary>Create a folder</DisclosureSummary>
+          <form className="space-y-3" onSubmit={handleCreateFolder}>
+            <div className="space-y-2">
+              <label className="section-label" htmlFor="folder-name">
+                New folder
+              </label>
+              <Input
+                autoFocus
+                required
+                id="folder-name"
+                onChange={(event) => setFolderName(event.target.value)}
+                placeholder="screenshots"
+                value={folderName}
+              />
+            </div>
+            <Button disabled={isBusy} type="submit" variant="outline">
+              <FolderPlus className="size-4" />
+              Create folder
+            </Button>
+          </form>
+        </Disclosure>
+      ) : null}
       {uploadProgress ? (
         <p className="section-copy" role="status">
           {uploadProgress}
@@ -628,36 +678,40 @@ function FilesPage() {
           }}
         />
       ) : null}
-      <ReleaseHandoff
-        entries={entries.filter(
-          (e) => e.kind === "file" && selectedPaths.includes(e.path),
-        )}
-        onSaved={() => refreshEntries(path)}
-      />
-      {selectedPaths.length ? (
-        <SelectionClipboard paths={selectedPaths} />
-      ) : null}
-      {selectedPaths.length ? (
-        <BatchRename
-          entries={entries.filter(
-            (e) => e.kind === "file" && selectedPaths.includes(e.path),
-          )}
-          onComplete={async () => {
-            await refreshEntries(path);
-            setSelectedPaths([]);
-          }}
-        />
-      ) : null}
+      <div hidden={!selectedPaths.length}>
+        <AdvancedSettings
+          title="Selection tools"
+          summary={`${selectedPaths.length} selected · Copy paths, rename files, or prepare a handoff`}
+        >
+          <ReleaseHandoff
+            entries={entries.filter(
+              (e) => e.kind === "file" && selectedPaths.includes(e.path),
+            )}
+            onSaved={() => refreshEntries(path)}
+          />
+          {selectedPaths.length ? (
+            <SelectionClipboard paths={selectedPaths} />
+          ) : null}
+          {selectedPaths.length ? (
+            <BatchRename
+              entries={entries.filter(
+                (e) => e.kind === "file" && selectedPaths.includes(e.path),
+              )}
+              onComplete={async () => {
+                await refreshEntries(path);
+                setSelectedPaths([]);
+              }}
+            />
+          ) : null}
+        </AdvancedSettings>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Directory contents</CardTitle>
-          <CardDescription>
-            Select a file, or open its actions to preview, share, and manage it.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
-            <label className="grid gap-2 text-sm">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
+            <label className="col-span-2 grid gap-2 text-sm sm:col-span-1">
               Filter this folder
               <Input
                 value={query}
@@ -701,16 +755,10 @@ function FilesPage() {
             </label>
           </div>
           <p role="status" className="text-xs text-muted-foreground">
-            {matchingEntries.length} matching entries · {selectedPaths.length}{" "}
-            files selected across pages · Folders sort first
+            {matchingEntries.length}{" "}
+            {matchingEntries.length === 1 ? "item" : "items"}
+            {selectedPaths.length ? ` · ${selectedPaths.length} selected` : ""}
           </p>
-          {!loading ? (
-            <DirectoryExport
-              entries={matchingEntries}
-              page={pageEntries}
-              folder={path}
-            />
-          ) : null}
           {loading ? (
             <LoadingState label="Loading folder" />
           ) : entries.length === 0 ? (
@@ -965,33 +1013,26 @@ function FilesPage() {
         </CardContent>
       </Card>
       <div className="grid gap-5">
-        <Disclosure>
-          <DisclosureSummary>Create a folder</DisclosureSummary>
-          <form className="space-y-3" onSubmit={handleCreateFolder}>
-            <div className="space-y-2">
-              <label className="section-label" htmlFor="folder-name">
-                New folder
-              </label>
-              <Input
-                id="folder-name"
-                onChange={(event) => setFolderName(event.target.value)}
-                placeholder="screenshots"
-                value={folderName}
-              />
-            </div>
-            <Button disabled={isBusy} type="submit" variant="outline">
-              <FolderPlus className="size-4" />
-              Create folder
-            </Button>
-          </form>
-        </Disclosure>
         <FolderReadme entries={entries} />
-        <FolderUpload
-          destination={path}
-          onComplete={async () => {
-            await refreshEntries(path);
-          }}
-        />
+        <AdvancedSettings
+          title="Advanced file tools"
+          summary="Open a folder by path, upload a folder, or export a file listing."
+        >
+          <GoToFolder path={path} onNavigate={setPath} />
+          <FolderUpload
+            destination={path}
+            onComplete={async () => {
+              await refreshEntries(path);
+            }}
+          />{" "}
+          {!loading ? (
+            <DirectoryExport
+              entries={matchingEntries}
+              page={pageEntries}
+              folder={path}
+            />
+          ) : null}
+        </AdvancedSettings>
       </div>
     </div>
   );

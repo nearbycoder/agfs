@@ -1,3 +1,4 @@
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -76,20 +77,6 @@ export function OperationsPage() {
               </div>
             ))}
           </div>
-          <ul className="divide-y">
-            {health.metrics.map((m: any) => (
-              <li
-                key={m.route}
-                className="flex flex-wrap justify-between gap-2 py-3"
-              >
-                <strong>{m.route}</strong>
-                <span>
-                  {m.averageMs} ms average · {m.errors} errors · {m.rejections}{" "}
-                  rejected
-                </span>
-              </li>
-            ))}
-          </ul>
           {health.alerts
             .filter((a: any) => !a.resolved_at)
             .map((a: any) => (
@@ -101,72 +88,91 @@ export function OperationsPage() {
                 {a.message}
               </p>
             ))}
-          <Disclosure>
-            <DisclosureSummary>Alert thresholds</DisclosureSummary>
-            <form
-              className="mt-4 grid gap-3 sm:grid-cols-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const d = new FormData(e.currentTarget);
-                void action.run(async () => {
-                  await platform("/health/thresholds", "PUT", {
-                    errorPercent: Number(d.get("errors")),
-                    backlog: Number(d.get("backlog")),
-                    latencyMs: Number(d.get("latency")),
-                  });
-                  await refresh();
-                });
-              }}
-            >
-              <Field
-                label="Error percentage"
-                name="errors"
-                type="number"
-                min={1}
-                max={100}
-                defaultValue={health.thresholds.error_percent}
-              />
-              <Field
-                label="Pending index jobs"
-                name="backlog"
-                type="number"
-                min={1}
-                defaultValue={health.thresholds.backlog}
-              />
-              <Field
-                label="Average latency (ms)"
-                name="latency"
-                type="number"
-                min={100}
-                defaultValue={health.thresholds.latency_ms}
-              />
-              <Button disabled={action.busy}>Save thresholds</Button>
-            </form>
-          </Disclosure>
-          <Disclosure>
-            <DisclosureSummary>Indexing jobs & repair</DisclosureSummary>
-            <ul className="my-4 space-y-2">
-              {health.jobs.map((j: any) => (
-                <li key={j.path} className="break-all text-sm">
-                  {j.path} · {j.attempts} failed attempts{" "}
-                  {j.last_error ? `· ${j.last_error}` : ""}
+          <AdvancedSettings
+            title="Advanced diagnostics"
+            summary="Per-route metrics, alert thresholds, and indexing repair."
+          >
+            <ul className="divide-y">
+              {health.metrics.map((m: any) => (
+                <li
+                  key={m.route}
+                  className="flex flex-wrap justify-between gap-2 py-3"
+                >
+                  <strong>{m.route}</strong>
+                  <span>
+                    {m.averageMs} ms average · {m.errors} errors ·{" "}
+                    {m.rejections} rejected
+                  </span>
                 </li>
               ))}
             </ul>
-            <Button
-              variant="outline"
-              disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  await platform("/search/reindex", "POST", {});
-                  await refresh();
-                  action.setNotice("Files queued for reindexing.");
-                })
-              }
-            >
-              Reindex workspace
-            </Button>
-          </Disclosure>
+            <Disclosure>
+              <DisclosureSummary>Alert thresholds</DisclosureSummary>
+              <form
+                className="mt-4 grid gap-3 sm:grid-cols-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const d = new FormData(e.currentTarget);
+                  void action.run(async () => {
+                    await platform("/health/thresholds", "PUT", {
+                      errorPercent: Number(d.get("errors")),
+                      backlog: Number(d.get("backlog")),
+                      latencyMs: Number(d.get("latency")),
+                    });
+                    await refresh();
+                  });
+                }}
+              >
+                <Field
+                  label="Error percentage"
+                  name="errors"
+                  type="number"
+                  min={1}
+                  max={100}
+                  defaultValue={health.thresholds.error_percent}
+                />
+                <Field
+                  label="Pending index jobs"
+                  name="backlog"
+                  type="number"
+                  min={1}
+                  defaultValue={health.thresholds.backlog}
+                />
+                <Field
+                  label="Average latency (ms)"
+                  name="latency"
+                  type="number"
+                  min={100}
+                  defaultValue={health.thresholds.latency_ms}
+                />
+                <Button disabled={action.busy}>Save thresholds</Button>
+              </form>
+            </Disclosure>
+            <Disclosure>
+              <DisclosureSummary>Indexing jobs & repair</DisclosureSummary>
+              <ul className="my-4 space-y-2">
+                {health.jobs.map((j: any) => (
+                  <li key={j.path} className="break-all text-sm">
+                    {j.path} · {j.attempts} failed attempts{" "}
+                    {j.last_error ? `· ${j.last_error}` : ""}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="outline"
+                disabled={action.busy}
+                onClick={() =>
+                  void action.run(async () => {
+                    await platform("/search/reindex", "POST", {});
+                    await refresh();
+                    action.setNotice("Files queued for reindexing.");
+                  })
+                }
+              >
+                Reindex workspace
+              </Button>
+            </Disclosure>
+          </AdvancedSettings>
           {health.expiringCredentials.length ? (
             <section>
               <h2 className="font-semibold">

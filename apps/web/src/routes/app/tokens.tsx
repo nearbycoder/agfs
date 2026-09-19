@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
 import { LoadingState, DetailSurface } from "~/components/platform/shared";
@@ -6,7 +7,7 @@ import { Select, SelectItem } from "~/components/ui/select";
 import type { FormEvent } from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Trash2 } from "lucide-react";
 import { tokenListResponseSchema } from "@agfs/contracts";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
@@ -137,10 +138,15 @@ function TokensPage() {
             </span>
           </span>
         </DisclosureSummary>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]">
+        <div
+          className={
+            secret
+              ? "grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_380px]"
+              : "max-w-3xl"
+          }
+        >
           <Card>
             <CardHeader>
-              <CardTitle>Create a token</CardTitle>
               <CardDescription>
                 Limit each agent to the access it needs. Tokens expire after 30
                 days by default, with a maximum of 90 days.
@@ -160,17 +166,7 @@ function TokensPage() {
                     onChange={(event) => setLabel(event.target.value)}
                     placeholder="Build runner"
                     value={label}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="section-label" htmlFor="token-ttl">
-                    TTL
-                  </label>
-                  <Input
-                    id="token-ttl"
-                    onChange={(event) => setTtl(event.target.value)}
-                    placeholder="7d"
-                    value={ttl}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -200,6 +196,31 @@ function TokensPage() {
                     </SelectItem>
                   </Select>
                 </div>
+                <AdvancedSettings
+                  className="sm:col-span-2"
+                  summary={
+                    ttl
+                      ? `Expires after ${ttl}. Adjust the duration if needed.`
+                      : "Choose an expiration duration before creating the token."
+                  }
+                >
+                  <div className="space-y-2">
+                    <label className="section-label" htmlFor="token-ttl">
+                      Expiration duration
+                    </label>
+                    <Input
+                      id="token-ttl"
+                      required
+                      onChange={(event) => setTtl(event.target.value)}
+                      placeholder="30d"
+                      value={ttl}
+                    />
+                  </div>
+                  <p className="section-copy">
+                    Use 1h for an hour, 7d for a week, or 30d for a month.
+                    Maximum: 90 days.
+                  </p>
+                </AdvancedSettings>
                 <div className="flex items-end">
                   <Button className="w-full sm:w-auto" type="submit">
                     <KeyRound className="size-4" />
@@ -208,42 +229,26 @@ function TokensPage() {
                 </div>
               </form>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-border bg-muted/40 p-4">
-                  <div className="flex items-center gap-3">
-                    <ShieldCheck className="size-4 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">
-                      Token hygiene
-                    </p>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    AGFS stores token hashes in D1 and only reveals the raw
-                    token once at creation time.
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border bg-muted/40 p-4">
-                  <p className="section-label">Current count</p>
-                  <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">
-                    {tokens.length}
-                  </p>
-                </div>
-              </div>
+              <p className="text-xs leading-5 text-muted-foreground">
+                The token is shown only once. Copy it after creation and store
+                it securely.
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <Badge className="w-fit" variant="secondary">
-                Latest secret
-              </Badge>
-              <CardTitle>Copy this now.</CardTitle>
-              <CardDescription>
-                After this screen changes, the raw token value cannot be
-                retrieved again.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {secret ? (
+          {secret ? (
+            <Card>
+              <CardHeader>
+                <Badge className="w-fit" variant="secondary">
+                  Latest secret
+                </Badge>
+                <CardTitle>Copy this now.</CardTitle>
+                <CardDescription>
+                  After this screen changes, the raw token value cannot be
+                  retrieved again.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                 <DetailSurface key={secret} label="New token secret">
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 break-all font-mono text-sm leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-200">
                     {secret}
@@ -253,14 +258,9 @@ function TokensPage() {
                     Copy token
                   </Button>
                 </DetailSurface>
-              ) : (
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Create a token and the latest value will appear here for a
-                  one-time copy.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </Disclosure>
 

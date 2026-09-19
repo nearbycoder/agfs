@@ -1,3 +1,4 @@
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { DetailSurface } from "./shared";
 import { Badge } from "~/components/ui/badge";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
@@ -16,10 +17,9 @@ export function RunsPage() {
   return (
     <Page
       title="Agent runs"
-      description="Group outputs into a run and save a manifest with retained inputs, artifacts, versions, and provenance."
+      description="Keep an agent’s work together. Start a run, add files, then save the result."
       error={action.error || data.error}
     >
-      <RunCompare runs={data.items} />
       <Disclosure>
         <DisclosureSummary>
           <span>
@@ -62,24 +62,29 @@ export function RunsPage() {
               onChange={(e) => setPath(e.target.value)}
             />
           </div>
-          <label className="grid gap-2 text-sm">
-            Input paths, one per line
-            <textarea
-              className="rounded-md border bg-transparent p-3"
-              rows={3}
-              value={inputs}
-              onChange={(e) => setInputs(e.target.value)}
-              placeholder="/inputs/brief.txt"
+          <AdvancedSettings
+            summary={`${days ? days + " days retention" : "Choose a retention period"} · ${inputs.split("\n").filter((v) => v.trim()).length} input files`}
+          >
+            <label className="grid gap-2 text-sm">
+              Input paths, one per line
+              <textarea
+                className="rounded-md border bg-transparent p-3"
+                rows={3}
+                value={inputs}
+                onChange={(e) => setInputs(e.target.value)}
+                placeholder="/inputs/brief.txt"
+              />
+            </label>
+            <Field
+              label="Retain inputs and artifacts (days)"
+              required
+              type="number"
+              min={1}
+              max={90}
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
             />
-          </label>
-          <Field
-            label="Retain inputs and artifacts (days)"
-            type="number"
-            min={1}
-            max={90}
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-          />
+          </AdvancedSettings>
           <Button disabled={action.busy}>Start run</Button>
         </form>
       </Disclosure>
@@ -139,6 +144,7 @@ export function RunsPage() {
           text="No runs yet. Start one, write files into its output folder, then complete it."
         />
       )}
+      <RunCompare runs={data.items} />
       {manifest ? (
         <DetailSurface key={manifest.runId} label="Run manifest">
           <div className="flex items-center justify-between gap-3">
