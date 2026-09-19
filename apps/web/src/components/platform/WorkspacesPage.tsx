@@ -1,3 +1,4 @@
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { WorkspaceAdmin } from "./WorkspaceAdmin";
@@ -13,7 +14,8 @@ export function WorkspacesPage() {
     [email, setEmail] = useState(""),
     [role, setRole] = useState("viewer"),
     [invite, setInvite] = useState(""),
-    [sendEmail, setSendEmail] = useState(false);
+    [sendEmail, setSendEmail] = useState(false),
+    [joining, setJoining] = useState(false);
   useEffect(() => {
     const c = new AbortController();
     fetch("/api/v1/whoami", { signal: c.signal })
@@ -23,7 +25,10 @@ export function WorkspacesPage() {
       })
       .catch(() => {});
     const t = new URLSearchParams(window.location.search).get("invite");
-    if (t) setInvite(t);
+    if (t) {
+      setInvite(t);
+      setJoining(true);
+    }
     return () => c.abort();
   }, []);
   const active = data.items.find((w) => w.id === current);
@@ -109,11 +114,16 @@ export function WorkspacesPage() {
       {active?.role === "owner" ? (
         <section className="space-y-4 border-t pt-5">
           <h2 className="text-lg font-semibold">Manage {active.name}</h2>
-          <WorkspaceSettings
-            key={active.id}
-            workspace={active}
-            refresh={data.refresh}
-          />
+          <AdvancedSettings
+            title="Workspace settings"
+            summary="Rename this workspace, set a storage budget, or pause changes."
+          >
+            <WorkspaceSettings
+              key={active.id}
+              workspace={active}
+              refresh={data.refresh}
+            />
+          </AdvancedSettings>
           <form
             className="grid gap-3 sm:grid-cols-3"
             onSubmit={(e) => {
@@ -229,30 +239,38 @@ export function WorkspacesPage() {
           </ul>
         </section>
       ) : null}
-      <form
-        className="space-y-3 border-t pt-5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void action.run(async () => {
-            await platform("/invites/accept", "POST", { token: invite });
-            setInvite("");
-            window.history.replaceState(null, "", "/app/workspaces");
-            await data.refresh();
-            action.setNotice("Invitation accepted. Open the workspace above.");
-          });
-        }}
+      <Disclosure
+        open={joining}
+        onToggle={(e) => setJoining(e.currentTarget.open)}
       >
-        <Field
-          label="Accept invitation code"
-          value={invite}
-          onChange={(e) => setInvite(e.target.value)}
-          required
-        />
-        <p className="section-copy">
-          Sign in with the email the invitation was issued to.
-        </p>
-        <Button disabled={action.busy}>Accept invitation</Button>
-      </form>
+        <DisclosureSummary>Join a workspace</DisclosureSummary>
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action.run(async () => {
+              await platform("/invites/accept", "POST", { token: invite });
+              setInvite("");
+              window.history.replaceState(null, "", "/app/workspaces");
+              await data.refresh();
+              action.setNotice(
+                "Invitation accepted. Open the workspace above.",
+              );
+            });
+          }}
+        >
+          <Field
+            label="Accept invitation code"
+            value={invite}
+            onChange={(e) => setInvite(e.target.value)}
+            required
+          />
+          <p className="section-copy">
+            Sign in with the email the invitation was issued to.
+          </p>
+          <Button disabled={action.busy}>Accept invitation</Button>
+        </form>
+      </Disclosure>
     </Page>
   );
 }

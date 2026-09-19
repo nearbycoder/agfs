@@ -128,15 +128,17 @@ await req("/api/v1/fs/list?path=/", { token: own.token });
 const count = () =>
   database.prepare("SELECT count(*) AS n FROM idempotency").get().n;
 const before = count();
-for (const [type, status] of [
-  ["Application/JSON; charset=utf-8", 413],
-  ["text/plain", 413],
-])
-  await req("/api/v1/platform/runs", {
-    body: { path: "/", name: "oversized", padding: "x".repeat(20000) },
-    headers: { "content-type": type, "idempotency-key": randomUUID() },
-    status,
-  });
+// Consecutive rejected bodies must leave the next request usable too.
+for (let attempt = 0; attempt < 3; attempt++)
+  for (const [type, status] of [
+    ["Application/JSON; charset=utf-8", 413],
+    ["text/plain", 413],
+  ])
+    await req("/api/v1/platform/runs", {
+      body: { path: "/", name: "oversized", padding: "x".repeat(20000) },
+      headers: { "content-type": type, "idempotency-key": randomUUID() },
+      status,
+    });
 await req("/api/v1/platform/runs", {
   body: { path: "/" },
   headers: { "content-type": "text/plain", "idempotency-key": randomUUID() },

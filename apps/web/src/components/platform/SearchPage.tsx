@@ -1,10 +1,17 @@
 import { FileLink } from "~/components/ui/file-link";
-import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { Select, SelectItem } from "~/components/ui/select";
 import { useState } from "react";
 import { SavedSearches, type SearchFilters } from "./SavedSearches";
 import { Button } from "~/components/ui/button";
-import { Page, Field, platform, useAction, Empty } from "./shared";
+import {
+  Page,
+  Field,
+  platform,
+  useAction,
+  Empty,
+  DetailSurface,
+} from "./shared";
 const empty: SearchFilters = {
   q: "",
   path: "/",
@@ -60,7 +67,7 @@ export function SearchPage() {
   return (
     <Page
       title="Search"
-      description="Find files by name, text, tags, size, or modification date. Text files up to 1 MiB are indexed within a minute."
+      description="Find a file by name or content. Narrow the results only when you need to."
       error={action.error}
       notice={action.notice}
     >
@@ -78,75 +85,73 @@ export function SearchPage() {
           onChange={(e) => change("q", e.target.value)}
           placeholder="release notes"
         />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            label="Folder"
-            required
-            value={filters.path}
-            onChange={(e) => change("path", e.target.value)}
-          />
-          <Field
-            label="Content type (optional)"
-            value={filters.type}
-            onChange={(e) => change("type", e.target.value)}
-            placeholder="text/plain"
-          />
-          <Field
-            label="Tag (optional)"
-            value={filters.tag}
-            onChange={(e) => change("tag", e.target.value)}
-          />
-        </div>
-        <Disclosure>
-          <DisclosureSummary>Advanced filters</DisclosureSummary>
-          <div className="mt-4">
-            {" "}
-            <fieldset className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
-              <legend className="sr-only">Advanced filters</legend>
-              <label className="grid gap-2 text-sm">
-                Entry kind
-                <Select
-                  placeholder="Files and folders"
-                  aria-label="Entry kind"
-                  value={filters.kind ?? ""}
-                  onValueChange={(value) => change("kind", value)}
-                >
-                  <SelectItem value="">Files and folders</SelectItem>
-                  <SelectItem value="file">Files only</SelectItem>
-                  <SelectItem value="folder">Folders only</SelectItem>
-                </Select>
-              </label>
-              <Field
-                label="Minimum bytes"
-                type="number"
-                min="0"
-                step="1"
-                value={filters.minSize ?? ""}
-                onChange={(e) => change("minSize", e.target.value)}
-              />
-              <Field
-                label="Maximum bytes"
-                type="number"
-                min="0"
-                step="1"
-                value={filters.maxSize ?? ""}
-                onChange={(e) => change("maxSize", e.target.value)}
-              />
-              <Field
-                label="Modified on/after (UTC)"
-                type="date"
-                value={filters.after ?? ""}
-                onChange={(e) => change("after", e.target.value)}
-              />
-              <Field
-                label="Modified on/before (UTC)"
-                type="date"
-                value={filters.before ?? ""}
-                onChange={(e) => change("before", e.target.value)}
-              />
-            </fieldset>
+        <AdvancedSettings
+          title="Filters"
+          summary={`${Object.entries(filters).filter(([key, value]) => key !== "q" && value && !(key === "path" && value === "/")).length} active · Folder, type, tags, size, and dates`}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field
+              label="Folder"
+              required
+              value={filters.path}
+              onChange={(e) => change("path", e.target.value)}
+            />
+            <Field
+              label="Content type"
+              value={filters.type}
+              onChange={(e) => change("type", e.target.value)}
+              placeholder="text/plain"
+            />
+            <Field
+              label="Tag"
+              value={filters.tag}
+              onChange={(e) => change("tag", e.target.value)}
+            />
+            <label className="grid gap-2 text-sm">
+              Entry kind
+              <Select
+                aria-label="Entry kind"
+                value={filters.kind ?? ""}
+                onValueChange={(value) => change("kind", value)}
+              >
+                <SelectItem value="">Files and folders</SelectItem>
+                <SelectItem value="file">Files only</SelectItem>
+                <SelectItem value="folder">Folders only</SelectItem>
+              </Select>
+            </label>
+            <Field
+              label="Minimum bytes"
+              type="number"
+              min="0"
+              step="1"
+              value={filters.minSize ?? ""}
+              onChange={(e) => change("minSize", e.target.value)}
+            />
+            <Field
+              label="Maximum bytes"
+              type="number"
+              min="0"
+              step="1"
+              value={filters.maxSize ?? ""}
+              onChange={(e) => change("maxSize", e.target.value)}
+            />
+            <Field
+              label="Modified on/after (UTC)"
+              type="date"
+              value={filters.after ?? ""}
+              onChange={(e) => change("after", e.target.value)}
+            />
+            <Field
+              label="Modified on/before (UTC)"
+              type="date"
+              value={filters.before ?? ""}
+              onChange={(e) => change("before", e.target.value)}
+            />
           </div>
-        </Disclosure>
+          <p className="section-copy">
+            Text files up to 1 MiB are indexed within a minute.
+          </p>
+        </AdvancedSettings>
         <div className="flex gap-3">
           <Button disabled={action.busy}>Search</Button>
           <Button
@@ -165,15 +170,20 @@ export function SearchPage() {
           </Button>
         </div>
       </form>
-      <SavedSearches
-        filters={filters}
-        busy={action.busy}
-        onApply={(saved) => {
-          const values = { ...empty, ...saved };
-          setFilters(values);
-          void action.run(() => search(undefined, values));
-        }}
-      />
+      <AdvancedSettings
+        title="Saved searches"
+        summary="Save these filters or return to a previous search."
+      >
+        <SavedSearches
+          filters={filters}
+          busy={action.busy}
+          onApply={(saved) => {
+            const values = { ...empty, ...saved };
+            setFilters(values);
+            void action.run(() => search(undefined, values));
+          }}
+        />
+      </AdvancedSettings>
       {active && JSON.stringify(active) !== JSON.stringify(filters) ? (
         <p role="status" className="text-sm text-muted-foreground">
           Showing the last search. Press Search to apply your changed filters.
@@ -226,38 +236,53 @@ export function SearchPage() {
           Load more
         </Button>
       ) : null}
-      <form
-        className="grid gap-4 rounded-xl border p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void action.run(async () => {
-            await platform("/tags", "PUT", {
-              path: tagPath,
-              tags: tags
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean),
-            });
-            action.setNotice("Tags saved. Search will update within a minute.");
-          });
-        }}
-      >
-        <h2 className="font-semibold">File tags</h2>
-        <Field
-          label="File path"
-          required
-          value={tagPath}
-          onChange={(e) => setTagPath(e.target.value)}
-        />
-        <Field
-          label="Tags, separated by commas"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <Button disabled={action.busy} className="w-fit">
-          Save tags
-        </Button>
-      </form>
+      {tagPath ? (
+        <DetailSurface key={tagPath} label="Edit file tags">
+          <form
+            className="grid gap-4 rounded-xl border p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void action.run(async () => {
+                await platform("/tags", "PUT", {
+                  path: tagPath,
+                  tags: tags
+                    .split(",")
+                    .map((v) => v.trim())
+                    .filter(Boolean),
+                });
+                action.setNotice(
+                  "Tags saved. Search will update within a minute.",
+                );
+              });
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">File tags</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setTagPath("")}
+              >
+                Close tag editor
+              </Button>
+            </div>
+            <Field
+              label="File path"
+              required
+              value={tagPath}
+              onChange={(e) => setTagPath(e.target.value)}
+            />
+            <Field
+              label="Tags, separated by commas"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+            <Button disabled={action.busy} className="w-fit">
+              Save tags
+            </Button>
+          </form>
+        </DetailSurface>
+      ) : null}
     </Page>
   );
 }

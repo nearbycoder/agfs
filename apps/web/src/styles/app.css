@@ -444,3 +444,46 @@
     display: none;
   }
 }
+
+/* Quiet defaults: everyday navigation and one task at a time. */
+@layer components {
+  .workspace-link {
+    @apply min-h-9;
+  }
+  .advanced-navigation.disclosure {
+    @apply rounded-none border-x-0 border-b-0 bg-transparent pt-2;
+  }
+  .advanced-navigation > .disclosure-summary {
+    @apply min-h-10 gap-2 rounded-lg px-3 py-2 text-xs text-muted-foreground;
+  }
+  .advanced-navigation > .disclosure-body {
+    @apply space-y-4 border-none px-0 pt-4 pb-0;
+  }
+  .advanced-navigation[open] > .disclosure-summary {
+    @apply rounded-lg bg-muted/50 text-foreground;
+  }
+  .advanced-settings.disclosure {
+    @apply border-dashed bg-transparent shadow-none;
+  }
+  .advanced-settings[open] {
+    @apply border-solid;
+  }
+  .advanced-settings > .disclosure-summary {
+    @apply min-h-12;
+  }
+  .tool-finder {
+    @apply space-y-4 rounded-2xl border bg-card p-5 sm:p-6;
+  }
+  .tool-workbench[hidden] {
+    display: none;
+  }
+}
+@media (max-width: 1023px) {
+  .workspace-link {
+    min-height: 2.75rem;
+  }
+}
+/* Validation must reveal a field immediately so native focus and error hints work. */
+.advanced-settings[data-invalid-reveal]::details-content {
+  transition: none;
+}

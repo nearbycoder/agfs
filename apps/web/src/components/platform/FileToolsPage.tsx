@@ -1,3 +1,5 @@
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { LoadingState } from "./shared";
 import {
@@ -16,7 +18,7 @@ import {
   Braces,
   GitCompare,
 } from "lucide-react";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
 const loadTextCompare = () => import("./TextCompare");
 const TextCompare = lazy(() =>
@@ -74,14 +76,34 @@ const loadEncodingWorkbench = () => import("./EncodingWorkbench");
 const EncodingWorkbench = lazy(() =>
   loadEncodingWorkbench().then((m) => ({ default: m.EncodingWorkbench })),
 );
+const toolGroups: Record<string, string> = {
+  "text-editor": "Write",
+  "markdown-reader": "Write",
+  "file-notes": "Write",
+  "file-templates": "Write",
+  "csv-inspector": "Inspect",
+  "json-inspector": "Inspect",
+  "jsonl-explorer": "Inspect",
+  "json-pointer": "Inspect",
+  "csv-to-json": "Convert",
+  "json-to-csv": "Convert",
+  "encoding-workbench": "Convert",
+  "text-comparison": "Compare",
+  "json-compare": "Compare",
+  "file-integrity": "Verify",
+};
 export function FileToolsPage() {
   const location = useLocation();
+  const [category, setCategory] = useState("Write");
+  const [query, setQuery] = useState("");
   useEffect(() => {
     if (!location.hash) return;
+    setCategory(toolGroups[location.hash.replace(/^#/, "")] ?? "All");
+    setQuery("");
     const target = document.getElementById(location.hash.replace(/^#/, ""));
     if (target instanceof HTMLDetailsElement) {
       target.open = true;
-      target.scrollIntoView({ block: "start" });
+      requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
     }
   }, [location.hash]);
   const tools = [
@@ -198,6 +220,12 @@ export function FileToolsPage() {
       preload: loadTextCompare,
     },
   ];
+  const matches = (tool: (typeof tools)[number]) =>
+    (category === "All" || toolGroups[tool.id] === category) &&
+    `${tool.label} ${tool.description}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase());
+  const count = tools.filter(matches).length;
   return (
     <section className="workspace-page">
       <header className="workspace-page-heading">
@@ -206,24 +234,63 @@ export function FileToolsPage() {
           A workbench for inspecting, editing, and understanding your files.
         </p>
       </header>
-      <nav aria-label="File tools" className="flex flex-wrap gap-2">
-        {tools.map((tool) => (
-          <a
-            className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs font-medium hover:bg-accent"
-            key={tool.id}
-            href={"#" + tool.id}
+      <div className="tool-finder">
+        <label className="grid gap-2 text-sm font-medium">
+          Find a tool
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (e.target.value) setCategory("All");
+            }}
+            placeholder="Try JSON, compare, or Markdown…"
+          />
+        </label>
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Tool categories"
+        >
+          {["Write", "Inspect", "Convert", "Compare", "Verify", "All"].map(
+            (name) => (
+              <Button
+                key={name}
+                variant={category === name ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={category === name}
+                onClick={() => setCategory(name)}
+              >
+                {name}
+              </Button>
+            ),
+          )}
+        </div>
+        <p role="status" className="text-xs text-muted-foreground">
+          {count} {count === 1 ? "tool" : "tools"} · Open one to get started.
+        </p>
+      </div>
+      {!count ? (
+        <div className="empty-state rounded-xl border border-dashed p-8 text-center">
+          <p className="section-copy">No tools match your search.</p>
+          <Button
+            className="mt-3"
+            variant="outline"
+            onClick={() => {
+              setQuery("");
+              setCategory("All");
+            }}
           >
-            <tool.icon className="size-3.5" />
-            {tool.label}
-          </a>
-        ))}
-      </nav>
+            Show all tools
+          </Button>
+        </div>
+      ) : null}
       <div className="space-y-4">
         {tools.map((tool) => (
           <Disclosure
             key={tool.id}
             id={tool.id}
-            defaultOpen={tool.id === "text-editor"}
+            hidden={!matches(tool)}
             lazy
             onPointerEnter={() => {
               void tool.preload().catch(() => {});

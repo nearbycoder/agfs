@@ -120,3 +120,35 @@ it("rejects malformed encoded paths as a controlled client error", () => {
     securityPathname(new Request("https://agfs.dev/%61pi/V1/tokens")),
   ).toBe("/api/v1/tokens");
 });
+
+it.each([3, 100])(
+  "rejects oversized streams with bounded draining (%i chunks)",
+  async (count) => {
+    let emitted = 0;
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          emitted++;
+          controller.enqueue(new Uint8Array(8192));
+          if (emitted === count) controller.close();
+        },
+        cancel() {
+          cancelled = true;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const request = new Request("https://agfs.dev", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    await expect(parseJson(request, z.unknown())).rejects.toMatchObject({
+      status: 413,
+    });
+    expect(emitted).toBe(count === 3 ? 3 : 9);
+    expect(cancelled).toBe(count !== 3);
+  },
+);

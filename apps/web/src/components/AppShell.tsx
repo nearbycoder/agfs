@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
 import { Brand } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
@@ -35,6 +36,7 @@ const groups = [
       { href: "/app/search", icon: Search, label: "Search" },
       { href: "/app/tools", icon: FileCheck, label: "File tools" },
       { href: "/app/shares", icon: Link2, label: "Shares" },
+      { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },
     ],
   },
   {
@@ -51,9 +53,9 @@ const groups = [
     label: "Manage",
     items: [
       { href: "/app/workspaces", icon: Users, label: "Workspaces" },
+
       { href: "/app/storage", icon: HardDrive, label: "Storage insights" },
       { href: "/app/activity", icon: ShieldCheck, label: "Activity" },
-      { href: "/app/recovery", icon: HardDrive, label: "Trash & versions" },
       { href: "/app/operations", icon: Gauge, label: "Operations & recovery" },
     ],
   },
@@ -184,10 +186,43 @@ export function AppShell() {
           ) : null}
         </div>
         <nav aria-label="Workspace navigation" className="workspace-nav">
-          {groups.map((group) => (
+          {groups.slice(0, 1).map((group) => (
             <div key={group.label}>
-              <p className="workspace-nav-label">{group.label}</p>
-              <div className="space-y-0.5">
+              <p className="workspace-nav-label">Everyday</p>
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="workspace-link"
+                  aria-current={
+                    location.pathname.startsWith(item.href) ? "page" : undefined
+                  }
+                >
+                  <item.icon className="size-4 shrink-0" />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+          <Disclosure
+            key={String(
+              groups
+                .slice(1)
+                .some((g) =>
+                  g.items.some((i) => location.pathname.startsWith(i.href)),
+                ),
+            )}
+            defaultOpen={groups
+              .slice(1)
+              .some((g) =>
+                g.items.some((i) => location.pathname.startsWith(i.href)),
+              )}
+            className="advanced-navigation"
+          >
+            <DisclosureSummary>Automation & settings</DisclosureSummary>
+            {groups.slice(1).map((group) => (
+              <div key={group.label}>
+                <p className="workspace-nav-label">{group.label}</p>
                 {group.items.map((item) => (
                   <Link
                     key={item.href}
@@ -204,14 +239,14 @@ export function AppShell() {
                   </Link>
                 ))}
               </div>
-            </div>
-          ))}
+            ))}
+          </Disclosure>
         </nav>
         <div className="shrink-0 border-t p-4">
           {account ? (
             <Link
               to="/app/storage"
-              className="mb-4 block rounded-lg bg-muted/50 p-3"
+              className="mb-3 block rounded-lg bg-muted/50 p-2.5"
             >
               <div className="flex justify-between text-xs">
                 <span>Storage</span>

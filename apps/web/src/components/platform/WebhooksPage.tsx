@@ -1,3 +1,4 @@
+import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { DetailSurface } from "./shared";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { useState } from "react";
@@ -54,24 +55,29 @@ export function WebhooksPage() {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://your-service.com/agfs-events"
           />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Folder"
-              required
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-            />
-            <Field
-              label="Events, separated by commas (* for all)"
-              required
-              value={events}
-              onChange={(e) => setEvents(e.target.value)}
-            />
-          </div>
+          <AdvancedSettings summary={`Folder: ${path} · Events: ${events}`}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Folder"
+                required
+                value={path}
+                onChange={(e) => setPath(e.target.value)}
+              />
+              <Field
+                label="Events, separated by commas (* for all)"
+                required
+                value={events}
+                onChange={(e) => setEvents(e.target.value)}
+              />
+            </div>
+            <p className="section-copy">
+              Events include upload.commit, move, trash, mkdir, file.tag,
+              run.start, run.complete, draft.apply, and recovery.restore.
+              Creating a webhook enables delivery to this endpoint.
+            </p>
+          </AdvancedSettings>
           <p className="section-copy">
-            Events include upload.commit, move, trash, mkdir, file.tag,
-            run.start, run.complete, draft.apply, and recovery.restore. Creating
-            a webhook enables delivery to this endpoint.
+            Creating a webhook starts sending matching events to this endpoint.
           </p>
           <Button disabled={action.busy}>Create webhook</Button>
         </form>
