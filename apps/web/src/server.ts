@@ -1,6 +1,6 @@
 import { waitUntil } from "cloudflare:workers";
 import { z } from "zod";
-import { parseJson } from "./lib/http";
+import { parseJson, isJsonRequest, securityPathname } from "./lib/http";
 import { requestContext } from "./lib/request-context";
 import { handleRouteError } from "./lib/http";
 import {
@@ -16,17 +16,17 @@ const handler = createStartHandler(defaultStreamHandler);
 const app = createServerEntry({
   async fetch(request, ...args) {
     const pathname = new URL(request.url).pathname;
-    const securityPath = decodeURIComponent(pathname).toLowerCase();
+    let securityPath = pathname.toLowerCase();
     const bindings = getBindings();
     let response: Response;
     try {
+      securityPath = securityPathname(request);
       if (securityPath.startsWith("/api/v1/") || securityPath === "/mcp") {
         requireSameOriginMutation(request, bindings.APP_URL!);
         // Consume bounded JSON before an early auth rejection; this also keeps HTTP request reuse safe.
         if (
           !["GET", "HEAD", "OPTIONS"].includes(request.method) &&
-          request.headers.get("content-type")?.split(";")[0] ===
-            "application/json"
+          isJsonRequest(request)
         ) {
           const body = await parseJson(request, z.unknown());
           request = new Request(request, { body: JSON.stringify(body) });
@@ -56,7 +56,7 @@ const app = createServerEntry({
         );
       response = await (
         await import("./lib/idempotency")
-      ).idempotent(request, async () =>
+      ).idempotent(request, async (request) =>
         pathname.startsWith("/.well-known/")
           ? await (await import("./lib/auth")).auth.handler(request)
           : ((await (

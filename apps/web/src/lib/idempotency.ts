@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { hashSecret } from "@agfs/db";
 import { first, rows } from "./platform-db";
@@ -6,7 +7,7 @@ import { authorize } from "./scope";
 import { actorId } from "./workspaces";
 import { requireStringBindings } from "./bindings";
 import { sealDeviceToken, openDeviceToken } from "./device-token";
-import { errorResponse } from "./http";
+import { errorResponse, parseJson } from "./http";
 // Only bounded JSON creation endpoints; never cache upload/download streams.
 const routes = new Map<string, "write" | "share">([
   ["/api/v1/platform/runs", "write"],
@@ -17,12 +18,12 @@ const routes = new Map<string, "write" | "share">([
 ]);
 export async function idempotent(
   request: Request,
-  execute: () => Promise<Response>,
+  execute: (request: Request) => Promise<Response>,
 ) {
   const key = request.headers.get("idempotency-key"),
     route = new URL(request.url).pathname,
     permission = routes.get(route);
-  if (!key) return execute();
+  if (!key) return execute(request);
   if (request.method !== "POST" || !permission)
     throw errorResponse(
       400,
@@ -33,16 +34,19 @@ export async function idempotent(
       400,
       "Idempotency-Key must contain 8–128 printable characters",
     );
-  const auth = await requireRequestAuth(request),
-    body = await request.clone().text();
-  let input: any;
-  try {
-    input = JSON.parse(body);
-  } catch {
-    throw errorResponse(400, "Invalid JSON");
-  }
-  if (typeof input.path !== "string")
+  const auth = await requireRequestAuth(request);
+  // Enforce the limit here as well as at the server boundary. Never clone and
+  // buffer an unchecked body for hashing, including unsupported media types.
+  const input = await parseJson(request, z.unknown());
+  if (
+    !input ||
+    typeof input !== "object" ||
+    Array.isArray(input) ||
+    !("path" in input) ||
+    typeof input.path !== "string"
+  )
     throw errorResponse(400, "A path is required");
+  const body = JSON.stringify(input);
   authorize(auth, permission, input.path);
   const identity = JSON.stringify([
       actorId(auth),
@@ -87,7 +91,7 @@ export async function idempotent(
     });
   }
   // A crash or server failure leaves a reservation; retrying cannot create a duplicate.
-  const result = await execute();
+  const result = await execute(new Request(request, { body }));
   if (result.status < 500) {
     const body = await result.clone().text();
     if (body.length <= 262144)
