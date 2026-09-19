@@ -66,7 +66,7 @@ function RootDocument(props: { children: ReactNode }) {
         </a>
         <div className="min-h-screen">
           {!location.pathname.startsWith("/app") ? (
-            <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
+            <header className="marketing-header sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
               <div className="page-shell flex h-18 items-center justify-between gap-3">
                 <Brand />
                 <nav
@@ -114,7 +114,7 @@ function RootDocument(props: { children: ReactNode }) {
             {props.children}
           </div>
           {!location.pathname.startsWith("/app") ? (
-            <footer className="border-t">
+            <footer className="marketing-footer border-t">
               <div className="page-shell flex flex-wrap items-center justify-between gap-6 py-9">
                 <div>
                   <Brand />

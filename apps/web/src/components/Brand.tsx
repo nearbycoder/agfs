@@ -6,7 +6,9 @@ export function Brand() {
       <span className="brand-mark">
         <FolderTree className="size-5" />
       </span>
-      agfs<span className="text-primary">.</span>
+      <span>
+        agfs<span className="text-primary">.</span>
+      </span>
     </Link>
   );
 }

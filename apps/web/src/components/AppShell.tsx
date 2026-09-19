@@ -147,6 +147,9 @@ export function AppShell() {
       <>
         <div className="flex h-16 shrink-0 items-center justify-between border-b px-5">
           <Brand />
+          <span className="hidden rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground lg:inline">
+            Workspace
+          </span>
           <Button
             className="lg:hidden"
             variant="ghost"
@@ -157,9 +160,9 @@ export function AppShell() {
             <X />
           </Button>
         </div>
-        <div className="px-4 pt-5">
+        <div className="workspace-switcher px-3 pt-4">
           <label className="grid gap-2 text-xs font-medium text-muted-foreground">
-            Workspace
+            <span className="sr-only">Workspace</span>
             <Select
               aria-label="Active workspace"
               disabled={switching}
@@ -188,7 +191,7 @@ export function AppShell() {
         <nav aria-label="Workspace navigation" className="workspace-nav">
           {groups.slice(0, 1).map((group) => (
             <div key={group.label}>
-              <p className="workspace-nav-label">Everyday</p>
+              <p className="workspace-nav-label">Your workspace</p>
               {group.items.map((item) => (
                 <Link
                   key={item.href}
@@ -246,7 +249,7 @@ export function AppShell() {
           {account ? (
             <Link
               to="/app/storage"
-              className="mb-3 block rounded-lg bg-muted/50 p-2.5"
+              className="mb-4 block rounded-lg border bg-card p-3 transition-colors hover:border-input"
             >
               <div className="flex justify-between text-xs">
                 <span>Storage</span>
@@ -314,7 +317,7 @@ export function AppShell() {
       <dialog
         ref={mobileNav}
         aria-label="Workspace menu"
-        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[90vw] border-r bg-card p-0 text-foreground open:flex open:flex-col"
+        className="workspace-mobile-nav fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[90vw] border-r bg-card p-0 text-foreground open:flex open:flex-col"
         onClick={(e) => {
           if (e.target === mobileNav.current) mobileNav.current.close();
         }}

@@ -49,7 +49,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import {
@@ -457,38 +456,17 @@ function FilesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-5">
+    <div className="workspace-page files-page">
+      <header className="files-heading">
         <div>
-          <CardHeader className="space-y-5 p-0">
+          <div className="files-heading-grid">
             <div className="space-y-3">
               <h1 className="dashboard-title">Files</h1>
               <CardDescription className="max-w-2xl">
                 All your agent artifacts, organized in one place.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap items-center gap-2 break-all text-sm text-muted-foreground">
-              {breadcrumbItems.map((item, index) => (
-                <div className="flex items-center gap-2" key={item.value}>
-                  {index > 0 ? (
-                    <span className="text-zinc-300 dark:text-zinc-700">/</span>
-                  ) : null}
-                  <button
-                    className={cn(
-                      "rounded-md px-2 py-1 transition-colors",
-                      item.value === path
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-900 dark:hover:text-zinc-50",
-                    )}
-                    onClick={() => setPath(item.value)}
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="files-heading-actions flex flex-wrap gap-2">
               <Button
                 disabled={isBusy}
                 className={path === "/" ? "hidden" : undefined}
@@ -543,15 +521,39 @@ function FilesPage() {
                 </Button>
               ) : null}
             </div>
-          </CardHeader>
-          <p className="mt-4 border-t pt-4 text-xs text-muted-foreground">
-            {folderCount} {folderCount === 1 ? "folder" : "folders"}{" "}
-            <span className="mx-2">·</span> {fileCount}{" "}
-            {fileCount === 1 ? "file" : "files"} <span className="mx-2">·</span>{" "}
-            {formatBytes(totalBytes)} in this folder
-          </p>
+          </div>
+          <div className="files-location">
+            <div className="file-breadcrumbs flex flex-wrap items-center gap-2 break-all text-sm text-muted-foreground">
+              {breadcrumbItems.map((item, index) => (
+                <div className="flex items-center gap-2" key={item.value}>
+                  {index > 0 ? (
+                    <span className="text-zinc-300 dark:text-zinc-700">/</span>
+                  ) : null}
+                  <button
+                    className={cn(
+                      "rounded-md px-2 py-1 transition-colors",
+                      item.value === path
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-900 dark:hover:text-zinc-50",
+                    )}
+                    onClick={() => setPath(item.value)}
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {folderCount} {folderCount === 1 ? "folder" : "folders"}{" "}
+              <span className="mx-2">·</span> {fileCount}{" "}
+              {fileCount === 1 ? "file" : "files"}{" "}
+              <span className="mx-2">·</span> {formatBytes(totalBytes)} in this
+              folder
+            </p>
+          </div>
         </div>
-      </div>
+      </header>
 
       {creatingFolder ? (
         <Disclosure
@@ -705,17 +707,14 @@ function FilesPage() {
           ) : null}
         </AdvancedSettings>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Directory contents</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem]">
+      <Card className="directory-card">
+        <CardContent className="space-y-4 pt-4 sm:pt-5">
+          <div className="file-filters grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_11rem]">
             <label className="col-span-2 grid gap-2 text-sm sm:col-span-1">
-              Filter this folder
+              <span className="sr-only">Filter this folder</span>
               <Input
                 value={query}
-                placeholder="Name or path…"
+                placeholder="Filter by name or path…"
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setPage(0);
@@ -723,7 +722,7 @@ function FilesPage() {
               />
             </label>
             <label className="grid gap-2 text-sm">
-              Show
+              <span className="sr-only">Show</span>
               <Select
                 aria-label="Entry types"
                 value={kindFilter}
@@ -738,7 +737,7 @@ function FilesPage() {
               </Select>
             </label>
             <label className="grid gap-2 text-sm">
-              Sort
+              <span className="sr-only">Sort</span>
               <Select
                 aria-label="Sort entries"
                 value={sort}
@@ -762,7 +761,7 @@ function FilesPage() {
           {loading ? (
             <LoadingState label="Loading folder" />
           ) : entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
+            <div className="empty-state flex flex-col items-center justify-center px-6 py-16 text-center">
               <Folder className="size-6 text-zinc-400 dark:text-zinc-500" />
               <p className="mt-4 text-sm font-medium text-foreground">
                 {error ? "Folder could not be loaded" : "This folder is empty"}

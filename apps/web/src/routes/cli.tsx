@@ -26,7 +26,7 @@ export const Route = createFileRoute("/cli")({
 
 function CliPage() {
   return (
-    <main className="page-shell py-12 sm:py-20">
+    <main className="page-shell documentation-page py-12 sm:py-20">
       <div className="grid gap-10 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-16">
         <aside className="lg:sticky lg:top-26 lg:h-fit">
           <p className="section-label mb-4">Getting started</p>

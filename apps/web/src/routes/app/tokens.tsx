@@ -145,14 +145,14 @@ function TokensPage() {
               : "max-w-3xl"
           }
         >
-          <Card>
-            <CardHeader>
+          <Card className="border-0 bg-transparent shadow-none">
+            <CardHeader className="px-0 pt-0 sm:px-0 sm:pt-0">
               <CardDescription>
                 Limit each agent to the access it needs. Tokens expire after 30
                 days by default, with a maximum of 90 days.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-5 px-0 pb-0 sm:px-0 sm:pb-0">
               <form
                 className="grid gap-4 sm:grid-cols-2"
                 onSubmit={handleCreate}
