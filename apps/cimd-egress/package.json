@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/server.test.mjs",
+    "test": "node --experimental-strip-types --test src/server.test.mjs src/lifecycle.test.mjs",
     "deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
