@@ -9,12 +9,9 @@ export class MetadataContainer extends Container {
   private readonly requests = new MetadataRequestLifecycle(
     (request) => this.containerFetch(request),
     async () => {
-      try {
-        await this.stop();
-      } catch (error) {
-        console.error("Failed to stop metadata container; forcing shutdown", error);
-        await this.destroy();
-      }
+      // The process keeps no state. Terminate it once all buffered responses
+      // are complete rather than waiting for SIGTERM or the idle alarm.
+      await this.destroy();
     },
   );
 
