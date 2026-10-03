@@ -21,7 +21,7 @@ The earlier [Mobbin zinc review](mobbin-zinc-refresh.md) supplies continuity for
 
 ## Verification receipt
 
-Validation uses isolated localhost Cloudflare state and disposable accounts. No merge or deployment is performed from this task.
+Validation uses isolated localhost Cloudflare state and disposable accounts. The initial feature review did not merge or deploy changes.
 
 - Workspace tests: 253 passed, including 207 web tests. Workspace type checks and the web production build passed.
 - Browser transformations: all 15 tools reviewed, including exact-number results, missing-redaction-path errors and visible context budget refusal.
@@ -32,6 +32,6 @@ Validation uses isolated localhost Cloudflare state and disposable accounts. No 
 
 The collaborative T3 preview returned an explicit unavailable-host error, so review used an isolated headless agent-browser session. Navigation checks were spaced to respect the existing local auth rate limit. Headless clipboard read permission was unavailable; the success feedback and saved output bytes were verified. Context token counts remain a disclosed heuristic, not a model tokenizer.
 
-## Review prerequisite
+## Initial release blocker and resolution
 
-Draft [PR #72](https://github.com/nearbycoder/agfs/pull/72) contains the completed feature and style scope. The existing Cloudflare build passed. GitHub [CI](https://github.com/nearbycoder/agfs/actions/runs/37095857998) stopped at `pnpm audit --audit-level low`, before its test/build steps: 10 advisories (2 high, 5 moderate, 3 low) against inherited `undici` 7.29.0 through Wrangler/Miniflare. The lockfile and dependency declarations are unchanged by this PR. Dependency remediation is a release prerequisite and is deferred from this feature scope; local tests, checks, build and browser validation passed independently.
+The initial draft [PR #72](https://github.com/nearbycoder/agfs/pull/72) contains the completed feature and style scope. The existing Cloudflare build passed. GitHub [CI](https://github.com/nearbycoder/agfs/actions/runs/37095857998) stopped at `pnpm audit --audit-level low`, before its test/build steps: 10 advisories (2 high, 5 moderate, 3 low) against inherited `undici` 7.29.0 through Wrangler/Miniflare. The lockfile and dependency declarations are unchanged by this PR. Local tests, checks, build and browser validation passed independently. The audit blocker was resolved separately in [PR #73](https://github.com/nearbycoder/agfs/pull/73) using the first supported patched Cloudflare releases. That fix passed the unchanged audit gate, all tests/builds/type checks and disposable Worker integration before merging. The feature branch includes the merged fix; its application implementation is unchanged.
