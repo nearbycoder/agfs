@@ -31,3 +31,7 @@ Validation uses isolated localhost Cloudflare state and disposable accounts. No 
 - Existing file APIs: authenticated reads, unauthenticated/other-owner denial, create-only conflicts, completion/artifact capture and source content/path/ETag preservation passed.
 
 The collaborative T3 preview returned an explicit unavailable-host error, so review used an isolated headless agent-browser session. Navigation checks were spaced to respect the existing local auth rate limit. Headless clipboard read permission was unavailable; the success feedback and saved output bytes were verified. Context token counts remain a disclosed heuristic, not a model tokenizer.
+
+## Review prerequisite
+
+Draft [PR #72](https://github.com/nearbycoder/agfs/pull/72) contains the completed feature and style scope. The existing Cloudflare build passed. GitHub [CI](https://github.com/nearbycoder/agfs/actions/runs/37095857998) stopped at `pnpm audit --audit-level low`, before its test/build steps: 10 advisories (2 high, 5 moderate, 3 low) against inherited `undici` 7.29.0 through Wrangler/Miniflare. The lockfile and dependency declarations are unchanged by this PR. Dependency remediation is a release prerequisite and is deferred from this feature scope; local tests, checks, build and browser validation passed independently.
