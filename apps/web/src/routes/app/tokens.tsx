@@ -250,7 +250,7 @@ function TokensPage() {
               </CardHeader>
               <CardContent>
                 <DetailSurface key={secret} label="New token secret">
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 break-all font-mono text-sm leading-6 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-200">
+                  <div className="rounded-xl border border-border bg-muted/80 p-4 break-all font-mono text-sm leading-6 text-foreground">
                     {secret}
                   </div>
                   <Button onClick={handleCopy} type="button" variant="outline">
@@ -283,7 +283,7 @@ function TokensPage() {
           {loading ? (
             <LoadingState label="Loading tokens" />
           ) : tokens.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/70 px-6 py-16 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+            <div className="rounded-xl border border-dashed border-border bg-muted/70 px-6 py-16 text-center text-sm text-muted-foreground">
               No tokens issued yet. Create one above for CI, remote agents, or
               personal scripts.
             </div>
@@ -369,7 +369,7 @@ function TokensPage() {
                                 type="button"
                                 variant="ghost"
                               >
-                                <Trash2 className="size-4 text-red-500" />
+                                <Trash2 className="size-4 text-destructive" />
                                 Revoke
                               </Button>
                             </ActionMenuItem>

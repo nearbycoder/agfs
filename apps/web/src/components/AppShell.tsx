@@ -23,6 +23,7 @@ import {
   Link2,
   LogOut,
   ShieldCheck,
+  Bot,
 } from "lucide-react";
 import { authClient } from "~/lib/auth-client";
 import { Button } from "~/components/ui/button";
@@ -42,6 +43,7 @@ const groups = [
   {
     label: "Automation",
     items: [
+      { href: "/app/agent-tools", icon: Bot, label: "Agent workbench" },
       { href: "/app/runs", icon: Play, label: "Agent runs" },
       { href: "/app/drafts", icon: FileCheck, label: "Draft changes" },
       { href: "/app/tokens", icon: KeyRound, label: "Tokens" },

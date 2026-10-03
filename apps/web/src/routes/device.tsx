@@ -89,9 +89,9 @@ function DevicePage() {
           </p>
 
           {user_code ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/80">
+            <div className="rounded-2xl border border-border bg-card p-4 ">
               <p className="section-label">User code</p>
-              <p className="mt-2 font-mono text-lg tracking-[0.2em] text-zinc-950 dark:text-zinc-50">
+              <p className="mt-2 font-mono text-lg tracking-[0.2em] text-foreground">
                 {user_code}
               </p>
             </div>

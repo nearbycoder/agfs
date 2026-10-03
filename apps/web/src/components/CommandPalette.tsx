@@ -1,11 +1,17 @@
 import { platform } from "~/components/platform/shared";
 import { fileSearchCommands } from "~/lib/command-search";
+import { agentTools } from "~/lib/agent-tool-catalog";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 type Command = { label: string; href: string; keywords?: string; id?: string };
 const tools: Command[] = [
+  ...agentTools.map((tool) => ({
+    label: tool.label,
+    href: "/app/agent-tools#" + tool.id,
+    keywords: tool.description,
+  })),
   { label: "Encoding workbench", href: "/app/tools#encoding-workbench" },
   { label: "SHA-256 verification", href: "/app/tools#file-integrity" },
   { label: "JSON structural comparison", href: "/app/tools#json-compare" },
@@ -168,7 +174,7 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
           setRemote(null);
         }}
         aria-labelledby="commands-title"
-        className="command-dialog m-auto w-[calc(100%_-_2rem)] max-w-[34rem] rounded-xl border bg-white p-5 text-zinc-950 shadow-xl backdrop:bg-black/60 dark:bg-zinc-950 dark:text-zinc-100"
+        className="command-dialog m-auto w-[calc(100%_-_2rem)] max-w-[34rem] rounded-xl border bg-card p-5 text-foreground shadow-xl backdrop:bg-black/60 "
         onClick={(e) => {
           if (e.target === dialog.current) dialog.current.close();
         }}
@@ -234,7 +240,7 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
                 type="button"
                 className={
                   "w-full rounded-lg px-3 py-2 text-left text-sm break-all " +
-                  (selected === i ? "bg-zinc-100 dark:bg-zinc-800" : "")
+                  (selected === i ? "bg-muted" : "")
                 }
                 onMouseEnter={() => setActive(i)}
                 onClick={() => execute(c)}
@@ -265,7 +271,7 @@ export function CommandPalette({ navigation }: { navigation: Command[] }) {
             No matching commands or files.
           </p>
         ) : null}
-        <p className="mt-3 text-xs text-zinc-500">
+        <p className="mt-3 text-xs text-muted-foreground">
           Type 2 characters to search this workspace. File results open their
           containing folder. ↑ ↓ to choose · Enter to open · Escape to close
         </p>

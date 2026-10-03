@@ -80,7 +80,7 @@ export function Select({
             <ChevronUp className="size-4" />
           </SelectPrimitive.ScrollUpButton>
           <SelectPrimitive.Viewport className="p-1">
-            {children}
+            <SelectPrimitive.Group>{children}</SelectPrimitive.Group>
           </SelectPrimitive.Viewport>
           <SelectPrimitive.ScrollDownButton className="flex h-7 items-center justify-center bg-popover text-muted-foreground">
             <ChevronDown className="size-4" />

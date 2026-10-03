@@ -170,7 +170,7 @@ export function DraftsPage() {
                     <h4 className="mb-2 text-xs uppercase text-muted-foreground">
                       Before{c.base_exists ? "" : " · new file"}
                     </h4>
-                    <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100">
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                       {c.base_content || "(empty)"}
                     </pre>
                   </div>
@@ -178,7 +178,7 @@ export function DraftsPage() {
                     <h4 className="mb-2 text-xs uppercase text-muted-foreground">
                       After
                     </h4>
-                    <pre className="max-h-64 overflow-auto rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-950 dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
                       {c.operation === "delete"
                         ? "(deleted)"
                         : c.content || "(empty)"}

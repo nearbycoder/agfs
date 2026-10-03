@@ -20,7 +20,9 @@
   --accent-foreground: #18181b;
   --destructive: #bd3232;
   --destructive-foreground: #fff;
-  --border: #e4e4e7;
+  --success: #28704a;
+  --warning: #96600b;
+  --border: #e2e2e6;
   --input: #d4d4d8;
   --ring: #71717a;
   --radius: 0.5rem;
@@ -42,7 +44,9 @@
   --accent-foreground: #fafafa;
   --destructive: #ee7777;
   --destructive-foreground: #231111;
-  --border: #2d2d32;
+  --success: #80cfa4;
+  --warning: #e9bc70;
+  --border: #303037;
   --input: #3f3f46;
   --ring: #fafafa;
 }
@@ -63,6 +67,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -187,7 +193,7 @@
     @apply fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-background lg:flex;
   }
   .workspace-nav {
-    @apply flex-1 space-y-5 overflow-y-auto px-3 py-5;
+    @apply flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5;
     scrollbar-width: thin;
   }
   .workspace-nav-label {
@@ -218,13 +224,13 @@
     @apply mb-2 text-primary;
   }
   .workspace-page {
-    @apply space-y-7;
+    @apply flex flex-col gap-7;
   }
   .workspace-page-heading {
-    @apply space-y-2 pb-2;
+    @apply flex flex-col gap-2 pb-2;
   }
   .workspace-page-body {
-    @apply space-y-6 rounded-xl border bg-card p-4 sm:p-6;
+    @apply flex flex-col gap-6 rounded-xl border bg-card p-4 sm:p-6;
   }
   .marketing-section {
     @apply border-t py-16 sm:py-24;
@@ -517,11 +523,9 @@
   }
   .workspace-content .empty-state {
     @apply rounded-xl border border-dashed border-input bg-muted/20 py-14;
-    background-image: radial-gradient(var(--border) 0.7px, transparent 0.7px);
-    background-size: 12px 12px;
   }
   .workspace-content .empty-state p {
-    @apply rounded-lg bg-card px-3 py-1;
+    @apply px-3 py-1;
   }
   .files-heading-grid {
     @apply flex flex-wrap items-start justify-between gap-5;
@@ -638,5 +642,71 @@
     background: var(--card);
     color: var(--muted-foreground);
     font-size: 0.6875rem;
+  }
+}
+
+/* Agent workflows share the same surfaces, spacing, and status tokens as files. */
+@layer components {
+  .agent-page-heading {
+    @apply flex flex-wrap items-end justify-between gap-5;
+  }
+  .agent-page-heading > div {
+    @apply flex max-w-2xl flex-col gap-3;
+  }
+  .agent-workflow-strip {
+    @apply grid grid-cols-2 gap-3 rounded-xl border bg-card px-4 py-4 sm:grid-cols-4 sm:px-5;
+  }
+  .agent-workflow-strip span {
+    @apply flex items-center gap-3 text-xs text-muted-foreground;
+  }
+  .agent-workflow-strip b {
+    @apply font-mono text-[10px] font-normal text-foreground;
+  }
+  .agent-tool-finder {
+    @apply grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:p-5;
+  }
+  .agent-tool-finder > p {
+    @apply sm:col-span-2;
+  }
+  .agent-tool-list {
+    @apply flex flex-col gap-3;
+  }
+  .tool-icon {
+    @apply flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground;
+  }
+  .agent-tool-form {
+    @apply flex flex-col gap-5;
+  }
+  .agent-tool-form textarea {
+    @apply font-mono text-xs leading-6;
+    tab-size: 2;
+  }
+  .agent-output {
+    @apply flex flex-col gap-4 rounded-xl border bg-muted/20 p-4 sm:p-5;
+  }
+  .agent-code-preview {
+    @apply max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg border bg-card p-4 font-mono text-xs leading-6;
+    tab-size: 2;
+  }
+  .run-overview {
+    @apply grid grid-cols-3 divide-x overflow-hidden rounded-xl border bg-muted/30;
+  }
+  .run-overview > div {
+    @apply flex flex-col gap-2 p-4 sm:p-5;
+  }
+  .run-overview span {
+    @apply text-xs text-muted-foreground;
+  }
+  .run-overview strong {
+    @apply text-2xl font-semibold tracking-tight;
+    font-variant-numeric: tabular-nums;
+  }
+}
+@media (max-width: 639px) {
+  .agent-workbench .disclosure-summary > .inline-flex {
+    display: none;
+  }
+  .agent-tool-form :is(input:not([type="file"]), textarea) {
+    font-size: 16px;
   }
 }

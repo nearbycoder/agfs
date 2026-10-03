@@ -83,7 +83,7 @@ function ActivityPage() {
           Refresh
         </Button>
         {error ? (
-          <p role="alert" className="text-red-600">
+          <p role="alert" className="text-destructive">
             {error}
           </p>
         ) : null}
@@ -105,7 +105,7 @@ function ActivityPage() {
           </Button>
         ) : null}
         {events.length >= 5000 ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             5,000 events loaded. Export or refresh before loading a different
             window.
           </p>
