@@ -59,7 +59,7 @@ export function FileNotes({ initialPath = "" }: { initialPath?: string }) {
         <Button disabled={action.busy}>Load notes</Button>
       </form>
       {action.error ? (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-destructive">
           {action.error}
         </p>
       ) : null}

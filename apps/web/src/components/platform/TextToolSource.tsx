@@ -4,9 +4,11 @@ import { Field, platform, useAction } from "./shared";
 export function TextToolSource({
   label,
   onLoad,
+  disabled = false,
 }: {
   label: string;
   onLoad: (file: { path: string; text: string }) => void;
+  disabled?: boolean;
 }) {
   const [path, setPath] = useState("");
   const action = useAction();
@@ -28,10 +30,10 @@ export function TextToolSource({
           label={label + " file path"}
           required
           value={path}
-          disabled={action.busy}
+          disabled={action.busy || disabled}
           onChange={(e) => setPath(e.target.value)}
         />
-        <Button disabled={action.busy}>Load {label}</Button>
+        <Button disabled={action.busy || disabled}>Load {label}</Button>
       </form>
       {action.error ? (
         <p role="alert" className="text-sm text-destructive">

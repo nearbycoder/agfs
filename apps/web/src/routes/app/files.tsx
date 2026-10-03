@@ -1,4 +1,5 @@
 import { AdvancedSettings } from "~/components/ui/advanced-settings";
+import { runInputSelection } from "~/lib/run-workflows";
 // @ts-nocheck
 import { ReleaseHandoff } from "~/components/platform/ReleaseHandoff";
 import { DirectoryExport } from "~/components/platform/DirectoryExport";
@@ -527,14 +528,14 @@ function FilesPage() {
               {breadcrumbItems.map((item, index) => (
                 <div className="flex items-center gap-2" key={item.value}>
                   {index > 0 ? (
-                    <span className="text-zinc-300 dark:text-zinc-700">/</span>
+                    <span className="text-muted-foreground">/</span>
                   ) : null}
                   <button
                     className={cn(
                       "rounded-md px-2 py-1 transition-colors",
                       item.value === path
                         ? "bg-accent text-accent-foreground"
-                        : "hover:bg-zinc-100 hover:text-zinc-950 dark:hover:bg-zinc-900 dark:hover:text-zinc-50",
+                        : "hover:bg-muted hover:text-foreground",
                     )}
                     onClick={() => setPath(item.value)}
                     type="button"
@@ -627,7 +628,7 @@ function FilesPage() {
               <p className="text-sm font-medium text-foreground">{sharePath}</p>
             ) : null}
             <a
-              className="block break-all text-sm leading-6 text-zinc-700 underline decoration-zinc-300 underline-offset-4 dark:text-zinc-200 dark:decoration-zinc-700"
+              className="block break-all text-sm leading-6 text-foreground underline decoration-border underline-offset-4 "
               href={shareUrl}
               rel="noreferrer"
               target="_blank"
@@ -685,6 +686,10 @@ function FilesPage() {
           title="Selection tools"
           summary={`${selectedPaths.length} selected · Copy paths, rename files, or prepare a handoff`}
         >
+          <Button variant="outline" disabled={isBusy || selectedPaths.length > 50} onClick={() => {
+            try { const inputs = runInputSelection(selectedPaths); window.location.assign("/app/runs?" + new URLSearchParams({ inputs, folder: path })); }
+            catch (e) { setError(e instanceof Error ? e.message : "Could not prepare run inputs"); }
+          }}>Start agent run with {selectedPaths.length} selected inputs</Button>
           <ReleaseHandoff
             entries={entries.filter(
               (e) => e.kind === "file" && selectedPaths.includes(e.path),
@@ -762,7 +767,7 @@ function FilesPage() {
             <LoadingState label="Loading folder" />
           ) : entries.length === 0 ? (
             <div className="empty-state flex flex-col items-center justify-center px-6 py-16 text-center">
-              <Folder className="size-6 text-zinc-400 dark:text-zinc-500" />
+              <Folder className="size-6 text-muted-foreground" />
               <p className="mt-4 text-sm font-medium text-foreground">
                 {error ? "Folder could not be loaded" : "This folder is empty"}
               </p>
@@ -779,7 +784,7 @@ function FilesPage() {
                     <input
                       aria-label="Select all files on this page"
                       checked={allVisibleFilesSelected}
-                      className="size-4 rounded border-zinc-300 accent-zinc-950 dark:border-zinc-700 dark:accent-zinc-100"
+                      className="size-4 rounded border-input accent-primary"
                       onChange={toggleSelectAll}
                       type="checkbox"
                     />
@@ -801,7 +806,7 @@ function FilesPage() {
                         <input
                           aria-label={`Select ${entry.name}`}
                           checked={selectedPaths.includes(entry.path)}
-                          className="size-4 rounded border-zinc-300 accent-zinc-950 dark:border-zinc-700 dark:accent-zinc-100"
+                          className="size-4 rounded border-input accent-primary"
                           onChange={() => toggleSelection(entry.path)}
                           type="checkbox"
                         />
@@ -814,7 +819,7 @@ function FilesPage() {
                           onClick={() => setPath(entry.path)}
                           type="button"
                         >
-                          <span className="rounded-xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                          <span className="rounded-xl border border-border bg-muted p-2 ">
                             <Folder className="size-4 text-foreground" />
                           </span>
                           <span>
@@ -828,10 +833,10 @@ function FilesPage() {
                         </button>
                       ) : (
                         <a
-                          className="group flex items-start gap-3 rounded-xl transition-colors hover:text-zinc-950 dark:hover:text-zinc-50"
+                          className="group flex items-start gap-3 rounded-xl transition-colors hover:text-foreground"
                           href={getDownloadHref(entry.path)}
                         >
-                          <span className="rounded-xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                          <span className="rounded-xl border border-border bg-muted p-2 ">
                             <EntryIcon name={entry.name} />
                           </span>
                           <span>
@@ -968,7 +973,7 @@ function FilesPage() {
                               type="button"
                               variant="ghost"
                             >
-                              <Trash2 className="size-4 text-red-500" />
+                              <Trash2 className="size-4 text-destructive" />
                               Move to trash
                             </Button>
                           </ActionMenuItem>

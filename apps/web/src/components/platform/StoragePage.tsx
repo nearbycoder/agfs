@@ -87,7 +87,7 @@ export function StoragePage() {
                     {formatBytes(t.bytes)} · {t.files} files
                   </span>
                 </div>
-                <div className="h-2 rounded bg-zinc-200 dark:bg-zinc-800">
+                <div className="h-2 rounded bg-accent ">
                   <div
                     className="h-2 rounded bg-primary"
                     style={{

@@ -223,7 +223,7 @@ export function FolderUpload({
                       "%"
                     : ""}
                   {item.error ? (
-                    <p className="text-red-600">{item.error}</p>
+                    <p className="text-destructive">{item.error}</p>
                   ) : null}
                 </li>
               ))}

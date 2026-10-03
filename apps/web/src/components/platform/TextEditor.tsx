@@ -79,7 +79,7 @@ export function TextEditor() {
         </Button>
       </form>
       {action.error ? (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-destructive">
           {action.error} Your current edits have been kept.
         </p>
       ) : null}
