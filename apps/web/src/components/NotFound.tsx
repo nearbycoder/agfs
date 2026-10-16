@@ -19,7 +19,7 @@ export function NotFound() {
             404 · Page not found
           </Badge>
           <h1 className="flex items-center gap-3 text-xl font-semibold">
-            <Compass className="size-5 text-zinc-500 dark:text-zinc-400" />
+            <Compass className="size-5 text-muted-foreground" />
             Nothing lives at this address
           </h1>
           <CardDescription>

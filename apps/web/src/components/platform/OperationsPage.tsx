@@ -83,7 +83,7 @@ export function OperationsPage() {
               <p
                 key={a.id}
                 role="alert"
-                className="rounded-lg border border-amber-500 p-3"
+                className="rounded-lg border border-warning/30 p-3"
               >
                 {a.message}
               </p>
@@ -279,7 +279,7 @@ export function OperationsPage() {
         ) : null}
         {restore ? (
           <form
-            className="space-y-3 rounded-xl border border-amber-500 p-4"
+            className="space-y-3 rounded-xl border border-warning/30 p-4"
             onSubmit={(e) => {
               e.preventDefault();
               void action.run(async () => {

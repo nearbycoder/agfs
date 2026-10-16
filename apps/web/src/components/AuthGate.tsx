@@ -31,7 +31,7 @@ export function AuthGate(props: { children: ReactNode; message?: string }) {
               Authenticating
             </Badge>
             <CardTitle className="flex items-center gap-3">
-              <LoaderCircle className="size-5 animate-spin text-zinc-500 dark:text-zinc-400" />
+              <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
               Checking your session
             </CardTitle>
             <CardDescription>
