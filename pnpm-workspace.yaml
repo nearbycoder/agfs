@@ -9,4 +9,5 @@ onlyBuiltDependencies:
 
 overrides:
   'esbuild@<0.28.1': '^0.28.2'
-  'sharp@<0.35.4': '0.35.4'
+  'sharp@<0.35.5': '0.35.5'
+  'source-map-js@<1.2.2': '1.2.2'
