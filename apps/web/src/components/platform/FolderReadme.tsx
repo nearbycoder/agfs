@@ -104,7 +104,7 @@ export function FolderReadme({
                     ) : b.kind === "code" ? (
                       <pre
                         key={i}
-                        className="overflow-auto rounded-lg bg-zinc-100 p-3 text-xs dark:bg-zinc-900"
+                        className="overflow-auto rounded-lg bg-muted p-3 text-xs "
                       >
                         {b.text}
                       </pre>

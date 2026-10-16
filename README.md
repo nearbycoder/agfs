@@ -195,3 +195,7 @@ AGFS 0.4 adds recovery snapshots and verified backups, safer public sharing and 
 ## Browser workspace tools
 
 The dashboard includes twenty additions built on the existing Workers, D1, R2 and browser APIs. No additional services or accounts are needed. See [the browser tools guide](docs/browser-tools.md) for workflows and limits, and [the completed PR checklist](EXPANSION-PLAN.md) for the individual changes.
+
+## Agent workbench
+
+The next twenty additions prioritize agent input preparation and run review: bounded context packs, exact-number JSON transformations, data joins, local webhook verification, run metadata/reruns/reports, and selected-file run inputs. Open `/app/agent-tools` or use Ctrl/Command K. See [the agent workbench guide](docs/agent-workbench.md) for the complete feature list, limits and validation, and [the Mobbin reference review](docs/design/agent-workbench-refresh.md) for the shared style cleanup.

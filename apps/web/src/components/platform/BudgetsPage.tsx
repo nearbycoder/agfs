@@ -87,7 +87,7 @@ function AgentBudget({
           </p>
         </div>
         {warning ? (
-          <p role="status" className="text-amber-700 dark:text-amber-400">
+          <p role="status" className="text-warning">
             At least one budget has reached 80% of its limit.
           </p>
         ) : null}
@@ -126,7 +126,7 @@ function AgentBudget({
           Pause this agent
         </label>
         {action.error ? (
-          <p role="alert" className="text-red-600">
+          <p role="alert" className="text-destructive">
             {action.error}
           </p>
         ) : null}
