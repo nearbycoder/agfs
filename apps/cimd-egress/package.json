@@ -9,7 +9,7 @@
     "deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
-    "@better-auth/cimd": "1.7.5",
+    "@better-auth/cimd": "1.7.12",
     "@cloudflare/containers": "0.3.7"
   },
   "devDependencies": {
