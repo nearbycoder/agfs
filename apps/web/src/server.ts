@@ -73,32 +73,40 @@ const app = createServerEntry({
     } catch (error) {
       response = handleRouteError(error);
     }
-    const headers = new Headers(response.headers);
-    headers.set("x-content-type-options", "nosniff");
-    headers.set("x-frame-options", "DENY");
-    headers.set("referrer-policy", "no-referrer");
-    headers.set(
-      "permissions-policy",
-      "camera=(), microphone=(), geolocation=()",
-    );
-    if (new URL(request.url).protocol === "https:") {
-      headers.set("strict-transport-security", "max-age=31536000");
-    }
-    if (
-      securityPath === "/mcp" ||
-      securityPath.startsWith("/api/") ||
-      securityPath.startsWith("/s/") ||
-      securityPath.startsWith("/app")
-    ) {
-      headers.set("cache-control", "private, no-store");
-    }
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
+    return withSecurityHeaders(request, response, securityPath);
   },
 });
+
+function withSecurityHeaders(
+  request: Request,
+  response: Response,
+  securityPath: string,
+) {
+  const headers = new Headers(response.headers);
+  headers.set("x-content-type-options", "nosniff");
+  headers.set("x-frame-options", "DENY");
+  headers.set("referrer-policy", "no-referrer");
+  headers.set(
+    "permissions-policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
+  if (new URL(request.url).protocol === "https:") {
+    headers.set("strict-transport-security", "max-age=31536000");
+  }
+  if (
+    securityPath === "/mcp" ||
+    securityPath.startsWith("/api/") ||
+    securityPath.startsWith("/s/") ||
+    securityPath.startsWith("/app")
+  ) {
+    headers.set("cache-control", "private, no-store");
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 async function fetchRequest(
   request: Request,
@@ -106,6 +114,17 @@ async function fetchRequest(
     ? Rest
     : never
 ) {
+  // TanStack Start rejects undecodable paths with a bare 400 before app.fetch
+  // runs, so reject them here to keep the JSON error and security headers.
+  try {
+    securityPathname(request);
+  } catch (error) {
+    return withSecurityHeaders(
+      request,
+      handleRouteError(error),
+      new URL(request.url).pathname.toLowerCase(),
+    );
+  }
   return requestContext.run(
     { verifiedOAuth: requestContext.getStore()?.verifiedOAuth },
     async () => {
