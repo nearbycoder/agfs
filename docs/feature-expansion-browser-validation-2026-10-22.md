@@ -1,6 +1,21 @@
 # Styled browser and local API validation — 2026-10-22
 
-**Live execution complete on the recorded fixture build. One P3 mobile label defect was found; its owner source fix requires a final-built retest. No additional functional blocker was observed in the executed cases. This is not final release or combined-integration clearance.**
+**Live execution and final narrow recheck complete. P3 mobile label defect CLEARED on the final build; no outstanding browser finding. This report records browser evidence, not deployment or combined-suite clearance.**
+
+## Final build narrow recheck — PASS
+
+The requested follow-up passed on the final local fixture. **P3 is CLEARED in the built application.** Earlier broad results below retain their original build attribution and limits; they were not rerun.
+
+- Final web aggregate: `86d43c431846db0d653b2f110f6a7588dd6b3b91d409f9aea70b25adf80ed476`. All497 web-manifest files matched after the recheck. Wider518-artifact manifest SHA supplied by integration: `3cbb1690bea1e332987c947e5003132ae16e3414035d2951aa3f8f5d9a8f986f`.
+- Served `app-BDRkd5p2.css`: HTTP200,93,811bytes, SHA256 `64347b350bb7ba87e5c1640de1f81c0b1b637670691db980fa2f29805319b417`. Budget source SHA256 matched `4f382ca7d46b00035bfb8162e7772aa201c818ea8f7096242bcdacdf09c581e6`.
+- At390×844, both a normal label and a valid95-character label displayed **Remove from batch**:128px text inside188px button inside222px card. Exact accessible names retained `Remove <full label> from batch`. Document width remained390px. [Normal card](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk36pmd-3263a73e.png); [long-label removal control](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk36wep-02ed0ec8.png). Both screenshots visually inspected.
+- Review two drafts → remove normal draft: one draft remained, review unchecked, save disabled. Review remaining long-label draft → remove: zero drafts, selection cleared, empty instruction shown, no budget mutation request. The missing long-label fixture was created through local `POST /api/v1/tokens`200 and revoked through `DELETE /api/v1/tokens/:id`200 afterward.
+- Mobile command→Project JSON fields→example→preview→download: `record-project.json`, application/json,103bytes, exact9007199254740993 retained. Desktop1280×800 command→Summarize CSV groups→example→preview→download: `table-group.csv`, text/csv,74bytes with UTF8 BOM/CRLF and exact0.3 sum. Both transformation windows had zero requests. Actual downloaded binaries were copied before tab closure and their SHA256 matched the captured Blobs.
+- Desktop Operations connect→bounded50-row token read and mobile reconnect→search policy read returned200/private-no-store, with one whoami per connection. No observed runtime errors or horizontal page overflow. [Mobile smoke](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk37ck3-b606dd8d.png); [desktop smoke](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk37ed6-19e88d1d.png); [mobile Operations](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk37qg9-564aaa4b.png).
+- Evidence: [results.json](/home/nearby/.t3/userdata/tmp/agfs-final-browser-recheck-p588Hb/results.json), [integrity.json](/home/nearby/.t3/userdata/tmp/agfs-final-browser-recheck-p588Hb/integrity.json), [JSON download](/home/nearby/.t3/userdata/tmp/agfs-final-browser-recheck-p588Hb/record-project.json), [CSV download](/home/nearby/.t3/userdata/tmp/agfs-final-browser-recheck-p588Hb/table-group.csv).
+- Used a fresh empty Incognito context with only the matching final synthetic owner cookie, personal namespace `feature-a9c2cf15-dd53-4ee7-8fe6-44ce5ef19698`. Owned tab `tab_1c_0d4a421e-6dbf-49b4-a1b6-cd5e2e690d68` closed; final T3 status showed no tabs. No user state changed and no fixture process was signaled. Root received PASS/tabs-closed handoff; integration owner3810097/PTY1186 retains shutdown authority.
+
+No broader suite, device, security-matrix or maximum-input rerun was added. The responsive-browser and other previously documented limits remain. There are **no outstanding browser findings or requested browser rechecks** from this task.
 
 Baseline HEAD: `9663bb0b0f778a933dc02028bf0ca3ddd27322a0`. Tested browser #71–87 and Operations integrations #88–104. The latter add no feature count. All results below are actual styled-browser/local HTTP observations unless explicitly marked as a limit.
 
@@ -21,7 +36,7 @@ Evidence directory: [live evidence](/home/nearby/.t3/userdata/tmp/agfs-styled-li
 
 **P3 — budget draft removal label overflows at390px.** Operations → Resource controls → Budget planning → load token page → select an ordinary “Local budget34” row. The built “Remove Local budget34 from batch” text spans237.5px inside a188px button and crosses the222px draft card. [Screenshot](/home/nearby/.t3/userdata/browser-artifacts/browser-screenshot-localhost-mvk2evlp-22fd0a93.png).
 
-Location: `apps/web/src/components/platform/OperationsBudgets.tsx:496`, originally the ghost Button at496–504; shared Button inherits `whitespace-nowrap` from `components/ui/button.tsx:7`. Root assigned the original owner. Current source now shows concise **Remove from batch** with contextual `aria-label`; this agent did not edit it. **Final built verification pending.** No global Button/layout change is needed.
+Location: `apps/web/src/components/platform/OperationsBudgets.tsx:496`, originally the ghost Button at496–504; shared Button inherits `whitespace-nowrap` from `components/ui/button.tsx:7`. Root assigned the original owner. The owner changed visible text to **Remove from batch** with contextual `aria-label`; this agent did not edit it. **Final built verification passed**, as recorded above. No global Button/layout change was needed.
 
 ## All17 browser tools
 
@@ -118,6 +133,6 @@ Not run here: full security/HMAC/replay matrix or five-minute expiry wait; combi
 
 Root's pending server cost/SDK source fixes were not in this web artifact. This report does not claim current-source whole-system integration. No new broad mock coverage was run.
 
-**Only final-build browser follow-up requested:** verify390px budget “Remove from batch” with full contextual accessible name for normal/long labels, capture screenshot and successfully remove a draft; record new build/CSS hash; narrow desktop/mobile smoke of command→example→preview/download and Operations connect→bounded read. Repeat other cases only if a new change/failure warrants it.
+**Previously requested final-build follow-up is complete:** normal/long-label removal, new hashes, desktop/mobile command/download and Operations bounded-read smoke all passed. See the final recheck above.
 
 Owned owner tab `tab_15_0d4a421e-6dbf-49b4-a1b6-cd5e2e690d68` and viewer tab `tab_1a_0d4a421e-6dbf-49b4-a1b6-cd5e2e690d68` are closed. Final T3 status had no tab. No test-owned processes exist. Integration owner retains fixture/processes (owner3625023, PTY37509; guardian3626643/3626768/3626769; Wranglers3626652/3626775/3626774); none were signaled. Root was sent completion/fixture-restart handoff. Final refresh/retest/release remains root/integration-owned.
