@@ -111,13 +111,8 @@ export function compareLineSets(
 }
 
 /** Deliberately limited glob syntax, evaluated with DP rather than user regex. */
-export function matchesPathGlob(path: string, glob: string) {
-  if (
-    !path.startsWith("/") ||
-    !glob.startsWith("/") ||
-    path.length > 4096 ||
-    glob.length > 256
-  )
+export function compilePathGlob(glob: string) {
+  if (!glob.startsWith("/") || glob.length > 256)
     throw new Error(
       "Use absolute paths up to 4,096 characters and patterns up to 256.",
     );
@@ -131,32 +126,42 @@ export function matchesPathGlob(path: string, glob: string) {
       } else tokens.push("**");
     } else tokens.push(glob[i]);
   }
-  let prior = new Uint8Array(path.length + 1);
-  prior[0] = 1;
-  for (const token of tokens) {
-    const next = new Uint8Array(path.length + 1);
-    if (token === "*" || token === "**" || token === "**/") {
-      next[0] = prior[0];
-      let reachable = !!prior[0];
-      for (let j = 1; j <= path.length; j++) {
-        if (token === "**/") {
-          next[j] = +(!!prior[j] || (reachable && path[j - 1] === "/"));
-          reachable ||= !!prior[j];
-        } else
+  return (path: string) => {
+    if (!path.startsWith("/") || path.length > 4096)
+      throw new Error(
+        "Use absolute paths up to 4,096 characters and patterns up to 256.",
+      );
+    let prior = new Uint8Array(path.length + 1),
+      next = new Uint8Array(path.length + 1);
+    prior[0] = 1;
+    for (const token of tokens) {
+      next.fill(0);
+      if (token === "*" || token === "**" || token === "**/") {
+        next[0] = prior[0];
+        let reachable = !!prior[0];
+        for (let j = 1; j <= path.length; j++) {
+          if (token === "**/") {
+            next[j] = +(!!prior[j] || (reachable && path[j - 1] === "/"));
+            reachable ||= !!prior[j];
+          } else
+            next[j] = +(
+              !!prior[j] ||
+              (!!next[j - 1] && (token === "**" || path[j - 1] !== "/"))
+            );
+        }
+      } else
+        for (let j = 1; j <= path.length; j++)
           next[j] = +(
-            !!prior[j] ||
-            (!!next[j - 1] && (token === "**" || path[j - 1] !== "/"))
+            !!prior[j - 1] &&
+            (token === "?" ? path[j - 1] !== "/" : path[j - 1] === token)
           );
-      }
-    } else
-      for (let j = 1; j <= path.length; j++)
-        next[j] = +(
-          !!prior[j - 1] &&
-          (token === "?" ? path[j - 1] !== "/" : path[j - 1] === token)
-        );
-    prior = next;
-  }
-  return !!prior[path.length];
+      [prior, next] = [next, prior];
+    }
+    return !!prior[path.length];
+  };
+}
+export function matchesPathGlob(path: string, glob: string) {
+  return compilePathGlob(glob)(path);
 }
 export function testPathScope(source: string, pattern: string) {
   const paths = source.split(/\r\n|\n|\r/).filter(Boolean);
@@ -168,8 +173,10 @@ export function testPathScope(source: string, pattern: string) {
     throw new Error(
       "Scope test is too large. Use fewer paths or a shorter pattern.",
     );
+  if (!paths.length) return [];
+  const matches = compilePathGlob(pattern);
   return paths.map((path) => ({
     path,
-    matches: matchesPathGlob(path, pattern),
+    matches: matches(path),
   }));
 }

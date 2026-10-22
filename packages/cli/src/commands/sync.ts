@@ -1,7 +1,7 @@
 import { hostname } from "node:os";
 import { createHash } from "node:crypto";
-import { constants, createReadStream } from "node:fs";
-import { lstat, readdir, readFile, open, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, readFile, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "commander";
 import { lookup } from "mime-types";
@@ -11,27 +11,8 @@ import {
   ensureDownloadDirectory,
   writeDownloadFile,
 } from "../lib/safe-download";
-import { ignoredPath, syncOperation, type SyncVersion } from "../lib/sync-plan";
-async function hashFile(file: string): Promise<string | undefined> {
-  let stat;
-  try {
-    stat = await lstat(file);
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw e;
-  }
-  if (!stat.isFile() || stat.isSymbolicLink())
-    throw new Error("Sync refuses non-regular files: " + file);
-  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  try {
-    const hash = createHash("sha256");
-    for await (const bytes of handle.createReadStream({ autoClose: false }))
-      hash.update(bytes);
-    return hash.digest("hex");
-  } finally {
-    await handle.close();
-  }
-}
+import { compileIgnoredPath, syncOperation, type SyncVersion } from "../lib/sync-plan";
+import { hashFile, scanLocalFiles, scanRemoteFiles, discoverTogether, checkpointWriter } from "../lib/sync-io";
 async function responseHash(response: Response) {
   const hash = createHash("sha256");
   if (response.body)
@@ -47,7 +28,7 @@ interface State {
   remoteEntries?: Record<string, Entry>;
   ignoreSignature?: string;
 }
-async function synchronize(
+export async function synchronize(
   client: SDK,
   localRoot: string,
   remoteRoot: string,
@@ -75,30 +56,11 @@ async function synchronize(
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
-  const local = new Map<string, string>(),
-    remote = new Map<string, Entry>();
-  async function scanLocal(directory: string, relative = "") {
-    for (const e of await readdir(directory, { withFileTypes: true })) {
-      const name = relative ? relative + "/" + e.name : e.name;
-      if (ignoredPath(name, patterns)) continue;
-      if (e.isSymbolicLink()) throw new Error("Sync refuses symlinks: " + name);
-      if (e.isDirectory()) await scanLocal(path.join(directory, e.name), name);
-      else if (e.isFile())
-        local.set(name, (await hashFile(path.join(directory, e.name)))!);
-      else throw new Error("Sync refuses special files: " + name);
-    }
-  }
-  async function scanRemote(folder: string, relative = "") {
-    const result = await client.list(folder);
-    for (const e of result.entries) {
-      if (e.name === "." || e.name === ".." || /[\\/\x00-\x1f]/.test(e.name))
-        throw new Error("Unsafe remote filename");
-      const name = relative ? relative + "/" + e.name : e.name;
-      if (ignoredPath(name, patterns)) continue;
-      if (e.kind === "folder") await scanRemote(e.path, name);
-      else remote.set(name, e);
-    }
-  }
+  const ignored = compileIgnoredPath(patterns);
+  const concurrency = Number(options.concurrency ?? 3);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8)
+    throw new Error("Concurrency must be 1–8");
+  const remote = new Map<string, Entry>();
   const statePath = path.join(localRoot, ".agfs-sync.json");
   let state: State = { version: 1, namespace, remoteRoot, files: {} };
   try {
@@ -117,51 +79,58 @@ async function synchronize(
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
-  await scanLocal(localRoot);
-  let checkpoint: number | undefined;
   const signature = JSON.stringify(patterns);
-  if (
-    state.checkpoint !== undefined &&
-    state.remoteEntries &&
-    state.ignoreSignature === signature
-  ) {
-    for (const [name, e] of Object.entries(state.remoteEntries)) {
-      if (
-        e.path !== (remoteRoot === "/" ? "/" : remoteRoot + "/") + name ||
-        e.kind !== "file"
-      )
-        throw new Error("Invalid cached remote entry");
-      remote.set(name, e);
-    }
-    try {
-      let since = state.checkpoint,
-        through: number | undefined;
-      for (;;) {
-        const result = await client.changes(remoteRoot, since, through);
-        through = result.checkpoint;
-        for (const c of result.changes) {
-          const name = c.path.slice(
-            remoteRoot === "/" ? 1 : remoteRoot.length + 1,
-          );
-          if (!name || ignoredPath(name, patterns)) continue;
-          if (c.operation === "delete") remote.delete(name);
-          else if (c.entry?.kind === "file") remote.set(name, c.entry);
-        }
-        if (result.nextCursor === null) {
-          checkpoint = through;
-          break;
-        }
-        since = result.nextCursor;
+  async function discoverRemote() {
+    let checkpoint: number | undefined;
+    if (
+      state.checkpoint !== undefined &&
+      state.remoteEntries &&
+      state.ignoreSignature === signature
+    ) {
+      for (const [name, e] of Object.entries(state.remoteEntries)) {
+        if (
+          e.path !== (remoteRoot === "/" ? "/" : remoteRoot + "/") + name ||
+          e.kind !== "file"
+        )
+          throw new Error("Invalid cached remote entry");
+        remote.set(name, e);
       }
-    } catch (e) {
-      if ((e as any).status !== 410) throw e;
-      remote.clear();
+      try {
+        let since = state.checkpoint,
+          through: number | undefined;
+        for (;;) {
+          const result = await client.changes(remoteRoot, since, through);
+          through = result.checkpoint;
+          for (const c of result.changes) {
+            const name = c.path.slice(
+              remoteRoot === "/" ? 1 : remoteRoot.length + 1,
+            );
+            if (!name || ignored(name)) continue;
+            if (c.operation === "delete") remote.delete(name);
+            else if (c.entry?.kind === "file") remote.set(name, c.entry);
+          }
+          if (result.nextCursor === null) {
+            checkpoint = through;
+            break;
+          }
+          since = result.nextCursor;
+        }
+      } catch (e) {
+        if ((e as any).status !== 410) throw e;
+        remote.clear();
+      }
     }
+    if (checkpoint === undefined) {
+      checkpoint = (await client.changes(remoteRoot)).checkpoint;
+      for (const [name, entry] of await scanRemoteFiles(client, remoteRoot, ignored, concurrency, options.signal))
+        remote.set(name, entry);
+    }
+    return checkpoint;
   }
-  if (checkpoint === undefined) {
-    checkpoint = (await client.changes(remoteRoot)).checkpoint;
-    await scanRemote(remoteRoot);
-  }
+  const [versions, checkpoint] = await discoverTogether(
+    () => scanLocalFiles(localRoot, ignored, concurrency, options.signal), discoverRemote,
+  );
+  const local = new Map([...versions].map(([name, version]) => [name, version.hash]));
   const names = [
     ...new Set([
       ...local.keys(),
@@ -169,10 +138,9 @@ async function synchronize(
       ...Object.keys(state.files),
     ]),
   ]
-    .filter((n) => !ignoredPath(n, patterns))
+    .filter((n) => !ignored(n))
     .sort();
-  const plan = [];
-  for (const name of names) {
+  const plan = await mapConcurrent(names, concurrency, async (name) => {
     if (
       name.split("/").some((p) => p === ".." || p === "." || !p) ||
       /[\\\x00-\x1f]/.test(name)
@@ -184,6 +152,8 @@ async function synchronize(
       state.files[name],
       options.delete,
     );
+    if (operation === "compare" && versions.get(name)?.size !== remote.get(name)?.size &&
+      typeof remote.get(name)?.size === "number") operation = "conflict";
     if (operation === "compare") {
       const hash = await responseHash(
         await client.download(remote.get(name)!.path, remote.get(name)!.etag!),
@@ -204,12 +174,12 @@ async function synchronize(
             ? "upload"
             : "delete-remote";
     }
-    plan.push({
+    return {
       name,
       operation,
       keepBoth: options.resolve === "both" && options.file === name,
-    });
-  }
+    };
+  }, options.signal);
   for (const p of plan)
     if (p.operation !== "unchanged")
       console.log(
@@ -233,10 +203,20 @@ async function synchronize(
     remoteEntries: Object.fromEntries(remote),
     ignoreSignature: signature,
   };
-  let persisted = Promise.resolve();
+  const persist = checkpointWriter(() => writeDownloadFile(
+    statePath, new Blob([JSON.stringify(next, null, 2)]).stream(), () => {},
+  ));
+  // Unchanged entries have no side effect to guard; next cycle still hashes their contents.
+  for (const { name, operation } of plan) {
+    if (operation !== "unchanged") continue;
+    const hash = local.get(name), entry = remote.get(name);
+    if (hash && entry) next.files[name] = { local: hash, remote: entry.etag! };
+    else if (!hash && !entry) delete next.files[name];
+  }
+  const mutations = plan.filter(({ operation }) => operation !== "unchanged");
   await mapConcurrent(
-    plan,
-    Number(options.concurrency ?? 3),
+    mutations,
+    concurrency,
     async ({ name, operation, keepBoth }) => {
       if (keepBoth) {
         const backup = name + ".remote-conflict-" + Date.now(),
@@ -292,6 +272,7 @@ async function synchronize(
       } else if (operation === "download") {
         const response = await client.download(remotePath, entry!.etag!);
         if (!response.body) throw new Error("Empty download response");
+        const downloadedHash = createHash("sha256");
         await writeDownloadFile(
           destination,
           response.body,
@@ -301,9 +282,10 @@ async function synchronize(
             if ((await hashFile(destination)) !== originalHash)
               throw new Error("Local file changed during download: " + name);
           },
+          (bytes) => { downloadedHash.update(bytes); },
         );
         next.files[name] = {
-          local: (await hashFile(destination))!,
+          local: downloadedHash.digest("hex"),
           remote: entry!.etag!,
         };
       } else if (operation === "delete-remote") {
@@ -324,14 +306,12 @@ async function synchronize(
       } else if (originalHash && entry) {
         next.files[name] = { local: originalHash, remote: entry.etag! };
       } else if (!originalHash && !entry) delete next.files[name];
-      // Persist progress after every file, so interruption resumes safely.
-      const serialized = JSON.stringify(next, null, 2);
-      await (persisted = persisted.then(() =>
-        writeDownloadFile(statePath, new Blob([serialized]).stream(), () => {}),
-      ));
+      // Each completed mutation waits for an atomic snapshot containing its progress.
+      await persist();
     },
     options.signal,
   );
+  if (!mutations.length) await persist();
   console.log("Sync complete.");
 }
 export function registerSyncCommands(program: Command) {

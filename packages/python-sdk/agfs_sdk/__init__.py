@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterator
+from .transfer import PART_SIZE, prepared_parts, resume_parts, atomic_download
 
 _UNSET = object()
 class AgfsError(Exception):
@@ -73,6 +74,14 @@ class AgfsClient:
         """Return a context-managed streaming response. Caller closes it."""
         return self.request('/api/v1/fs/download?' + urllib.parse.urlencode({'path': path}), headers={'If-Match': if_match} if if_match else {})
 
+    def download_file(self, remote_path: str, local_path: str | Path, *, if_match: str | None = None,
+                      chunk_size: int = 262144, on_progress=None) -> Path:
+        """Stream to an atomic replacement using one reusable buffer (POSIX no-follow paths)."""
+        if type(chunk_size) is not int or not 4096 <= chunk_size <= 8388608:
+            raise ValueError('Chunk size must be an integer from 4096 to 8388608')
+        with self.download(remote_path, if_match) as response:
+            return atomic_download(response, local_path, chunk_size, on_progress)
+
     def read_text(self, path: str, if_match: str | None = None) -> str:
         with self.download(path, if_match) as response:
             return response.read().decode('utf-8')
@@ -118,8 +127,10 @@ class AgfsClient:
     def apply_draft(self, draft_id: str):
         return self.json('/platform/drafts/' + urllib.parse.quote(draft_id, safe='') + '/apply', 'POST', {})
 
-    def upload_file(self, local_path: str | Path, remote_path: str, *, content_type: str = 'application/octet-stream', if_match=_UNSET, on_progress=None):
+    def upload_file(self, local_path: str | Path, remote_path: str, *, content_type: str = 'application/octet-stream', if_match=_UNSET, on_progress=None, prefetch: bool = True):
         """if_match=None creates only; an ETag overwrites that version; omitting it writes unconditionally."""
+        if type(prefetch) is not bool:
+            raise ValueError('prefetch must be a boolean')
         condition = {} if if_match is _UNSET else {'ifMatch': if_match}
         with open(local_path, 'rb') as file:
             file.seek(0, 2)
@@ -128,26 +139,39 @@ class AgfsClient:
             if not size:
                 intent = self.json('/fs/upload-intents', 'POST', {'path': remote_path, 'contentType': content_type, 'size': 0, **condition})
                 target = urllib.parse.urlsplit(intent['url'])
-                if target.scheme + '://' + target.netloc != self.base_url:
-                    raise ValueError('Unexpected upload origin')
-                with self.request(target.path + ('?' + target.query if target.query else ''), 'PUT', b'', intent['headers'], authenticated=False) as response:
+                import re
+                upload_id = intent['uploadId']
+                upload_path = '/api/v1/fs/uploads/' + urllib.parse.quote(upload_id, safe='') + '/blob'
+                if (not re.fullmatch(r'upl_[\w-]+', upload_id, flags=re.ASCII) or target.username or target.password
+                        or target.path != upload_path or target.query or target.fragment):
+                    raise ValueError('Unexpected upload capability')
+                # APP_URL aliases never change the origin receiving the capability.
+                with self.request(upload_path, 'PUT', b'', intent['headers'], authenticated=False) as response:
                     etag = response.headers.get('ETag', 'uploaded')
                 return self.json('/fs/uploads/' + intent['uploadId'] + '/commit', 'POST', {'etag': etag})['entry']
-            first = file.read(min(size, 8388608))
-            state = self.json('/fs/resumable', 'POST', {'path': remote_path, 'contentType': content_type, 'size': size, 'fingerprint': str(size) + ':' + hashlib.sha256(first).hexdigest(), **condition})
+            if size > 20 * 1024 ** 3:
+                raise ValueError('Invalid upload size')
+            first = file.read(min(size, PART_SIZE))
+            if len(first) != min(size, PART_SIZE):
+                raise ValueError('Local file changed during upload')
+            first_digest = hashlib.sha256(first).hexdigest()
+            state = self.json('/fs/resumable', 'POST', {'path': remote_path, 'contentType': content_type, 'size': size, 'fingerprint': str(size) + ':' + first_digest, **condition})
+            completed = resume_parts(state, size)
             upload_id = state['uploadId']
-            if state['partSize'] != 8388608 or not upload_id.startswith('upl_') or not upload_id.replace('_', '').replace('-', '').isalnum():
-                raise ValueError('Invalid upload response')
             if state['status'] != 'completing':
-                for number, start in enumerate(range(0, size, state['partSize']), 1):
-                    file.seek(start)
-                    chunk = file.read(min(state['partSize'], size - start))
-                    if len(chunk) != min(state['partSize'], size - start):
-                        raise ValueError('Local file changed during upload')
-                    digest = hashlib.sha256(chunk).hexdigest()
-                    if not any(p['partNumber'] == number and p['digest'] == digest for p in state['parts']):
-                        with self.request(f'/api/v1/fs/resumable/{upload_id}/parts/{number}', 'PUT', chunk):
-                            pass
-                    if on_progress:
-                        on_progress(start + len(chunk))
+                parts = prepared_parts(file, size, first, first_digest, prefetch)
+                first = None
+                transferred = 0
+                try:
+                    for number, chunk, digest in parts:
+                        if completed.get(number) != digest:
+                            with self.request(f'/api/v1/fs/resumable/{upload_id}/parts/{number}', 'PUT', chunk):
+                                pass
+                        transferred += len(chunk)
+                        if on_progress:
+                            on_progress(transferred)
+                        # Release the caller's old chunk before advancing read-ahead.
+                        del chunk
+                finally:
+                    parts.close()
             return self.json(f'/fs/resumable/{upload_id}/complete', 'POST', {})['entry']

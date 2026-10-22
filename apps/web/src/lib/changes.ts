@@ -11,15 +11,10 @@ export async function changes(
   const path = normalizeAgfsPath(input.path ?? auth.pathPrefix ?? "/"),
     prefix = path === "/" ? "/" : path + "/";
   authorize(auth, "read", path);
-  const latest = (await first(
-    sql`SELECT coalesce(max(seq),0) AS n FROM change_log WHERE owner_id=${auth.user.id}`,
-  ))!.n;
-  const floor =
-    (
-      await first(
-        sql`SELECT floor FROM change_watermarks WHERE owner_id=${auth.user.id}`,
-      )
-    )?.floor ?? 0;
+  const { latest, floor } = (await first(
+    sql`SELECT coalesce((SELECT max(seq) FROM change_log WHERE owner_id=${auth.user.id}),0) AS latest,
+      coalesce((SELECT floor FROM change_watermarks WHERE owner_id=${auth.user.id}),0) AS floor`,
+  ))!;
   const max = Math.max(latest, floor);
   if (input.since === undefined)
     return { checkpoint: max, changes: [], nextCursor: null };

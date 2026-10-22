@@ -1,8 +1,10 @@
+import { readUploadPart } from "./upload-source";
 import { createReadStream } from "node:fs";
 import { lstat, stat, open } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { lookup as lookupMime } from "mime-types";
+import { mapConcurrent } from "@agfs/sdk";
 import {
   uploadResumable,
   accountSummarySchema,
@@ -39,10 +41,17 @@ async function parseError(response: Response) {
 }
 
 export class AgfsClient {
+  readonly baseUrl: string;
   constructor(
-    readonly baseUrl: string,
+    baseUrl: string,
     readonly token: string | null,
-  ) {}
+  ) {
+    const base = new URL(baseUrl);
+    if (base.username || base.password || base.search || base.hash || base.pathname !== "/" ||
+      !(base.protocol === "https:" || (base.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname))))
+      throw new Error("Use an HTTPS origin (HTTP is allowed for local development)");
+    this.baseUrl = base.origin;
+  }
 
   static async fromConfig() {
     const config = await readConfig();
@@ -50,6 +59,10 @@ export class AgfsClient {
   }
 
   async request(pathname: string, init?: RequestInit) {
+    const target = new URL(pathname, this.baseUrl);
+    if (!pathname.startsWith("/api/v1/") || target.origin !== this.baseUrl ||
+      !target.pathname.startsWith("/api/v1/") || pathname.includes("\\") || target.hash)
+      throw new Error("Invalid AGFS API path");
     const headers = new Headers(init?.headers);
     if (this.token) {
       headers.set("authorization", `Bearer ${this.token}`);
@@ -58,6 +71,7 @@ export class AgfsClient {
     const response = await fetch(`${this.baseUrl}${pathname}`, {
       ...init,
       headers,
+      redirect: "error",
     });
 
     if (!response.ok) {
@@ -145,11 +159,7 @@ export class AgfsClient {
           size: fileSize,
           fingerprint: `${fileSize}:${fileStat.mtimeMs}:${path.basename(localPath)}`,
           request: (url, init) => this.request(url, init),
-          read: async (start, end) => {
-            const buffer = new Uint8Array(end - start);
-            const { bytesRead } = await file.read(buffer, 0, buffer.length, start);
-            return buffer.buffer.slice(0, bytesRead);
-          },
+          read: (start, end) => readUploadPart(file, start, end),
           progress: (bytes) => progress.update(bytes),
         });
         progress.complete();
@@ -172,6 +182,14 @@ export class AgfsClient {
       }),
     });
     const intent = uploadIntentSchema.parse(await intentResponse.json());
+    const uploadPath = `/api/v1/fs/uploads/${encodeURIComponent(intent.uploadId)}/blob`;
+    const advertisedUrl = new URL(intent.url);
+    if (!/^upl_[\w-]+$/.test(intent.uploadId) || advertisedUrl.username || advertisedUrl.password ||
+      advertisedUrl.pathname !== uploadPath || advertisedUrl.search || advertisedUrl.hash)
+      throw new Error("Unexpected upload capability");
+    // APP_URL may use a canonical hostname alias. Keep the capability on the
+    // configured client origin, regardless of the origin advertised by the API.
+    const uploadUrl = new URL(uploadPath, this.baseUrl);
     const progress = new TransferProgress(`Upload ${path.basename(localPath)}`, fileSize);
     let uploadedBytes = 0;
     const progressStream = new Transform({
@@ -185,7 +203,7 @@ export class AgfsClient {
     let uploadResponse: Response;
     try {
       const uploadBody = Readable.toWeb(createReadStream(localPath).pipe(progressStream)) as ReadableStream;
-      uploadResponse = await fetch(intent.url, {
+      uploadResponse = await fetch(uploadUrl.href, {
         method: intent.method,
         headers: {
           ...intent.headers,
@@ -193,6 +211,7 @@ export class AgfsClient {
         },
         body: uploadBody,
         duplex: "half",
+        redirect: "error",
       } as RequestInit & { duplex: "half" });
       if (!uploadResponse.ok) {
         throw new Error(`R2 upload failed with status ${uploadResponse.status}`);
@@ -203,7 +222,7 @@ export class AgfsClient {
       throw error;
     }
 
-    const commitResponse = await this.request(`/api/v1/fs/uploads/${intent.uploadId}/commit`, {
+    const commitResponse = await this.request(`/api/v1/fs/uploads/${encodeURIComponent(intent.uploadId)}/commit`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -251,7 +270,10 @@ export class AgfsClient {
     return destination;
   }
 
-  async download(remotePath: string, localPath?: string) {
+  async download(remotePath: string, localPath?: string, options: { concurrency?: number } = {}) {
+    const concurrency = options.concurrency ?? 4;
+    if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8)
+      throw new Error("Concurrency must be 1–8");
     let isFolder = false;
     try {
       await this.list(remotePath);
@@ -274,9 +296,9 @@ export class AgfsClient {
       await ensureDownloadDirectory(joinRelativeDestination(destinationRoot, directory));
     }
 
-    for (const file of flattened.files) {
+    await mapConcurrent(flattened.files, concurrency, async (file) => {
       await this.writeRemoteFile(file.path, joinRelativeDestination(destinationRoot, file.relativePath));
-    }
+    });
 
     console.error(summarizeFolderDownload(flattened.files.length, destinationRoot));
     return destinationRoot;

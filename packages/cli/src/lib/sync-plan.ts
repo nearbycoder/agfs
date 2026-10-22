@@ -30,20 +30,12 @@ export function syncOperation(
   return localChanged ? "upload" : "download";
 }
 export function ignoredPath(relative: string, patterns: string[]) {
-  const parts = relative.split("/");
-  if (
-    parts.some(
-      (p) =>
-        p === ".git" ||
-        p === "node_modules" ||
-        p === ".agfsignore" ||
-        p.startsWith(".agfs-") ||
-        p === ".env" ||
-        p.startsWith(".env."),
-    )
-  )
-    return true;
-  return patterns.some((pattern) => {
+  return compileIgnoredPath(patterns)(relative);
+}
+
+/** Compile once per cycle; changes to the ignore file take effect next cycle. */
+export function compileIgnoredPath(patterns: string[]) {
+  const expressions = patterns.map((pattern) => {
     const escaped = pattern
       .replace(/[.+^${}()|[\]\\]/g, "\\$&")
       .replace(/\*\*/g, "\u0000")
@@ -55,6 +47,13 @@ export function ignoredPath(relative: string, patterns: string[]) {
         (pattern.includes("/") ? "" : "(?:.*/)?") +
         escaped.replace(/\/$/, "") +
         ")(?:/.*)?$",
-    ).test(relative);
+    );
   });
+  return (relative: string) => {
+    const parts = relative.split("/");
+    if (parts.some((p) => p === ".git" || p === "node_modules" ||
+      p === ".agfsignore" || p.startsWith(".agfs-") || p === ".env" || p.startsWith(".env.")))
+      return true;
+    return expressions.some((expression) => expression.test(relative));
+  };
 }

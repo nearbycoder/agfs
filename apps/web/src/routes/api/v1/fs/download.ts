@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/v1/fs/download")({
                 entry.name,
               ),
             },
-          });
+          }, request);
         } catch (error) {
           return handleRouteError(error);
         }

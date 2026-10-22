@@ -1,15 +1,15 @@
 import { it, expect, vi, beforeEach } from "vitest";
-const { rows, index, deliver, send } = vi.hoisted(() => ({
+const { rows, index, deliver, sendBatch } = vi.hoisted(() => ({
   rows: vi.fn(),
   index: vi.fn(),
   deliver: vi.fn(),
-  send: vi.fn(),
+  sendBatch: vi.fn(),
 }));
 vi.mock("./platform-db", () => ({ rows }));
 vi.mock("./search", () => ({ indexFiles: index }));
 vi.mock("./webhooks", () => ({ deliverWebhooks: deliver }));
 vi.mock("./bindings", () => ({
-  getBindings: () => ({ BACKGROUND_QUEUE: { send } }),
+  getBindings: () => ({ BACKGROUND_QUEUE: { sendBatch } }),
 }));
 import { consumeBackground, dispatchBackground } from "./background";
 beforeEach(() => {
@@ -17,7 +17,7 @@ beforeEach(() => {
   rows.mockResolvedValue([]);
   index.mockResolvedValue(1);
   deliver.mockResolvedValue(1);
-  send.mockResolvedValue(undefined);
+  sendBatch.mockResolvedValue(undefined);
 });
 it("acknowledges successful index work and retries processing failures", async () => {
   const ack = vi.fn(),
@@ -53,7 +53,7 @@ it("leaves an outbox item undispatched when queue send fails", async () => {
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([{ id: "entry", kind: "index" }]);
-  send.mockRejectedValue(new Error("queue unavailable"));
+  sendBatch.mockRejectedValue(new Error("queue unavailable"));
   await expect(dispatchBackground()).rejects.toThrow();
   expect(rows).toHaveBeenCalledTimes(3);
 });

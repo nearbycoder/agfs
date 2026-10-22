@@ -7,8 +7,10 @@ export function profileColumn(rows: string[][], column: number, width: number) {
     numeric = 0,
     min = Infinity,
     max = -Infinity,
-    sum = 0;
+    sum = 0,
+    irregular = 0;
   for (const row of rows) {
+    if (row.length !== width) irregular++;
     if (column >= row.length) {
       missing++;
       continue;
@@ -29,6 +31,16 @@ export function profileColumn(rows: string[][], column: number, width: number) {
       }
     }
   }
+  const common: [string, number][] = [];
+  const compare = (a: [string, number], b: [string, number]) =>
+    b[1] - a[1] || a[0].localeCompare(b[0]);
+  for (const entry of values) {
+    if (common.length === 5 && compare(entry, common[4]) >= 0) continue;
+    let index = 0;
+    while (index < common.length && compare(entry, common[index]) >= 0) index++;
+    common.splice(index, 0, entry);
+    if (common.length > 5) common.pop();
+  }
   return {
     total: rows.length,
     missing,
@@ -38,9 +50,7 @@ export function profileColumn(rows: string[][], column: number, width: number) {
     min: numeric ? min : null,
     max: numeric ? max : null,
     mean: numeric && Number.isFinite(sum) ? sum / numeric : null,
-    common: [...values]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 5),
-    irregular: rows.filter((row) => row.length !== width).length,
+    common,
+    irregular,
   };
 }

@@ -170,6 +170,8 @@ try {
     "sync-smoke",
     "reliability-smoke",
     "expansion-smoke",
+    "performance-smoke",
+    "performance-expansion-smoke",
     "sdk-oauth-smoke",
     "cimd-smoke",
   ]) {
@@ -246,8 +248,77 @@ try {
   }
   if (!indexed)
     throw new Error("Queue consumer did not index the uploaded content");
+  // Invalid UTF-8 may expand during decoding; it must still finish indexing
+  // without crossing D1's per-string limit or entering an endless retry loop.
+  const invalidEntry = await queueClient.upload(
+    "/queue-invalid-utf8-" + Date.now() + ".txt",
+    new Uint8Array(700000).fill(255),
+    { contentType: "text/plain" },
+  );
+  let boundedIndex = false;
+  for (let n = 0; n < 100; n++) {
+    const found = queueDb.prepare(
+      "SELECT length(CAST(content AS BLOB)) AS bytes FROM search_documents WHERE entry_id=? AND indexed_at>0 AND NOT EXISTS(SELECT 1 FROM index_jobs WHERE entry_id=?)",
+    ).get(invalidEntry.id, invalidEntry.id);
+    if (found) {
+      if (found.bytes > 1048576) throw new Error("Decoded search content exceeds its byte budget");
+      boundedIndex = true;
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  if (!boundedIndex) throw new Error("Expanded invalid UTF-8 did not finish indexing");
+
+  // This owner has no requests, indexing jobs, or existing alerts. Its disabled
+  // hook cannot make an external request, but exhausted deliveries need an alert.
+  const healthOwner = "health-only-" + Date.now(), healthHook = healthOwner + "-hook";
+  queueDb.prepare("INSERT INTO user(id,name,email) VALUES(?,?,?)").run(
+    healthOwner, "Health-only fixture", healthOwner + "@example.test",
+  );
+  queueDb.prepare("INSERT INTO webhooks(id,owner_id,url,path_prefix,events,secret,enabled,created_at) VALUES(?,?,?,'/','[]','local-fixture',0,?)").run(
+    healthHook, healthOwner, "https://example.invalid/disabled-test-hook", Date.now(),
+  );
+  queueDb.prepare("INSERT INTO webhook_deliveries(id,webhook_id,event_id,payload,attempts,status,next_attempt,created_at) VALUES(?,?,?,'{}',5,'failed',0,?)").run(
+    healthHook + "-delivery", healthHook, healthHook + "-event", Date.now(),
+  );
+  // Exercise the queue-owner projection through its real SQLite triggers. A
+  // deferred job remains pending while scheduled health evaluates its new owner.
+  const indexingOwner = healthOwner + "-indexing", formerOwner = indexingOwner + "-former";
+  const retainedJob = indexingOwner + "-retained", removedJob = indexingOwner + "-removed";
+  queueDb.exec("PRAGMA foreign_keys=ON; BEGIN IMMEDIATE");
+  try {
+    for (const owner of [indexingOwner, formerOwner])
+      queueDb.prepare("INSERT INTO user(id,name,email) VALUES(?,?,?)").run(owner, "Indexing health fixture", owner + "@example.test");
+    for (const id of [retainedJob, removedJob])
+      queueDb.prepare("INSERT INTO entries(id,owner_id,path,name,kind) VALUES(?,?,?,?,'file')").run(id, formerOwner, "/" + id, id);
+    queueDb.prepare("DELETE FROM entries WHERE id=?").run(removedJob);
+    queueDb.prepare("UPDATE entries SET owner_id=? WHERE id=?").run(indexingOwner, retainedJob);
+    queueDb.prepare("UPDATE index_job_status SET next_attempt=? WHERE entry_id=?").run(Date.now() + 3600000, retainedJob);
+    queueDb.prepare("INSERT INTO health_thresholds(owner_id,backlog) VALUES(?,1)").run(indexingOwner);
+    const projection = queueDb.prepare("SELECT entry_id,owner_id FROM index_job_owners WHERE entry_id IN (?,?)").all(retainedJob, removedJob);
+    if (projection.length !== 1 || projection[0].entry_id !== retainedJob || projection[0].owner_id !== indexingOwner)
+      throw new Error("Queue-owner projection did not track insertion, deletion, and ownership transfer");
+    queueDb.exec("COMMIT");
+  } catch (error) {
+    queueDb.exec("ROLLBACK");
+    throw error;
+  }
+  const scheduled = await fetch("http://localhost:8790/cdn-cgi/local/scheduled?cron=*+*+*+*+*");
+  if (!scheduled.ok) throw new Error("Local health schedule failed: " + scheduled.status);
+  await scheduled.text();
+  let webhookAlert = false, indexingAlert = false;
+  for (let n = 0; n < 50; n++) {
+    webhookAlert = !!queueDb.prepare("SELECT 1 FROM health_alerts WHERE owner_id=? AND kind='webhooks' AND resolved_at IS NULL").get(healthOwner);
+    indexingAlert = !!queueDb.prepare("SELECT 1 FROM health_alerts WHERE owner_id=? AND kind='indexing' AND resolved_at IS NULL").get(indexingOwner);
+    if (webhookAlert && indexingAlert) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!webhookAlert) throw new Error("Webhook-only owner was omitted from health evaluation");
+  if (!indexingAlert) throw new Error("Deferred indexing job was omitted from its new owner's health evaluation");
+  if (queueDb.prepare("SELECT 1 FROM health_alerts WHERE owner_id=? AND kind='indexing' AND resolved_at IS NULL").get(formerOwner))
+    throw new Error("Transferred indexing job generated an alert for its former owner");
   queueDb.close();
-  console.log("Cloudflare Queue upload-to-search indexing passed.");
+  console.log("Cloudflare Queue indexing, decoded-content bounds, webhook-only health, and queue-owner lifecycle checks passed.");
   if (process.env.AGFS_KEEP_TEST_SERVER) {
     writeFileSync(
       "/tmp/agfs-active-integration.json",

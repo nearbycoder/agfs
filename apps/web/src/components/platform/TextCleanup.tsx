@@ -19,19 +19,29 @@ export function TextCleanup({
   onChange: (value: string) => void;
   disabled: boolean;
 }) {
-  const [options, setOptions] = useState(initial),
+  const [open, setOpen] = useState(false),
+    [options, setOptions] = useState(initial),
     [showWhitespace, setShowWhitespace] = useState(true),
     [undo, setUndo] = useState<{ before: string; after: string } | null>(null);
   const result = useMemo(() => {
+    if (!open) return null;
+    let output = value;
+    let error = "";
     try {
-      return { value: cleanText(value, options), error: "" };
+      output = cleanText(value, options);
     } catch (e) {
-      return {
-        value,
-        error: e instanceof Error ? e.message : "Could not clean text",
-      };
+      error = e instanceof Error ? e.message : "Could not clean text";
     }
-  }, [value, options]);
+    const encoder = new TextEncoder();
+    const beforeBytes = encoder.encode(value).length;
+    return {
+      value: output,
+      error,
+      beforeBytes,
+      afterBytes:
+        output === value ? beforeBytes : encoder.encode(output).length,
+    };
+  }, [open, value, options]);
   const controls = [
     {
       key: "tabs",
@@ -81,94 +91,101 @@ export function TextCleanup({
       : cut;
   }
   return (
-    <Disclosure>
+    <Disclosure
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <DisclosureSummary>Cleanup recipes</DisclosureSummary>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {controls.map((control) => (
-          <label key={control.key} className="grid gap-2 text-sm">
-            {control.label}
-            <Select
-              aria-label={"Cleanup " + control.label.toLowerCase()}
-              value={options[control.key]}
-              onValueChange={(selected) =>
-                setOptions({ ...options, [control.key]: selected })
+      {result ? (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {controls.map((control) => (
+              <label key={control.key} className="grid gap-2 text-sm">
+                {control.label}
+                <Select
+                  aria-label={"Cleanup " + control.label.toLowerCase()}
+                  value={options[control.key]}
+                  onValueChange={(selected) =>
+                    setOptions({ ...options, [control.key]: selected })
+                  }
+                >
+                  {control.choices.map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </label>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={options.trimTrailing}
+              onChange={(e) =>
+                setOptions({ ...options, trimTrailing: e.target.checked })
               }
-            >
-              {control.choices.map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </Select>
+            />
+            Trim trailing spaces and tabs
           </label>
-        ))}
-      </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={options.trimTrailing}
-          onChange={(e) =>
-            setOptions({ ...options, trimTrailing: e.target.checked })
-          }
-        />
-        Trim trailing spaces and tabs
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={showWhitespace}
-          onChange={(e) => setShowWhitespace(e.target.checked)}
-        />
-        Show whitespace in preview
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          ["Before", value],
-          ["After", result.value],
-        ].map(([label, text]) => (
-          <section key={label} className="min-w-0 space-y-2">
-            <h4 className="text-sm font-medium">
-              {label} · {new TextEncoder().encode(text).length.toLocaleString()}{" "}
-              bytes
-            </h4>
-            <pre className="max-h-52 overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all">
-              {preview(text) || "(empty)"}
-            </pre>
-          </section>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Preview shows the first 4,000 characters. Recipes apply to the whole
-        draft and can change whitespace inside string literals. Review before
-        applying; the file is unchanged until Save.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={disabled || !!result.error || result.value === value}
-          onClick={() => {
-            setUndo({ before: value, after: result.value });
-            onChange(result.value);
-          }}
-        >
-          Apply cleanup to draft
-        </Button>
-        <Button
-          variant="outline"
-          disabled={disabled || !undo || value !== undo.after}
-          onClick={() => {
-            if (undo) {
-              onChange(undo.before);
-              setUndo(null);
-            }
-          }}
-        >
-          Undo cleanup
-        </Button>
-      </div>
-      {result.error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {result.error}
-        </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showWhitespace}
+              onChange={(e) => setShowWhitespace(e.target.checked)}
+            />
+            Show whitespace in preview
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: "Before", text: value, bytes: result.beforeBytes },
+              { label: "After", text: result.value, bytes: result.afterBytes },
+            ].map(({ label, text, bytes }) => (
+              <section key={label} className="min-w-0 space-y-2">
+                <h4 className="text-sm font-medium">
+                  {label} · {bytes.toLocaleString()} bytes
+                </h4>
+                <pre className="max-h-52 overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all">
+                  {preview(text) || "(empty)"}
+                </pre>
+              </section>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Preview shows the first 4,000 characters. Recipes apply to the whole
+            draft and can change whitespace inside string literals. Review
+            before applying; the file is unchanged until Save.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={disabled || !!result.error || result.value === value}
+              onClick={() => {
+                if (disabled || result.error || result.value === value) return;
+                setUndo({ before: value, after: result.value });
+                onChange(result.value);
+              }}
+            >
+              Apply cleanup to draft
+            </Button>
+            <Button
+              variant="outline"
+              disabled={disabled || !undo || value !== undo.after}
+              onClick={() => {
+                if (!disabled && undo && value === undo.after) {
+                  onChange(undo.before);
+                  setUndo(null);
+                }
+              }}
+            >
+              Undo cleanup
+            </Button>
+          </div>
+          {result.error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {result.error}
+            </p>
+          ) : null}
+        </>
       ) : null}
     </Disclosure>
   );

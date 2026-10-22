@@ -4,6 +4,10 @@
 
 AgentFilesystem is a Cloudflare-native file manager for humans and agents.
 
+The [October 22 maintenance report](docs/maintenance-2026-10-22.md) records the dependency refresh, twenty performance improvements, security checks, and rollout requirements.
+
+The [fifty-improvement follow-up](docs/performance-expansion-2026-10-22.md) lists additions 21–70 across browser tools, server queries, transfers, SDKs, and CLI sync, with review evidence and required migrations.
+
 ## Workspace
 
 - `apps/web`: TanStack Start app and stateless MCP endpoint on Cloudflare Workers
@@ -63,6 +67,7 @@ Tools cover listing, trees, text reading/writing, folders, moves, trash, recover
 ```bash
 agfs tokens create reader --path /project --permissions read --ttl 7d
 agfs upload ./artifact.zip /project/artifact.zip  # repeat to resume
+agfs download /project ./project --concurrency 4
 agfs versions /project/artifact.zip
 agfs trash /project
 agfs restore <recovery-id> /project/restored.zip
@@ -81,6 +86,7 @@ Build the updated CLI from this checkout with `pnpm --filter @agfs/cli build`; r
 - `pnpm deploy:production`: build and deploy the production Worker to `agfs.dev`
 - `pnpm check`: run TypeScript checks across the workspace
 - `pnpm test`: run unit tests
+- `pnpm build && node scripts/integration.mjs`: exercise disposable local Workers, D1, R2, SDK, CLI, OAuth, and security boundaries
 - `pnpm --filter @agfs/web cf-typegen`: generate local Cloudflare binding types
 
 ## Cloudflare resources

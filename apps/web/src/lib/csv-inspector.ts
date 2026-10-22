@@ -60,3 +60,24 @@ export function parseCsv(text: string, delimiter = ","): string[][] {
     record();
   return rows;
 }
+
+export function prepareCsvSearch(rows: string[][], firstRow: number) {
+  return rows.map((cells, index) => ({
+    cells,
+    index: index + firstRow,
+    search: cells.map((cell) => cell.toLowerCase()),
+  }));
+}
+export function filterCsvRows(
+  rows: ReturnType<typeof prepareCsvSearch>,
+  query: string,
+  column: number,
+) {
+  const needle = query.toLowerCase();
+  if (!needle && column >= 0) return rows;
+  return rows.filter((row) =>
+    column < 0
+      ? row.search.some((cell) => cell.includes(needle))
+      : (row.search[column] ?? "").includes(needle),
+  );
+}

@@ -48,6 +48,7 @@ export async function writeDownloadFile(
   progress: (bytes: number) => void,
   expectedSize?: number,
   beforeReplace?: () => Promise<void>,
+  onChunk?: (bytes: Uint8Array) => void,
 ) {
   const reader = body.getReader();
   let temporary: string | undefined;
@@ -68,6 +69,7 @@ export async function writeDownloadFile(
         if (expectedSize !== undefined && total > expectedSize)
           throw new Error("Download size mismatch");
         await file.writeFile(value);
+        onChunk?.(value);
         progress(total);
       }
       if (expectedSize !== undefined && total !== expectedSize)

@@ -622,7 +622,7 @@
     width: 100%;
   }
   .files-heading-actions > :is(button, label) {
-    flex: 1;
+    flex: 1 1 auto;
   }
   .files-location {
     margin-top: 1.25rem;

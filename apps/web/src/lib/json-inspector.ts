@@ -44,7 +44,13 @@ export function inspectJson(text: string) {
         );
   }
   visit(value, "", 0, "root");
-  return { nodes, formatted: formatJsonSource(text.replace(/^\uFEFF/, "")) };
+  let formatted: string | undefined;
+  return {
+    nodes,
+    get formatted() {
+      return (formatted ??= formatJsonSource(text.replace(/^\uFEFF/, "")));
+    },
+  };
 }
 
 // Format validated source tokens without changing number precision or duplicate keys.
@@ -83,4 +89,26 @@ function formatJsonSource(text: string) {
     else if (!/\s/.test(c)) output += c;
   }
   return output;
+}
+
+/** Nodes are preorder: a collapsed container hides consecutive deeper nodes. */
+export function visibleJsonNodes(
+  nodes: JsonNode[],
+  collapsed: ReadonlySet<string>,
+  query = "",
+) {
+  const needle = query.toLowerCase();
+  if (needle)
+    return nodes.filter((n) =>
+      (n.path + " " + n.label + " " + n.value).toLowerCase().includes(needle),
+    );
+  const visible: JsonNode[] = [];
+  let hiddenBelow = Infinity;
+  for (const node of nodes) {
+    if (node.depth > hiddenBelow) continue;
+    hiddenBelow = Infinity;
+    visible.push(node);
+    if (node.container && collapsed.has(node.path)) hiddenBelow = node.depth;
+  }
+  return visible;
 }

@@ -20,33 +20,32 @@ export async function createRun(
 ) {
   const path = normalizeAgfsPath(input.path);
   authorize(auth, "write", path);
-  const inputs = [];
-  for (const inputPath of input.inputs) {
-    const normalized = normalizeAgfsPath(inputPath);
-    authorize(auth, "read", normalized);
-    const entry = await first(
-      sql`SELECT path,size,etag,content_type,r2_key FROM entries WHERE owner_id=${auth.user.id} AND path=${normalized} AND kind='file'`,
-    );
-    if (!entry) throw errorResponse(404, "Input file not found");
-    inputs.push(entry);
-  }
+  const paths = input.inputs.map(normalizeAgfsPath);
+  for (const inputPath of paths) authorize(auth, "read", inputPath);
+  // json_each preserves caller order and duplicate inputs without growing the
+  // number of bound parameters with the (up to 50) input paths.
+  const inputs = paths.length
+    ? await rows(sql`SELECT e.path,e.size,e.etag,e.content_type,e.r2_key
+        FROM json_each(${JSON.stringify(paths)}) i JOIN entries e
+          ON e.owner_id=${auth.user.id} AND e.path=i.value AND e.kind='file'
+        ORDER BY i.key`)
+    : [];
+  if (inputs.length !== paths.length) throw errorResponse(404, "Input file not found");
   const id = createAgfsId("run");
   const at = Date.now(),
     expires = at + (input.retentionDays ?? 30) * 86400000;
-  const guards = inputs.map(
-    (e) =>
-      sql`EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=${e.path} AND r2_key=${e.r2_key})`,
-  );
+  const encodedInputs = JSON.stringify(inputs);
+  const unchanged = sql`NOT EXISTS(SELECT 1 FROM json_each(${encodedInputs}) i
+    WHERE NOT EXISTS(SELECT 1 FROM entries e WHERE e.owner_id=${auth.user.id}
+      AND e.path=json_extract(i.value,'$.path') AND e.r2_key=json_extract(i.value,'$.r2_key')))`;
   const result = await atomicBatch([
-    sql`INSERT INTO agent_runs(id,owner_id,actor_id,token_id,name,path_prefix,metadata,created_at,inputs,retention_days) SELECT ${id},${auth.user.id},${actorId(auth)},${auth.tokenId ?? null},${input.name},${path},${JSON.stringify(input.metadata)},${at},${JSON.stringify(inputs)},${input.retentionDays ?? 30} WHERE ${guards.length ? sql.join(guards, sql` AND `) : sql`1`} RETURNING id`,
-    ...inputs.map(
-      (e) =>
-        sql`INSERT OR IGNORE INTO run_artifacts SELECT ${id},${e.path},'input',${e.r2_key} WHERE EXISTS(SELECT 1 FROM agent_runs WHERE id=${id})`,
-    ),
-    ...inputs.map(
-      (e) =>
-        sql`INSERT OR IGNORE INTO object_pins SELECT ${auth.user.id},${id},${e.r2_key},${expires} WHERE EXISTS(SELECT 1 FROM agent_runs WHERE id=${id})`,
-    ),
+    sql`INSERT INTO agent_runs(id,owner_id,actor_id,token_id,name,path_prefix,metadata,created_at,inputs,retention_days) SELECT ${id},${auth.user.id},${actorId(auth)},${auth.tokenId ?? null},${input.name},${path},${JSON.stringify(input.metadata)},${at},${encodedInputs},${input.retentionDays ?? 30} WHERE ${unchanged} RETURNING id`,
+    sql`INSERT OR IGNORE INTO run_artifacts
+      SELECT r.id,json_extract(i.value,'$.path'),'input',json_extract(i.value,'$.r2_key')
+      FROM agent_runs r,json_each(r.inputs) i WHERE r.id=${id}`,
+    sql`INSERT OR IGNORE INTO object_pins
+      SELECT r.owner_id,r.id,json_extract(i.value,'$.r2_key'),${expires}
+      FROM agent_runs r,json_each(r.inputs) i WHERE r.id=${id}`,
   ]);
   if (!result[0].results.length)
     throw errorResponse(409, "An input changed; retry starting the run");
@@ -85,27 +84,14 @@ export async function finishRun(auth: RequestAuth, id: string) {
       409,
       "A run manifest supports at most 200 artifacts; use a narrower folder",
     );
-  const manifest = {
-    version: 1,
-    runId: id,
-    name: run.name,
-    actorId: run.actor_id,
-    tokenId: run.token_id,
-    metadata: JSON.parse(run.metadata),
-    inputs: JSON.parse(run.inputs).map(({ r2_key, ...v }: any) => v),
-    retainedUntil: new Date(
-      Date.now() + run.retention_days * 86400000,
-    ).toISOString(),
-    completedAt: new Date().toISOString(),
-    artifacts: [] as Record<string, unknown>[],
-  };
+  const verifiedArtifacts: Record<string, unknown>[] = [];
   for (const a of artifacts) {
     const object = await requireResourceBindings(
       "FILES_BUCKET",
     ).FILES_BUCKET.head(a.r2_key);
     if (!object || object.etag !== a.etag)
       throw errorResponse(409, "An artifact changed; retry completing the run");
-    manifest.artifacts.push({
+    verifiedArtifacts.push({
       path: a.path,
       size: a.size,
       etag: a.etag,
@@ -118,41 +104,71 @@ export async function finishRun(auth: RequestAuth, id: string) {
         : null,
     });
   }
-  const until = Date.now() + run.retention_days * 86400000;
-  const guards = artifacts.map(
-    (e) =>
-      sql`EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=${e.path} AND r2_key=${e.r2_key})`,
-  );
-  const all = [...JSON.parse(run.inputs), ...artifacts];
-  const stillAvailable = all
-    .filter((e) => e.r2_key)
-    .map(
-      (e) =>
-        sql`(EXISTS(SELECT 1 FROM entries WHERE r2_key=${e.r2_key}) OR EXISTS(SELECT 1 FROM object_pins WHERE reference_id=${id} AND object_key=${e.r2_key} AND expires_at>${Date.now()}))`,
-    );
+  // Use one timestamp after R2 verification for both the manifest and its pins.
+  const at = Date.now(), until = at + run.retention_days * 86400000;
+  const inputs = JSON.parse(run.inputs);
+  const manifest = {
+    version: 1,
+    runId: id,
+    name: run.name,
+    actorId: run.actor_id,
+    tokenId: run.token_id,
+    metadata: JSON.parse(run.metadata),
+    inputs: inputs.map(({ r2_key, ...v }: any) => v),
+    retainedUntil: new Date(until).toISOString(),
+    completedAt: new Date(at).toISOString(),
+    artifacts: verifiedArtifacts,
+  };
+  const encodedManifest = JSON.stringify(manifest);
+  const encodedArtifacts = JSON.stringify(artifacts);
+  const keys = JSON.stringify([...new Set(
+    [...inputs, ...artifacts].map((e) => e.r2_key).filter(Boolean),
+  )]);
+  // The database clock also covers expiry while the batch waits to execute.
+  const availableAt = sql`max(${at}, CAST(round((julianday('now') - 2440587.5) * 86400000) AS INTEGER))`;
   const result = await atomicBatch([
-    sql`UPDATE agent_runs SET status='completed',manifest=${JSON.stringify(manifest)},completed_at=${Date.now()} WHERE id=${id} AND status='running' AND ${guards.length ? sql.join(guards, sql` AND `) : sql`1`} AND ${stillAvailable.length ? sql.join(stillAvailable, sql` AND `) : sql`1`} RETURNING manifest`,
-    ...artifacts.map(
-      (e) =>
-        sql`INSERT OR IGNORE INTO run_artifacts SELECT ${id},${e.path},'output',${e.r2_key} WHERE EXISTS(SELECT 1 FROM agent_runs WHERE id=${id} AND manifest=${JSON.stringify(manifest)})`,
-    ),
-    ...all
-      .filter((e) => e.r2_key)
-      .map(
-        (e) =>
-          sql`INSERT INTO object_pins SELECT ${auth.user.id},${id},${e.r2_key},${until} WHERE EXISTS(SELECT 1 FROM agent_runs WHERE id=${id} AND manifest=${JSON.stringify(manifest)}) ON CONFLICT(reference_id,object_key) DO UPDATE SET expires_at=excluded.expires_at`,
-      ),
+    // Bound JSON keeps the parameter count fixed for 50 inputs and 200 outputs.
+    // Count plus null-safe membership checks reject additions and metadata races.
+    sql`WITH captured AS (SELECT value FROM json_each(${encodedArtifacts})),
+      live AS (SELECT path,size,etag,content_type,r2_key,updated_at FROM entries
+        WHERE owner_id=${auth.user.id} AND kind='file'
+        AND (path=${run.path_prefix} OR substr(path,1,length(${prefix}))=${prefix}) LIMIT 201)
+      UPDATE agent_runs SET status='completed',manifest=${encodedManifest},completed_at=${at}
+      WHERE id=${id} AND owner_id=${auth.user.id} AND status='running'
+        AND path_prefix=${run.path_prefix} AND inputs=${run.inputs} AND retention_days=${run.retention_days}
+        AND (SELECT count(*) FROM live)=(SELECT count(*) FROM captured)
+        AND NOT EXISTS(SELECT 1 FROM captured c WHERE NOT EXISTS(SELECT 1 FROM live e
+          WHERE e.path=json_extract(c.value,'$.path') AND e.r2_key=json_extract(c.value,'$.r2_key')
+            AND e.size IS json_extract(c.value,'$.size') AND e.etag IS json_extract(c.value,'$.etag')
+            AND e.content_type IS json_extract(c.value,'$.content_type')
+            AND e.updated_at IS json_extract(c.value,'$.updated_at')))
+        AND NOT EXISTS(SELECT 1 FROM json_each(${keys}) k
+          WHERE NOT EXISTS(SELECT 1 FROM entries e WHERE e.owner_id=${auth.user.id} AND e.kind='file' AND e.r2_key=k.value)
+            AND NOT EXISTS(SELECT 1 FROM object_pins p WHERE p.owner_id=${auth.user.id}
+              AND p.reference_id=${id} AND p.object_key=k.value AND p.expires_at>${availableAt}))
+        AND NOT EXISTS(SELECT 1 FROM object_pins WHERE reference_id=${id} AND owner_id<>${auth.user.id})
+      RETURNING manifest`,
+    sql`INSERT OR IGNORE INTO run_artifacts
+      SELECT r.id,json_extract(a.value,'$.path'),'output',json_extract(a.value,'$.r2_key')
+      FROM agent_runs r,json_each(${encodedArtifacts}) a
+      WHERE r.id=${id} AND r.owner_id=${auth.user.id} AND r.status='completed' AND r.manifest=${encodedManifest}`,
+    // Pin the persisted winner's keys, including if two attempts produce the
+    // same public manifest but captured different internal object keys.
+    sql`INSERT INTO object_pins
+      SELECT DISTINCT r.owner_id,r.id,a.object_key,${until}
+      FROM agent_runs r JOIN run_artifacts a ON a.run_id=r.id
+      WHERE r.id=${id} AND r.owner_id=${auth.user.id} AND r.status='completed' AND r.manifest=${encodedManifest}
+      ON CONFLICT(reference_id,object_key) DO UPDATE SET expires_at=excluded.expires_at
+      WHERE object_pins.owner_id=excluded.owner_id`,
   ]);
   const saved = result[0].results[0] as any;
-  if (!saved && (await getRun(auth, id)).status !== "completed")
+  if (saved) return { manifest: JSON.parse(saved.manifest) };
+  const latest = await getRun(auth, id);
+  if (latest.status !== "completed")
     throw errorResponse(
       409,
       "Run files changed or expired; retry with available inputs",
     );
 
-  return {
-    manifest: saved
-      ? JSON.parse(saved.manifest)
-      : JSON.parse((await getRun(auth, id)).manifest),
-  };
+  return { manifest: JSON.parse(latest.manifest) };
 }

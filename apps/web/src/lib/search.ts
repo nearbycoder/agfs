@@ -7,6 +7,7 @@ import { requireResourceBindings } from "./bindings";
 import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { errorResponse } from "./http";
+import { pathRange } from "./path-range";
 export function searchTerms(input: string) {
   return (input.match(/[\p{L}\p{N}_-]+/gu) ?? [])
     .slice(0, 8)
@@ -15,43 +16,67 @@ export function searchTerms(input: string) {
 }
 export async function indexFiles(limit = 20, entryId?: string) {
   const jobs = await rows(
-    sql`SELECT e.* FROM index_jobs j JOIN index_job_status s ON s.entry_id=j.entry_id JOIN entries e ON e.id=j.entry_id WHERE (${entryId ?? null} IS NULL OR e.id=${entryId ?? null}) AND s.next_attempt<=${Date.now()} ORDER BY s.queued_at LIMIT ${limit}`,
+    sql`SELECT e.*,CASE WHEN d.indexed_at>0 AND d.content_verified=1 THEN 1 ELSE 0 END AS reusable
+      FROM index_jobs j JOIN index_job_status s ON s.entry_id=j.entry_id JOIN entries e ON e.id=j.entry_id
+      LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key
+      WHERE (${entryId ?? null} IS NULL OR e.id=${entryId ?? null}) AND s.next_attempt<=${Date.now()}
+      ORDER BY s.queued_at LIMIT ${Math.min(20, Math.max(0, Math.trunc(limit) || 0))}`,
   );
-  for (const e of jobs) {
-    try {
-      let content = "";
-      if (
-        e.kind === "file" &&
-        e.size <= 1048576 &&
-        /^(text\/|application\/(json|xml|javascript|x-yaml))/.test(
-          e.content_type ?? "",
-        )
-      ) {
-        const object = await requireResourceBindings(
-          "FILES_BUCKET",
-        ).FILES_BUCKET.get(e.r2_key);
-        if (object && object.size <= 1048576) content = await object.text();
-        else await object?.body?.cancel();
+  // Only three bodies are retained at a time. Writes stay serial, with the existing
+  // per-file transaction and live key/version checks; R2 reads overlap, D1 calls do not.
+  for (let offset = 0; offset < jobs.length; offset += 3) {
+    const wave = await Promise.all(jobs.slice(offset, offset + 3).map(async (e) => {
+      try {
+        const readable = e.kind === "file" && e.size <= 1048576 &&
+          /^(text\/|application\/(json|xml|javascript|x-yaml))/.test(e.content_type ?? "");
+        e.reusable = e.reusable && readable ? 1 : 0;
+        let content = "", verified = e.reusable;
+        if (!e.reusable && readable) {
+          const object = await requireResourceBindings("FILES_BUCKET").FILES_BUCKET.get(e.r2_key);
+          if (object && object.size <= 1048576) {
+            content = await object.text();
+            // Invalid UTF-8 expands to replacement characters when decoded. Bound
+            // the stored UTF-8, not just R2's original bytes, before a D1 binding.
+            // encodeInto never splits a code point; valid <=1 MiB text is intact.
+            if (content.length > Math.floor(1048576 / 3)) {
+              const { read } = new TextEncoder().encodeInto(content, new Uint8Array(1048576));
+              content = content.slice(0, read);
+            }
+            verified = 1;
+          }
+          else await object?.body?.cancel();
+        }
+        return { e, content, verified, failed: false as const };
+      } catch (error) {
+        return { e, error, failed: true as const };
       }
-      await atomicBatch([
-        sql`INSERT INTO search_documents(entry_id,object_key,content,indexed_at)
-          SELECT id,r2_key,${content},${Date.now()} FROM entries WHERE id=${e.id} AND r2_key IS ${e.r2_key}
-          ON CONFLICT(entry_id) DO UPDATE SET object_key=excluded.object_key,content=excluded.content,indexed_at=excluded.indexed_at`,
-        sql`DELETE FROM file_search WHERE entry_id=${e.id}`,
-        sql`INSERT INTO file_search(entry_id,name,content,tags) SELECT e.id,e.name,d.content,d.tags FROM entries e
-          JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key WHERE e.id=${e.id}`,
-        sql`DELETE FROM index_jobs WHERE entry_id=${e.id} AND EXISTS(SELECT 1 FROM entries WHERE id=${e.id} AND r2_key IS ${e.r2_key} AND updated_at=${e.updated_at})`,
-      ]);
-    } catch (error) {
-      await rows(
-        sql`UPDATE index_job_status SET attempts=attempts+1,last_error='Object could not be indexed',next_attempt=${Date.now() + 60000} WHERE entry_id=${e.id}`,
-      );
-      if (entryId) throw error;
-      console.error(
-        "Search indexing will retry",
-        e.id,
-        error instanceof Error ? error.name : "error",
-      );
+    }));
+    for (const result of wave) {
+      const { e } = result;
+      try {
+        if (result.failed) throw result.error;
+        // Reuse text inside SQL, so even matching 1 MiB documents never cross D1
+        // into the Worker. A tags-only placeholder (indexed_at=0) cannot be reused.
+        await atomicBatch([
+          sql`INSERT INTO search_documents(entry_id,object_key,content,indexed_at,content_verified)
+            SELECT e.id,e.r2_key,CASE WHEN ${e.reusable}=1 THEN d.content ELSE ${result.content} END,${Date.now()},${result.verified}
+            FROM entries e LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key AND d.indexed_at>0 AND d.content_verified=1
+            WHERE e.id=${e.id} AND e.r2_key IS ${e.r2_key} AND (${e.reusable}=0 OR d.entry_id IS NOT NULL)
+            ON CONFLICT(entry_id) DO UPDATE SET object_key=excluded.object_key,content=excluded.content,indexed_at=excluded.indexed_at,content_verified=excluded.content_verified`,
+          sql`DELETE FROM file_search WHERE entry_id=${e.id}`,
+          sql`INSERT INTO file_search(entry_id,name,content,tags) SELECT e.id,e.name,d.content,d.tags FROM entries e
+            JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key WHERE e.id=${e.id}`,
+          sql`DELETE FROM index_jobs WHERE entry_id=${e.id} AND EXISTS(SELECT 1 FROM entries e
+            JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key AND d.indexed_at>0
+            WHERE e.id=${e.id} AND e.r2_key IS ${e.r2_key} AND e.updated_at=${e.updated_at})`,
+        ]);
+      } catch (error) {
+        await rows(
+          sql`UPDATE index_job_status SET attempts=attempts+1,last_error='Object could not be indexed',next_attempt=${Date.now() + 60000} WHERE entry_id=${e.id}`,
+        );
+        if (entryId) throw error;
+        console.error("Search indexing will retry", e.id, error instanceof Error ? error.name : "error");
+      }
     }
   }
   return jobs.length;
@@ -72,8 +97,7 @@ export async function searchFiles(
     cursor?: string;
   },
 ) {
-  const path = normalizeAgfsPath(input.path ?? auth.pathPrefix ?? "/"),
-    prefix = path === "/" ? "/" : path + "/";
+  const path = normalizeAgfsPath(input.path ?? auth.pathPrefix ?? "/");
   authorize(auth, "read", path);
   const terms = searchTerms(input.q);
   const scope = JSON.stringify([
@@ -96,7 +120,7 @@ export async function searchFiles(
     await rows(sql`SELECT e.id,e.path,e.name,e.kind,e.size,e.content_type AS contentType,e.etag,
     e.updated_at AS updatedAt,d.tags,substr(d.content,1,240) AS excerpt,d.indexed_at AS indexedAt
     FROM entries e LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key
-    WHERE e.owner_id=${auth.user.id} AND (e.path=${path} OR substr(e.path,1,length(${prefix}))=${prefix})
+    WHERE e.owner_id=${auth.user.id} AND ${pathRange(sql`e.path`, path, true)}
     AND (${input.kind ?? null} IS NULL OR e.kind=${input.kind ?? null})
     AND (${input.minSize ?? null} IS NULL OR coalesce(e.size,0)>=${input.minSize ?? null})
     AND (${input.maxSize ?? null} IS NULL OR coalesce(e.size,0)<=${input.maxSize ?? null})

@@ -1,3 +1,4 @@
+import { dispatchPlatformExtension } from "./platform-dispatch";
 import { searchInputSchema } from "./search-input";
 import { z } from "zod";
 import { pathSchema } from "@agfs/contracts";
@@ -33,50 +34,8 @@ export async function platformApi(request: Request): Promise<Response | null> {
     "/oauth/consent",
   ].includes(path);
   const auth = await requireRequestAuth(request, personal);
-  const renamed = await (
-    await import("./batch-rename-api")
-  ).batchRenameApi(request, auth, path);
-  if (renamed) return renamed;
-  const recent = await (
-    await import("./recent-files")
-  ).recentFilesApi(request, auth, path);
-  if (recent) return recent;
-  const library = await (
-    await import("./library-api")
-  ).libraryApi(request, auth, path);
-  if (library) return library;
-  const saved = await (
-    await import("./saved-searches-api")
-  ).savedSearchesApi(request, auth, path);
-  if (saved) return saved;
-  const notes = await (
-    await import("./file-notes-api")
-  ).fileNotesApi(request, auth, path);
-  if (notes) return notes;
-  const collections = await (
-    await import("./collections-api")
-  ).collectionsApi(request, auth, path);
-  if (collections) return collections;
-  const storage = await (
-    await import("./storage-insights-api")
-  ).storageInsightsApi(request, auth, path);
-  if (storage) return storage;
-  const duplicates = await (
-    await import("./duplicates-api")
-  ).duplicatesApi(request, auth, path);
-  if (duplicates) return duplicates;
-  const textFile = await (
-    await import("./text-files-api")
-  ).textFilesApi(request, auth, path);
-  if (textFile) return textFile;
-  const template = await (
-    await import("./templates-api")
-  ).templatesApi(request, auth, path);
-  if (template) return template;
-  const extra = await (
-    await import("./reliability-api")
-  ).reliabilityApi(request, auth, path);
-  if (extra) return extra;
+  const extension = await dispatchPlatformExtension(request, auth, path);
+  if (extension) return extension;
   if (path === "/oauth/consent" && method === "POST") {
     const input = await parseJson(
       request,

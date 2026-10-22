@@ -11,8 +11,9 @@ import {
 import { Select, SelectItem } from "~/components/ui/select";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, platform, useAction } from "./shared";
-import { parseCsv } from "~/lib/csv-inspector";
+import { Field, platform } from "./shared";
+import { useBrowserRead } from "~/lib/use-browser-read";
+import { parseCsv, prepareCsvSearch, filterCsvRows } from "~/lib/csv-inspector";
 export function CsvInspector() {
   const [path, setPath] = useState(""),
     [delimiter, setDelimiter] = useState(","),
@@ -23,26 +24,34 @@ export function CsvInspector() {
     [column, setColumn] = useState(-1),
     [page, setPage] = useState(0),
     [header, setHeader] = useState(true);
-  const action = useAction();
+  const action = useBrowserRead();
   const deferredQuery = useDeferredValue(query);
   const rows = loaded?.rows;
-  const { width, headers, filtered } = useMemo(() => {
+  const { width, headers, dataRows, irregular } = useMemo(() => {
     const source = rows ?? [];
     const width = source.reduce((n, row) => Math.max(n, row.length), 0);
     const headers = Array.from({ length: width }, (_, i) =>
       header ? source[0]?.[i] || `Column ${i + 1}` : `Column ${i + 1}`,
     );
-    const normalized = deferredQuery.toLowerCase();
-    const filtered = source
-      .slice(header ? 1 : 0)
-      .map((cells, index) => ({ cells, index: index + (header ? 2 : 1) }))
-      .filter((row) =>
-        (column < 0 ? row.cells : [row.cells[column] ?? ""]).some((cell) =>
-          cell.toLowerCase().includes(normalized),
-        ),
-      );
-    return { width, headers, filtered };
-  }, [rows, header, column, deferredQuery]);
+    return {
+      width,
+      headers,
+      dataRows: source.slice(header ? 1 : 0),
+      irregular: source.some((row) => row.length !== width),
+    };
+  }, [rows, header]);
+  const searchRows = useMemo(
+    () => prepareCsvSearch(dataRows, header ? 2 : 1),
+    [dataRows, header],
+  );
+  const filtered = useMemo(
+    () => filterCsvRows(searchRows, deferredQuery, column),
+    [searchRows, deferredQuery, column],
+  );
+  const exportRows = useMemo(
+    () => filtered.map((row) => row.cells),
+    [filtered],
+  );
   const pageCount = Math.max(1, Math.ceil(filtered.length / 50)),
     current = Math.min(page, pageCount - 1);
   return (
@@ -56,17 +65,23 @@ export function CsvInspector() {
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          void action.run(async () => {
-            setLoaded(null);
-            const file = await platform(
-              "/text?path=" + encodeURIComponent(path),
-            );
-            const rows = parseCsv(file.text, delimiter);
-            setLoaded({ path: file.path, rows });
-            setPage(0);
-            setColumn(-1);
-            setQuery("");
-          });
+          setLoaded(null);
+          void action.run(
+            (signal) =>
+              platform(
+                "/text?path=" + encodeURIComponent(path),
+                "GET",
+                undefined,
+                signal,
+              ),
+            (file) => {
+              const rows = parseCsv(file.text, delimiter);
+              setLoaded({ path: file.path, rows });
+              setPage(0);
+              setColumn(-1);
+              setQuery("");
+            },
+          );
         }}
       >
         <Field
@@ -90,6 +105,11 @@ export function CsvInspector() {
           </Select>
         </label>
         <Button disabled={action.busy}>Inspect CSV</Button>
+        {action.busy ? (
+          <Button type="button" variant="outline" onClick={action.cancel}>
+            Cancel loading CSV
+          </Button>
+        ) : null}
       </form>
       {action.error ? <p role="alert">{action.error}</p> : null}
       {loaded ? (
@@ -139,21 +159,18 @@ export function CsvInspector() {
             {filtered.length} matching rows · {width} columns · Page{" "}
             {current + 1} of {pageCount}
           </p>
-          {rows?.some((r) => r.length !== width) ? (
+          {irregular ? (
             <p className="text-sm">
               Rows have different column counts. Missing cells are shown empty.
             </p>
           ) : null}
           <CsvDownload
-            rows={filtered.map((r) => r.cells)}
+            rows={exportRows}
             page={current}
             headers={headers}
             hasHeader={header}
           />
-          <CsvProfile
-            rows={(rows ?? []).slice(header ? 1 : 0)}
-            headers={headers}
-          />
+          <CsvProfile rows={dataRows} headers={headers} />
           <Table scrollClassName="max-h-96" aria-label="CSV preview">
             <TableHeader>
               <TableRow>

@@ -18,6 +18,7 @@ import { requireResourceBindings } from "./bindings";
 import { getEntryByPath, createUploadIntent } from "./fs";
 import { storageUsageSql } from "./storage-usage";
 import { getStorageWriteDecisionForUser } from "./account";
+import { validateDraftPaths } from "./draft-preflight";
 export async function draft(auth: RequestAuth, id: string) {
   const item = await first(
     sql`SELECT * FROM draft_sets WHERE id=${id} AND owner_id=${auth.user.id}`,
@@ -159,22 +160,7 @@ export async function applyDraft(auth: RequestAuth, id: string) {
     size: number;
     etag: string;
   }[] = [];
-  for (const c of changes) {
-    authorize(auth, "write", c.path);
-    if (c.operation === "delete") authorize(auth, "delete", c.path);
-    const parent = getParentPath(c.path) ?? "/";
-    if (
-      parent !== "/" &&
-      (await getEntryByPath(auth.user.id, parent))?.kind !== "folder"
-    )
-      throw errorResponse(
-        409,
-        "Create the destination folder before applying the draft",
-      );
-    const live = await getEntryByPath(auth.user.id, c.path);
-    if (!!live !== !!c.base_exists || (live?.etag ?? null) !== c.base_etag)
-      throw errorResponse(409, `Conflict at ${c.path}; create a new draft`);
-  }
+  await validateDraftPaths(auth, changes);
   for (const c of changes.filter((c) => c.operation === "write")) {
     const bytes = new TextEncoder().encode(c.content ?? "");
     const intent = await createUploadIntent(auth.user, {
@@ -208,21 +194,18 @@ export async function applyDraft(auth: RequestAuth, id: string) {
   });
   if (!decision.allowed) throw errorResponse(403, decision.message);
   const guard = sql`EXISTS(SELECT 1 FROM draft_sets WHERE id=${id} AND apply_token=${nonce} AND status='applying')`;
-  const ready = prepared.map(
-    (p) =>
-      sql`EXISTS(SELECT 1 FROM uploads WHERE id=${p.uploadId} AND status='pending' AND expires_at>${at})`,
-  );
-  const parents = changes
+  const ready = JSON.stringify(prepared.map((p) => p.uploadId));
+  const parents = JSON.stringify([...new Set(changes
     .filter((c) => c.operation === "write")
-    .map(
-      (c) =>
-        sql`(${getParentPath(c.path)}='/' OR EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=${getParentPath(c.path)} AND kind='folder'))`,
-    );
+    .map((c) => getParentPath(c.path) ?? "/"))]);
   const statements = [
     sql`UPDATE draft_sets SET status='applying',apply_token=${nonce} WHERE id=${id} AND status='approved'
     AND NOT EXISTS(SELECT 1 FROM draft_changes c LEFT JOIN entries e ON e.owner_id=${auth.user.id} AND e.path=c.path WHERE c.draft_id=${id}
       AND ((c.base_exists=0 AND e.id IS NOT NULL) OR (c.base_exists=1 AND (e.id IS NULL OR e.etag IS NOT c.base_etag OR e.kind!='file'))))
-    AND (${ready.length ? sql.join(ready, sql` AND `) : sql`1`}) AND (${parents.length ? sql.join(parents, sql` AND `) : sql`1`})
+    AND NOT EXISTS(SELECT 1 FROM json_each(${ready}) p LEFT JOIN uploads u
+      ON u.id=p.value AND u.status='pending' AND u.expires_at>${at} WHERE u.id IS NULL)
+    AND NOT EXISTS(SELECT 1 FROM json_each(${parents}) p WHERE p.value!='/'
+      AND NOT EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=p.value AND kind='folder'))
     AND ${workspaceWriteSql(auth.user.id, actorId(auth), incoming)}
     AND (${auth.tokenId ?? null} IS NULL OR EXISTS(SELECT 1 FROM api_tokens WHERE id=${auth.tokenId ?? null} AND paused=0 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>${at}) AND (storage_limit IS NULL OR (SELECT coalesce(sum(size),0) FROM object_usage WHERE token_id=${auth.tokenId ?? null})+${incoming}<=storage_limit)))
     AND ${storageUsageSql(auth.user.id)}+${incoming}<=${decision.storageLimitBytes} RETURNING id`,

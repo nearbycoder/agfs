@@ -1,4 +1,5 @@
-export { mapConcurrent } from "./concurrency.js";
+import { mapConcurrent } from "./concurrency.js";
+export { mapConcurrent, mapConcurrentIterable } from "./concurrency.js";
 export type Permission = "read" | "write" | "delete" | "share" | "manage";
 export interface Entry {
   id: string;
@@ -28,6 +29,13 @@ export interface ClientOptions {
   fetch?: typeof fetch;
   retries?: number;
   signal?: AbortSignal;
+}
+export interface UploadOptions {
+  contentType?: string;
+  ifMatch?: string | null;
+  onProgress?: (bytes: number) => void;
+  /** Concurrent 8 MiB parts, from 1 to 8. Defaults to 3 for upload, 1 for custom sources. */
+  concurrency?: number;
 }
 export class AgfsError extends Error {
   constructor(
@@ -63,6 +71,8 @@ export class AgfsClient {
   readonly baseUrl: string;
   private readonly transport: typeof fetch;
   constructor(private options: ClientOptions) {
+    if (options.retries !== undefined && (!Number.isInteger(options.retries) || options.retries < 0 || options.retries > 5))
+      throw new Error("Retries must be an integer from 0 to 5");
     const base = new URL(options.baseUrl ?? "https://agfs.dev");
     if (
       base.username ||
@@ -83,17 +93,21 @@ export class AgfsClient {
     this.transport = options.fetch ?? fetch;
   }
   async request(path: string, init: RequestInit = {}): Promise<Response> {
+    const target = new URL(path, this.baseUrl);
     if (
       !path.startsWith("/api/v1/") ||
-      new URL(path, this.baseUrl).origin !== this.baseUrl
+      target.origin !== this.baseUrl ||
+      !target.pathname.startsWith("/api/v1/") ||
+      path.includes("\\") || target.hash
     )
       throw new Error("Invalid AGFS API path");
     init = { ...init, signal: init.signal ?? this.options.signal };
     init.signal?.throwIfAborted();
-    const method = init.method ?? "GET",
+    const method = (init.method ?? "GET").toUpperCase(),
       retries =
-        ["GET", "HEAD", "PUT"].includes(method) ||
-        new Headers(init.headers).has("idempotency-key")
+        !(init.body instanceof ReadableStream) &&
+        (["GET", "HEAD", "PUT"].includes(method) ||
+        new Headers(init.headers).has("idempotency-key"))
           ? Math.min(5, Math.max(0, this.options.retries ?? 2))
           : 0;
     for (let attempt = 0; ; attempt++) {
@@ -109,6 +123,7 @@ export class AgfsClient {
       try {
         response = await this.transport(this.baseUrl + path, {
           ...init,
+          method,
           headers,
           redirect: "error",
         });
@@ -345,11 +360,7 @@ export class AgfsClient {
   async upload(
     path: string,
     source: Uint8Array | Blob,
-    options: {
-      contentType?: string;
-      ifMatch?: string | null;
-      onProgress?: (bytes: number) => void;
-    } = {},
+    options: UploadOptions = {},
   ): Promise<Entry> {
     const blob =
       source instanceof Blob
@@ -362,7 +373,7 @@ export class AgfsClient {
         read: async (start, end) =>
           new Uint8Array(await blob.slice(start, end).arrayBuffer()),
       },
-      options,
+      { ...options, concurrency: options.concurrency ?? 3 },
     );
   }
   async uploadSource(
@@ -371,15 +382,85 @@ export class AgfsClient {
       size: number;
       read: (start: number, end: number) => Promise<Uint8Array>;
     },
-    options: {
-      contentType?: string;
-      ifMatch?: string | null;
-      onProgress?: (bytes: number) => void;
-    } = {},
+    options: UploadOptions = {},
+  ): Promise<Entry> {
+    return this.uploadFromSource(path, source, options);
+  }
+
+  /** Upload a one-shot byte stream without staging the whole file. Parts stay sequential. */
+  async uploadStream(
+    path: string,
+    stream: ReadableStream<Uint8Array>,
+    size: number,
+    options: Omit<UploadOptions, "concurrency"> = {},
+  ): Promise<Entry> {
+    if (!Number.isSafeInteger(size) || size < 0 || size > 20 * 1024 ** 3)
+      throw new Error("Invalid upload size");
+    this.options.signal?.throwIfAborted();
+    const reader = stream.getReader();
+    let position = 0, buffered: Uint8Array | undefined, offset = 0, ended = false;
+    const signal = this.options.signal;
+    const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
+    signal?.addEventListener("abort", abort, { once: true });
+    const nextChunk = async () => {
+      signal?.throwIfAborted();
+      const chunk = await reader.read();
+      signal?.throwIfAborted();
+      if (chunk.done) { ended = true; return undefined; }
+      if (!(chunk.value instanceof Uint8Array)) throw new Error("Expected a byte stream");
+      return chunk.value;
+    };
+    const verifyEnd = async () => {
+      if (buffered && offset < buffered.length) throw new Error("Upload stream size mismatch");
+      while (!ended) {
+        const chunk = await nextChunk();
+        if (chunk?.length) throw new Error("Upload stream size mismatch");
+      }
+    };
+    const read = async (start: number, end: number) => {
+      if (start !== position) throw new Error("Upload stream is not seekable");
+      const bytes = new Uint8Array(end - start);
+      let written = 0;
+      while (written < bytes.length) {
+        if (!buffered || offset === buffered.length) {
+          buffered = await nextChunk(); offset = 0;
+          if (!buffered) throw new Error("Upload stream size mismatch");
+        }
+        const length = Math.min(bytes.length - written, buffered.length - offset);
+        bytes.set(buffered.subarray(offset, offset + length), written);
+        offset += length; written += length;
+      }
+      position = end;
+      if (position === size) await verifyEnd();
+      return bytes;
+    };
+    try {
+      if (!size) await verifyEnd();
+      return await this.uploadFromSource(path, { size, read }, { ...options, concurrency: 1 }, async () => {
+        // A completing resume skips PUTs, but must still validate the supplied stream.
+        while (position < size) await read(position, Math.min(size, position + 8388608));
+        await verifyEnd();
+      });
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  }
+
+  private async uploadFromSource(
+    path: string,
+    source: { size: number; read: (start: number, end: number) => Promise<Uint8Array> },
+    options: UploadOptions,
+    beforeComplete?: () => Promise<void>,
   ): Promise<Entry> {
     const { size, read } = source,
-      contentType = options.contentType ?? "application/octet-stream";
-    if (!Number.isSafeInteger(size) || size < 0)
+      contentType = options.contentType ?? "application/octet-stream",
+      concurrency = options.concurrency ?? 1;
+    if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8)
+      throw new Error("Concurrency must be 1–8");
+    this.options.signal?.throwIfAborted();
+    if (!Number.isSafeInteger(size) || size < 0 || size > 20 * 1024 ** 3)
       throw new Error("Invalid upload size");
     if (size === 0) {
       const intent = await this.json<{
@@ -392,16 +473,23 @@ export class AgfsClient {
         contentType,
         ifMatch: options.ifMatch,
       });
-      if (new URL(intent.url).origin !== this.baseUrl)
-        throw new Error("Unexpected upload origin");
-      const response = await this.transport(intent.url, {
+      const uploadPath = `/api/v1/fs/uploads/${encodeURIComponent(intent.uploadId)}/blob`;
+      const advertisedUrl = new URL(intent.url);
+      if (!/^upl_[\w-]+$/.test(intent.uploadId) || advertisedUrl.username || advertisedUrl.password ||
+        advertisedUrl.pathname !== uploadPath || advertisedUrl.search || advertisedUrl.hash)
+        throw new Error("Unexpected upload capability");
+      // Canonical APP_URL aliases must not change where a capability is sent.
+      const uploadUrl = new URL(uploadPath, this.baseUrl);
+      const response = await this.transport(uploadUrl.href, {
         method: "PUT",
         headers: intent.headers,
         body: new Uint8Array(),
         redirect: "error",
         signal: this.options.signal,
       });
+      await response.body?.cancel();
       if (!response.ok) throw new AgfsError(response.status, "Upload failed");
+      await beforeComplete?.();
       return (
         await this.json<{ entry: Entry }>(
           "/fs/uploads/" + encodeURIComponent(intent.uploadId) + "/commit",
@@ -410,9 +498,12 @@ export class AgfsClient {
         )
       ).entry;
     }
-    // Hash a bounded first chunk for lookup; every resumed part is re-read and hashed below.
-    const first = await read(0, Math.min(size, 8388608)),
-      fingerprint = size + ":" + (await digest(first));
+    // The fingerprint and first part share the same byte snapshot and digest.
+    let first: Uint8Array | undefined = await read(0, Math.min(size, 8388608));
+    if (first.length !== Math.min(size, 8388608))
+      throw new Error("Local file changed during upload");
+    const firstDigest = await digest(first),
+      fingerprint = size + ":" + firstDigest;
     const state = await this.json<{
       uploadId: string;
       partSize: number;
@@ -425,28 +516,44 @@ export class AgfsClient {
       fingerprint,
       ifMatch: options.ifMatch,
     });
-    if (state.partSize !== 8388608 || !/^upl_[\w-]+$/.test(state.uploadId))
+    const partCount = Math.ceil(size / 8388608);
+    if (state.partSize !== 8388608 || !/^upl_[\w-]+$/.test(state.uploadId) ||
+      !["pending", "completing"].includes(state.status) || !Array.isArray(state.parts) || state.parts.length > partCount)
       throw new Error("Invalid upload response");
-    if (state.status !== "completing")
-      for (
-        let start = 0, part = 1;
-        start < size;
-        start += state.partSize, part++
-      ) {
+    const completed = new Map<number, string>();
+    for (const part of state.parts) {
+      if (!part || !Number.isInteger(part.partNumber) || part.partNumber < 1 || part.partNumber > partCount ||
+        typeof part.digest !== "string" || !/^[a-f0-9]{64}$/.test(part.digest) || completed.has(part.partNumber))
+        throw new Error("Invalid upload response");
+      completed.set(part.partNumber, part.digest);
+    }
+    let transferred = 0;
+    if (state.status !== "completing") {
+      await mapConcurrent(Array.from({ length: partCount }, (_, index) => index + 1), concurrency, async (part) => {
+        const start = (part - 1) * state.partSize;
         const end = Math.min(size, start + state.partSize),
-          bytes = await read(start, end);
+          bytes = part === 1 ? first! : await read(start, end);
+        if (part === 1) first = undefined;
         if (bytes.length !== end - start)
           throw new Error("Local file changed during upload");
+        this.options.signal?.throwIfAborted();
         if (
-          state.parts.find((p) => p.partNumber === part)?.digest !==
-          (await digest(bytes))
-        )
-          await this.request(
+          completed.get(part) !== (part === 1 ? firstDigest : await digest(bytes))
+        ) {
+          const response = await this.request(
             `/api/v1/fs/resumable/${state.uploadId}/parts/${part}`,
             { method: "PUT", body: bytes as Uint8Array<ArrayBuffer> },
           );
-        options.onProgress?.(end);
-      }
+          await response.body?.cancel();
+        }
+        transferred += bytes.length;
+        options.onProgress?.(transferred);
+      }, this.options.signal);
+    }
+    // Completing resumes skip the workers that normally release this snapshot.
+    // Do not retain it while a stream's completion hook reads later parts.
+    first = undefined;
+    await beforeComplete?.();
     return (
       await this.json<{ entry: Entry }>(
         `/fs/resumable/${state.uploadId}/complete`,

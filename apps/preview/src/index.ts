@@ -18,7 +18,9 @@ export default {
       return new Response("Not found", { status: 404, headers });
     const ticket = await verifyTicket(url.searchParams.get("ticket") ?? "", env.PREVIEW_SIGNING_SECRET);
     if (!ticket) return new Response("Preview expired. Open a new preview from AGFS.", { status: 403, headers });
-    const object = await env.FILES_BUCKET.get(ticket.key);
+    const object = await (request.method === "HEAD"
+      ? env.FILES_BUCKET.head(ticket.key)
+      : env.FILES_BUCKET.get(ticket.key));
     if (!object) return new Response("File not found", { status: 404, headers });
     headers.set("content-type", ticket.type);
     headers.set("content-length", String(object.size));
@@ -26,6 +28,6 @@ export default {
       "content-disposition",
       `inline; filename*=UTF-8''${encodeURIComponent(ticket.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`)}`,
     );
-    return new Response(request.method === "HEAD" ? null : object.body, { headers });
+    return new Response("body" in object ? (object as R2ObjectBody).body : null, { headers });
   },
 };

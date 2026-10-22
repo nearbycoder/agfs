@@ -4,6 +4,7 @@ import { first, rows } from "./platform-db";
 import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { errorResponse } from "./http";
+import { forEachConcurrent } from "./server-concurrency";
 export function webhookUrl(input: string) {
   const url = new URL(input);
   if (
@@ -86,15 +87,15 @@ export async function deliverWebhooks(id?: string) {
   const pending =
     await rows(sql`SELECT d.id FROM webhook_deliveries d JOIN webhooks w ON w.id=d.webhook_id
     WHERE (${id ?? null} IS NULL OR d.id=${id ?? null}) AND d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1 ORDER BY d.next_attempt LIMIT 20`);
-  for (const item of pending) {
+  await forEachConcurrent(pending, 3, async (item) => {
     const claimed =
       await first(sql`UPDATE webhook_deliveries SET status='sending',attempts=attempts+1,next_attempt=${Date.now() + 60000}
       WHERE id=${item.id} AND status IN ('pending','sending') AND next_attempt<=${at} RETURNING *`);
-    if (!claimed) continue;
+    if (!claimed) return;
     const hook = await first(
       sql`SELECT * FROM webhooks WHERE id=${claimed.webhook_id} AND enabled=1`,
     );
-    if (!hook) continue;
+    if (!hook) return;
     let status: number | null = null,
       error: string | null = null;
     try {
@@ -125,18 +126,21 @@ export async function deliverWebhooks(id?: string) {
         },
         body: claimed.payload,
       });
-      await rows(
-        sql`UPDATE webhooks SET last_used_at=${Date.now()} WHERE id=${hook.id}`,
-      );
-      status = response.status;
-      await response.body?.cancel();
-      if (!response.ok) error = "Endpoint returned HTTP " + status;
+      try {
+        await rows(
+          sql`UPDATE webhooks SET last_used_at=${Date.now()} WHERE id=${hook.id}`,
+        );
+        status = response.status;
+        if (!response.ok) error = "Endpoint returned HTTP " + status;
+      } finally {
+        await response.body?.cancel();
+      }
     } catch {
       error = "Delivery failed or timed out";
     }
     await rows(sql`UPDATE webhook_deliveries SET status=${!error ? "delivered" : claimed.attempts >= 8 ? "failed" : "pending"},last_status=${status},last_error=${error},
       next_attempt=${Date.now() + Math.min(86400000, 60000 * 2 ** claimed.attempts)} WHERE id=${item.id} AND status='sending' AND attempts=${claimed.attempts}`);
-  }
+  });
   return pending.length;
 }
 export async function retryWebhook(auth: RequestAuth, id: string) {

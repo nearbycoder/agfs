@@ -18,8 +18,14 @@ export function resolvePointer(
   root: JsonValue,
   pointer: string,
 ): { found: true; value: JsonValue } | { found: false } {
+  return resolvePointerSegments(root, pointerSegments(pointer));
+}
+export function resolvePointerSegments(
+  root: JsonValue,
+  segments: readonly string[],
+): { found: true; value: JsonValue } | { found: false } {
   let current = root;
-  for (const segment of pointerSegments(pointer)) {
+  for (const segment of segments) {
     if (
       current === null ||
       typeof current !== "object" ||

@@ -1,5 +1,5 @@
 import { parseExactJson, JsonNumber, type JsonValue } from "./lossless-json";
-export function jsonlRecords(text: string) {
+export function jsonlRecords(text: string, retainValues = true) {
   if (new TextEncoder().encode(text).length > 262144)
     throw new Error("JSONL input exceeds 256 KiB.");
   const lines = text.split(/\r?\n/);
@@ -23,9 +23,10 @@ export function jsonlRecords(text: string) {
         {
           line: index + 1,
           raw,
+          search: raw.toLowerCase(),
           level,
           error: "",
-          value: value as JsonValue | null,
+          value: retainValues ? (value as JsonValue) : null,
         },
       ];
     } catch (e) {
@@ -33,6 +34,7 @@ export function jsonlRecords(text: string) {
         {
           line: index + 1,
           raw,
+          search: raw.toLowerCase(),
           level: "invalid",
           error: e instanceof Error ? e.message : "Invalid JSON",
           value: null,
@@ -48,8 +50,6 @@ export function filterJsonl(
 ) {
   const needle = query.trim().toLowerCase();
   return records.filter(
-    (r) =>
-      (level === null || r.level === level) &&
-      r.raw.toLowerCase().includes(needle),
+    (r) => (level === null || r.level === level) && r.search.includes(needle),
   );
 }

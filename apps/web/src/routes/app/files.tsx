@@ -1,19 +1,21 @@
 import { AdvancedSettings } from "~/components/ui/advanced-settings";
-import { runInputSelection } from "~/lib/run-workflows";
 // @ts-nocheck
-import { ReleaseHandoff } from "~/components/platform/ReleaseHandoff";
-import { DirectoryExport } from "~/components/platform/DirectoryExport";
-import { SelectionClipboard } from "~/components/platform/SelectionClipboard";
-import { GoToFolder } from "~/components/platform/GoToFolder";
 import { FileProperties } from "~/components/platform/FileProperties";
 import { Select, SelectItem } from "~/components/ui/select";
-import { directoryView, type DirectorySort } from "~/lib/directory-view";
+import {
+  prepareDirectory,
+  filterDirectory,
+  type DirectorySort,
+} from "~/lib/directory-view";
 import { ActionMenu, ActionMenuItem } from "~/components/ui/action-menu";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { LoadingState, DetailSurface } from "~/components/platform/shared";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   startTransition,
+  lazy,
+  Suspense,
+  useDeferredValue,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -60,12 +62,21 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/ui/table";
-import { FolderUpload } from "~/components/platform/FolderUpload";
 import { FolderReadme } from "~/components/platform/FolderReadme";
-import { BatchRename } from "~/components/platform/BatchRename";
 import { formatBytes } from "~/lib/format";
 import { NOINDEX_ROBOTS, buildSeoHead, pageTitle } from "~/lib/seo";
 import { cn } from "~/lib/utils";
+
+const FileSelectionTools = lazy(() =>
+  import("~/components/platform/FileSelectionTools").then((m) => ({
+    default: m.FileSelectionTools,
+  })),
+);
+const FileAdvancedTools = lazy(() =>
+  import("~/components/platform/FileAdvancedTools").then((m) => ({
+    default: m.FileAdvancedTools,
+  })),
+);
 
 export const Route = createFileRoute("/app/files")({
   validateSearch: (search: Record<string, unknown>): { path?: string } => ({
@@ -213,23 +224,38 @@ function FilesPage() {
     ];
   }, [path]);
 
-  const folderCount = entries.filter((entry) => entry.kind === "folder").length;
-  const fileCount = entries.filter((entry) => entry.kind === "file").length;
-  const totalBytes = entries.reduce((sum, entry) => sum + (entry.size ?? 0), 0);
+  const prepared = useMemo(
+    () => prepareDirectory(entries, sort),
+    [entries, sort],
+  );
+  const { folderCount, fileCount, totalBytes } = prepared;
+  const deferredQuery = useDeferredValue(query);
+  const filtering = deferredQuery !== query;
   const matchingEntries = useMemo(
-    () => directoryView(entries, query, kindFilter, sort),
-    [entries, query, kindFilter, sort],
+    () => filterDirectory(prepared, deferredQuery, kindFilter),
+    [prepared, deferredQuery, kindFilter],
   );
   const pages = Math.max(1, Math.ceil(matchingEntries.length / 100));
   const currentPage = Math.min(page, pages - 1);
-  const pageEntries = matchingEntries.slice(
-    currentPage * 100,
-    currentPage * 100 + 100,
+  const pageEntries = useMemo(
+    () => matchingEntries.slice(currentPage * 100, currentPage * 100 + 100),
+    [matchingEntries, currentPage],
   );
+  const selected = useMemo(() => new Set(selectedPaths), [selectedPaths]);
+  const selectedEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) => entry.kind === "file" && selected.has(entry.path),
+      ),
+    [entries, selected],
+  );
+  const propertyEntry = propertyPath
+    ? prepared.byPath.get(propertyPath)
+    : undefined;
   const visibleFiles = pageEntries.filter((entry) => entry.kind === "file");
   const allVisibleFilesSelected =
     visibleFiles.length > 0 &&
-    visibleFiles.every((entry) => selectedPaths.includes(entry.path));
+    visibleFiles.every((entry) => selected.has(entry.path));
 
   async function mutate(action: () => Promise<void>) {
     setIsBusy(true);
@@ -344,8 +370,7 @@ function FilesPage() {
     await mutate(async () => {
       for (const file of Array.from(files)) {
         const remotePath = joinPath(path, file.name);
-        const ifMatch =
-          entries.find((entry) => entry.path === remotePath)?.etag ?? null;
+        const ifMatch = prepared.byPath.get(remotePath)?.etag ?? null;
         if (file.size > 0) {
           await uploadResumable({
             path: remotePath,
@@ -669,47 +694,36 @@ function FilesPage() {
         </Alert>
       ) : null}
 
-      {entries.find((e) => e.path === propertyPath) ? (
+      {propertyEntry ? (
         <FileProperties
           key={propertyPath}
-          entry={entries.find((e) => e.path === propertyPath)!}
+          entry={propertyEntry}
           onClose={() => {
-            const entry = entries.find((e) => e.path === propertyPath);
             setPropertyPath(null);
-            if (entry)
-              document.getElementById("file-menu-" + entry.id)?.focus();
+            document.getElementById("file-menu-" + propertyEntry.id)?.focus();
           }}
         />
       ) : null}
       <div hidden={!selectedPaths.length}>
         <AdvancedSettings
+          lazy
           title="Selection tools"
           summary={`${selectedPaths.length} selected · Copy paths, rename files, or prepare a handoff`}
         >
-          <Button variant="outline" disabled={isBusy || selectedPaths.length > 50} onClick={() => {
-            try { const inputs = runInputSelection(selectedPaths); window.location.assign("/app/runs?" + new URLSearchParams({ inputs, folder: path })); }
-            catch (e) { setError(e instanceof Error ? e.message : "Could not prepare run inputs"); }
-          }}>Start agent run with {selectedPaths.length} selected inputs</Button>
-          <ReleaseHandoff
-            entries={entries.filter(
-              (e) => e.kind === "file" && selectedPaths.includes(e.path),
-            )}
-            onSaved={() => refreshEntries(path)}
-          />
-          {selectedPaths.length ? (
-            <SelectionClipboard paths={selectedPaths} />
-          ) : null}
-          {selectedPaths.length ? (
-            <BatchRename
-              entries={entries.filter(
-                (e) => e.kind === "file" && selectedPaths.includes(e.path),
-              )}
-              onComplete={async () => {
+          <Suspense fallback={<LoadingState label="Opening selection tools" />}>
+            <FileSelectionTools
+              entries={selectedEntries}
+              paths={selectedPaths}
+              folder={path}
+              busy={isBusy}
+              onError={setError}
+              onSaved={() => refreshEntries(path)}
+              onRenamed={async () => {
                 await refreshEntries(path);
                 setSelectedPaths([]);
               }}
             />
-          ) : null}
+          </Suspense>
         </AdvancedSettings>
       </div>
       <Card className="directory-card">
@@ -762,6 +776,7 @@ function FilesPage() {
             {matchingEntries.length}{" "}
             {matchingEntries.length === 1 ? "item" : "items"}
             {selectedPaths.length ? ` · ${selectedPaths.length} selected` : ""}
+            {filtering ? " · Filtering…" : ""}
           </p>
           {loading ? (
             <LoadingState label="Loading folder" />
@@ -777,13 +792,18 @@ function FilesPage() {
               </p>
             </div>
           ) : (
-            <Table className="file-table" aria-label="Directory contents">
+            <Table
+              className="file-table"
+              aria-label="Directory contents"
+              aria-busy={filtering}
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-14">
                     <input
                       aria-label="Select all files on this page"
                       checked={allVisibleFilesSelected}
+                      disabled={filtering}
                       className="size-4 rounded border-input accent-primary"
                       onChange={toggleSelectAll}
                       type="checkbox"
@@ -799,13 +819,14 @@ function FilesPage() {
                 {pageEntries.map((entry) => (
                   <TableRow
                     key={entry.id}
-                    data-selected={selectedPaths.includes(entry.path)}
+                    data-selected={selected.has(entry.path)}
                   >
                     <TableCell>
                       {entry.kind === "file" ? (
                         <input
                           aria-label={`Select ${entry.name}`}
-                          checked={selectedPaths.includes(entry.path)}
+                          checked={selected.has(entry.path)}
+                          disabled={filtering}
                           className="size-4 rounded border-input accent-primary"
                           onChange={() => toggleSelection(entry.path)}
                           type="checkbox"
@@ -997,7 +1018,7 @@ function FilesPage() {
             >
               <Button
                 variant="outline"
-                disabled={currentPage === 0}
+                disabled={filtering || currentPage === 0}
                 onClick={() => setPage(currentPage - 1)}
               >
                 Previous entries
@@ -1007,7 +1028,7 @@ function FilesPage() {
               </span>
               <Button
                 variant="outline"
-                disabled={currentPage + 1 >= pages}
+                disabled={filtering || currentPage + 1 >= pages}
                 onClick={() => setPage(currentPage + 1)}
               >
                 Next entries
@@ -1019,23 +1040,21 @@ function FilesPage() {
       <div className="grid gap-5">
         <FolderReadme entries={entries} />
         <AdvancedSettings
+          lazy
           title="Advanced file tools"
           summary="Open a folder by path, upload a folder, or export a file listing."
         >
-          <GoToFolder path={path} onNavigate={setPath} />
-          <FolderUpload
-            destination={path}
-            onComplete={async () => {
-              await refreshEntries(path);
-            }}
-          />{" "}
-          {!loading ? (
-            <DirectoryExport
+          <Suspense fallback={<LoadingState label="Opening file tools" />}>
+            <FileAdvancedTools
               entries={matchingEntries}
               page={pageEntries}
               folder={path}
+              loading={loading}
+              filtering={filtering}
+              onNavigate={setPath}
+              onComplete={() => refreshEntries(path)}
             />
-          ) : null}
+          </Suspense>
         </AdvancedSettings>
       </div>
     </div>
