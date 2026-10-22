@@ -6,6 +6,7 @@ import { uploads } from "@agfs/db";
 import { db } from "~/lib/db";
 import { handleRouteError } from "~/lib/http";
 import { putObject } from "~/lib/r2";
+import { reconcileDirectUpload } from "~/lib/resource-controls-uploads";
 
 export const Route = createFileRoute("/api/v1/fs/uploads/$id/blob")({
   server: {
@@ -34,7 +35,15 @@ export const Route = createFileRoute("/api/v1/fs/uploads/$id/blob")({
             return new Response("Content-Length must match upload intent", { status: 400 });
           }
           const body = request.body ?? (await request.arrayBuffer());
-          const result = await putObject(upload.objectKey, body, upload.contentType);
+          let result, stillAvailable = true;
+          try {
+            result = await putObject(upload.objectKey, body, upload.contentType);
+          } finally {
+            // Immutable key captured before streaming: expiry cleanup may have
+            // deleted the reservation while this PUT was still in progress.
+            stillAvailable = await reconcileDirectUpload(upload.id, upload.objectKey);
+          }
+          if (!stillAvailable) return new Response("Upload abandoned or expired", { status: 409 });
           if (!result) return new Response("Upload already received", { status: 409 });
           const headers = new Headers({ "cache-control": "no-store" });
           if (result.etag) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Copy, Download, Save } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -7,15 +7,25 @@ import { saveBrowserText } from "~/lib/browser-text";
 import { downloadText } from "~/lib/download-text";
 import { useAction } from "./shared";
 import type { AgentOutput as Output } from "~/lib/agent-tool-runner";
+export type OutputSaveState = {
+  busy: boolean;
+  notice?: string;
+  error?: string;
+};
 export function AgentOutput({
   result,
   allowSave = true,
+  contentType,
+  onSaveStateChange,
 }: {
   result: Output;
   allowSave?: boolean;
+  contentType?: string;
+  onSaveStateChange?: (state: OutputSaveState) => void;
 }) {
   const action = useAction(),
     [destination, setDestination] = useState("");
+  const saving = useRef(false);
   return (
     <section className="agent-output" aria-label="Generated output">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -43,7 +53,9 @@ export function AgentOutput({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => downloadText(result.filename, result.output)}
+            onClick={() =>
+              downloadText(result.filename, result.output, contentType)
+            }
           >
             <Download data-icon="inline-start" />
             Download
@@ -64,18 +76,38 @@ export function AgentOutput({
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (saving.current) return;
             void action.run(async () => {
-              if (!destination.startsWith("/"))
-                throw new Error("Use an absolute destination path.");
-              await saveBrowserText(
-                destination,
-                result.output,
-                null,
-                result.filename.endsWith(".json")
-                  ? "application/json"
-                  : "text/plain",
-              );
-              action.setNotice("Created " + destination);
+              saving.current = true;
+              onSaveStateChange?.({ busy: true });
+              let completion: OutputSaveState = { busy: false };
+              try {
+                if (!destination.startsWith("/"))
+                  throw new Error("Use an absolute destination path.");
+                await saveBrowserText(
+                  destination,
+                  result.output,
+                  null,
+                  contentType ??
+                    (result.filename.endsWith(".json")
+                      ? "application/json"
+                      : "text/plain"),
+                );
+                action.setNotice("Created " + destination);
+                completion = { busy: false, notice: "Created " + destination };
+              } catch (error) {
+                completion = {
+                  busy: false,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Could not create file.",
+                };
+                throw error;
+              } finally {
+                saving.current = false;
+                onSaveStateChange?.(completion);
+              }
             });
           }}
         >

@@ -1,8 +1,21 @@
 import { AdvancedSettings } from "~/components/ui/advanced-settings";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Page, Field, platform, useAction, useData, Empty } from "./shared";
+import {
+  Page,
+  Field,
+  platform,
+  useAction,
+  useData,
+  Empty,
+  LoadingState,
+} from "./shared";
+const ResourceControls = lazy(() =>
+  import("./OperationsControls").then((m) => ({
+    default: m.OperationsControls,
+  })),
+);
 export function OperationsPage() {
   const action = useAction(),
     snapshots = useData("/snapshots", "snapshots"),
@@ -14,31 +27,30 @@ export function OperationsPage() {
     [days, setDays] = useState("30"),
     [restore, setRestore] = useState<any>(null),
     [confirmation, setConfirmation] = useState("");
+  const healthRequest = useRef<AbortController | null>(null);
   const refresh = async () => {
+    healthRequest.current?.abort();
+    const request = new AbortController();
+    healthRequest.current = request;
     setHealthError("");
     setHealthLoading(true);
     try {
-      setHealth(await platform("/health"));
+      const value = await platform("/health", "GET", undefined, request.signal);
+      if (!request.signal.aborted) setHealth(value);
+    } catch (error) {
+      if (!request.signal.aborted) {
+        setHealthError(
+          error instanceof Error ? error.message : "Could not load health",
+        );
+        throw error;
+      }
     } finally {
-      setHealthLoading(false);
+      if (!request.signal.aborted) setHealthLoading(false);
     }
   };
   useEffect(() => {
-    const c = new AbortController();
-    platform("/health", "GET", undefined, c.signal)
-      .then((value) => {
-        if (!c.signal.aborted) setHealth(value);
-      })
-      .catch((error) => {
-        if (!c.signal.aborted)
-          setHealthError(
-            error instanceof Error ? error.message : "Could not load health",
-          );
-      })
-      .finally(() => {
-        if (!c.signal.aborted) setHealthLoading(false);
-      });
-    return () => c.abort();
+    void refresh().catch(() => {});
+    return () => healthRequest.current?.abort();
   }, []);
   return (
     <Page
@@ -67,7 +79,7 @@ export function OperationsPage() {
               ],
               ["Index backlog", health.indexing.pending],
               [
-                "Active alerts",
+                "Unresolved alerts",
                 health.alerts.filter((a: any) => !a.resolved_at).length,
               ],
             ].map(([label, value]) => (
@@ -78,7 +90,7 @@ export function OperationsPage() {
             ))}
           </div>
           {health.alerts
-            .filter((a: any) => !a.resolved_at)
+            .filter((a: any) => !a.resolved_at && a.visible !== 0)
             .map((a: any) => (
               <p
                 key={a.id}
@@ -161,16 +173,26 @@ export function OperationsPage() {
               <Button
                 variant="outline"
                 disabled={action.busy}
-                onClick={() =>
-                  void action.run(async () => {
-                    await platform("/search/reindex", "POST", {});
-                    await refresh();
-                    action.setNotice("Files queued for reindexing.");
-                  })
-                }
+                onClick={() => {
+                  const target = document.getElementById(
+                    "operations-resource-controls",
+                  );
+                  if (target instanceof HTMLDetailsElement) {
+                    target.open = true;
+                    target.scrollIntoView({
+                      block: "start",
+                      behavior: "smooth",
+                    });
+                    target.querySelector("summary")?.focus();
+                  }
+                }}
               >
-                Reindex workspace
+                Open scoped reindex controls
               </Button>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Connect resource controls, then open Search & indexing to
+                preview a bounded reindex page before applying it.
+              </p>
             </Disclosure>
           </AdvancedSettings>
           {health.expiringCredentials.length ? (
@@ -198,6 +220,25 @@ export function OperationsPage() {
             : "Health is unavailable. Owner access is required; refresh to try again."}
         </p>
       )}
+      <Disclosure lazy id="operations-resource-controls">
+        <DisclosureSummary>
+          <span>
+            <span className="block font-semibold">
+              Resource controls & planning
+            </span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              Manage indexing, background work, upload reservations, budgets,
+              retention, metrics and alert attention.
+            </span>
+          </span>
+        </DisclosureSummary>
+        <Suspense fallback={<LoadingState label="Opening resource controls" />}>
+          <ResourceControls
+            alerts={health?.alerts ?? []}
+            refreshHealth={refresh}
+          />
+        </Suspense>
+      </Disclosure>
       <section className="space-y-4 border-t pt-6">
         <h2 className="text-lg font-semibold">Snapshots</h2>
         <p className="text-sm text-muted-foreground">

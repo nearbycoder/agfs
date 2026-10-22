@@ -14,12 +14,18 @@ export function searchTerms(input: string) {
     .map((t) => '"' + t.replaceAll('"', '""') + '"*')
     .join(" AND ");
 }
-export async function indexFiles(limit = 20, entryId?: string) {
+export async function indexFiles(limit = 20, entryId?: string, generation?: number) {
   const jobs = await rows(
-    sql`SELECT e.*,CASE WHEN d.indexed_at>0 AND d.content_verified=1 THEN 1 ELSE 0 END AS reusable
+    sql`SELECT e.*,r.generation AS job_generation,coalesce(p.index_mode,'content') AS index_mode,coalesce(p.max_text_bytes,1048576) AS max_text_bytes,
+      coalesce(p.revision,0) AS policy_revision,CASE WHEN d.indexed_at>0 AND d.content_verified=1
+        AND coalesce(p.index_mode,'content')='content'
+        AND (coalesce(p.max_text_bytes,1048576)=1048576 OR length(CAST(d.content AS BLOB))<=p.max_text_bytes) THEN 1 ELSE 0 END AS reusable
       FROM index_jobs j JOIN index_job_status s ON s.entry_id=j.entry_id JOIN entries e ON e.id=j.entry_id
+      JOIN resource_work r ON r.kind='index' AND r.id=j.entry_id
       LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key
-      WHERE (${entryId ?? null} IS NULL OR e.id=${entryId ?? null}) AND s.next_attempt<=${Date.now()}
+      LEFT JOIN resource_policies p ON p.owner_id=e.owner_id
+      WHERE ${entryId ? sql`e.id=${entryId}` : sql`true`} AND s.next_attempt<=${Date.now()} AND coalesce(p.indexing_paused,0)=0
+        AND (${generation ?? null} IS NULL OR r.generation=${generation ?? null})
       ORDER BY s.queued_at LIMIT ${Math.min(20, Math.max(0, Math.trunc(limit) || 0))}`,
   );
   // Only three bodies are retained at a time. Writes stay serial, with the existing
@@ -27,19 +33,19 @@ export async function indexFiles(limit = 20, entryId?: string) {
   for (let offset = 0; offset < jobs.length; offset += 3) {
     const wave = await Promise.all(jobs.slice(offset, offset + 3).map(async (e) => {
       try {
-        const readable = e.kind === "file" && e.size <= 1048576 &&
+        const readable = e.index_mode === "content" && e.kind === "file" && e.size <= e.max_text_bytes &&
           /^(text\/|application\/(json|xml|javascript|x-yaml))/.test(e.content_type ?? "");
         e.reusable = e.reusable && readable ? 1 : 0;
         let content = "", verified = e.reusable;
         if (!e.reusable && readable) {
           const object = await requireResourceBindings("FILES_BUCKET").FILES_BUCKET.get(e.r2_key);
-          if (object && object.size <= 1048576) {
+          if (object && object.size <= e.max_text_bytes) {
             content = await object.text();
             // Invalid UTF-8 expands to replacement characters when decoded. Bound
             // the stored UTF-8, not just R2's original bytes, before a D1 binding.
             // encodeInto never splits a code point; valid <=1 MiB text is intact.
-            if (content.length > Math.floor(1048576 / 3)) {
-              const { read } = new TextEncoder().encodeInto(content, new Uint8Array(1048576));
+            if (content.length > Math.floor(e.max_text_bytes / 3)) {
+              const { read } = new TextEncoder().encodeInto(content, new Uint8Array(e.max_text_bytes));
               content = content.slice(0, read);
             }
             verified = 1;
@@ -55,24 +61,28 @@ export async function indexFiles(limit = 20, entryId?: string) {
       const { e } = result;
       try {
         if (result.failed) throw result.error;
+        const policyGuard = sql`coalesce((SELECT revision FROM resource_policies WHERE owner_id=${e.owner_id}),0)=${e.policy_revision}
+          AND NOT EXISTS(SELECT 1 FROM resource_policies WHERE owner_id=${e.owner_id} AND indexing_paused=1)
+          AND EXISTS(SELECT 1 FROM resource_work WHERE kind='index' AND id=${e.id} AND generation=${e.job_generation})`;
         // Reuse text inside SQL, so even matching 1 MiB documents never cross D1
         // into the Worker. A tags-only placeholder (indexed_at=0) cannot be reused.
         await atomicBatch([
           sql`INSERT INTO search_documents(entry_id,object_key,content,indexed_at,content_verified)
             SELECT e.id,e.r2_key,CASE WHEN ${e.reusable}=1 THEN d.content ELSE ${result.content} END,${Date.now()},${result.verified}
             FROM entries e LEFT JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key AND d.indexed_at>0 AND d.content_verified=1
-            WHERE e.id=${e.id} AND e.r2_key IS ${e.r2_key} AND (${e.reusable}=0 OR d.entry_id IS NOT NULL)
+            WHERE e.id=${e.id} AND e.owner_id=${e.owner_id} AND e.r2_key IS ${e.r2_key} AND (${e.reusable}=0 OR d.entry_id IS NOT NULL) AND ${policyGuard}
             ON CONFLICT(entry_id) DO UPDATE SET object_key=excluded.object_key,content=excluded.content,indexed_at=excluded.indexed_at,content_verified=excluded.content_verified`,
-          sql`DELETE FROM file_search WHERE entry_id=${e.id}`,
+          sql`DELETE FROM file_search WHERE entry_id=${e.id} AND ${policyGuard}`,
           sql`INSERT INTO file_search(entry_id,name,content,tags) SELECT e.id,e.name,d.content,d.tags FROM entries e
-            JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key WHERE e.id=${e.id}`,
+            JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key WHERE e.id=${e.id} AND e.owner_id=${e.owner_id} AND ${policyGuard}`,
           sql`DELETE FROM index_jobs WHERE entry_id=${e.id} AND EXISTS(SELECT 1 FROM entries e
             JOIN search_documents d ON d.entry_id=e.id AND d.object_key IS e.r2_key AND d.indexed_at>0
-            WHERE e.id=${e.id} AND e.r2_key IS ${e.r2_key} AND e.updated_at=${e.updated_at})`,
+            WHERE e.id=${e.id} AND e.owner_id=${e.owner_id} AND e.r2_key IS ${e.r2_key} AND e.updated_at=${e.updated_at}) AND ${policyGuard}`,
         ]);
       } catch (error) {
         await rows(
-          sql`UPDATE index_job_status SET attempts=attempts+1,last_error='Object could not be indexed',next_attempt=${Date.now() + 60000} WHERE entry_id=${e.id}`,
+          sql`UPDATE index_job_status SET attempts=attempts+1,last_error='Object could not be indexed',next_attempt=${Date.now() + 60000} WHERE entry_id=${e.id}
+            AND EXISTS(SELECT 1 FROM resource_work WHERE kind='index' AND id=${e.id} AND generation=${e.job_generation})`,
         );
         if (entryId) throw error;
         console.error("Search indexing will retry", e.id, error instanceof Error ? error.name : "error");

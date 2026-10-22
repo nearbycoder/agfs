@@ -53,3 +53,50 @@ saved = agfs.download_file('/reports/stream.bin', 'downloads/stream.bin',
 ```
 
 This disk API currently requires POSIX directory-descriptor and no-follow support; unsupported platforms raise `NotImplementedError` without writing a file. Paths containing `..` are rejected before absolute-path normalization; this includes `link/../file`. Parent directories are created with private permissions. Traversal, staging and replacement are anchored to directory descriptors; symlink parents/destinations and special files are refused, and existing hard links are replaced without truncating their targets. Before creating content, the opened staging directory must belong to the effective user and grant no group/other permissions. The staged source must still be the same regular inode written by this call before rename. Cleanup preserves preexisting content when O_EXCL creation fails and substituted parent-directory entries. After successful creation, cleanup may remove a replacement at the staging content name. These private-directory checks do not isolate a process from another process with the same UID or full user authority. It is atomic visibility, not an fsync durability guarantee or a multi-file transaction. The existing portable `download()` streaming response remains available on all supported Python platforms. A response without `Content-Length` is read until EOF; the API cannot detect a short remote body without an advertised length.
+
+## Automation helpers
+
+These portable, standard-library-only functions are exported from `agfs_sdk`. They are shared capabilities with the TypeScript/CLI workflows, not extra language-specific features.
+
+```python
+from agfs_sdk import (
+    read_lines, read_json_lines, stage_draft, with_run,
+    verify_webhook, diagnose_error, WorkflowError,
+)
+
+rows = read_lines(agfs, '/reports/job.log', max_bytes=8388608, max_line_bytes=65536)
+try:
+    for row in rows:
+        consume(row['text'])
+        save_checkpoint(row['checkpoint'])  # after accepting the complete line
+finally:
+    rows.close()  # required when stopping early
+
+for row in read_json_lines(agfs, '/reports/data.jsonl', max_records=10000):
+    consume(row['value'])
+
+draft = stage_draft(agfs, {
+    'name': 'Review notes', 'path': '/reports',
+    'changes': [{'path': '/reports/notes.txt', 'operation': 'write', 'content': 'Ready'}],
+})
+run = with_run(agfs, 'Summarize', '/reports', lambda run: produce_artifacts(run['id']))
+
+valid = verify_webhook(secret, exact_raw_body_bytes,
+                       timestamp=timestamp_header, signature=signature_header)
+```
+
+`read_lines(..., checkpoint=saved)` resumes at the emitted byte offset with a pinned ETag. Each call performs one bounded parent listing and one byte-range GET; resume requests one extra preceding byte to validate an LF boundary. Strict UTF-8 decoding handles split code points, strips CR only in CRLF, and preserves final unterminated lines. Default limits are 8 MiB requested bytes, 64 KiB per line and 100,000 lines; maxima are 1 GiB, 1 MiB and 1,000,000 respectively. It retains one bounded line plus one 64 KiB read chunk. A changed ETag raises `AgfsError(412, ...)`; ignored/truncated ranges and forged line boundaries fail. Limits raise `ResourceLimitError`; resume from the last accepted checkpoint instead of assuming complete input. Python synchronous HTTP calls retain the client's existing 30-second request timeout; this release does not add a Python cancellation/deadline scope. Explicitly close a generator when ending consumption early.
+
+`read_json_lines` adds JSON validation and exact error line numbers. Blank/malformed/non-finite records fail, JSON null stays `None`, and Python's normal JSON integer/float representation applies. `validate=` can apply an application schema. Default maximum records is 10,000. Save checkpoints only after processing; exactly-once side effects require application-owned atomic processing and checkpoint persistence.
+
+A supplied line/JSONL checkpoint must be a plain `dict` containing `version`, `origin`, `path`, `etag`, `offset`, and `line`. All fields are validated and copied before transport; missing offset or line never defaults to a fresh read. Integer fields reject booleans/floats. Offset and line must be both zero or both positive, with line no greater than byte offset. ETags are nonempty bounded strings without control characters. Omit the checkpoint or pass `None` for a fresh read. Valid EOF checkpoints only revalidate file metadata.
+
+`stage_draft` validates every one of 1–30 unique, path-confined changes before making requests, then creates and stages sequentially. It never approves or applies. Content uses the server's 8,192 UTF-16-code-unit limit. A partial failure raises `WorkflowError` with `resource_id`, `completed`, and the original exception as its cause. Inspect the draft before retrying; it is not a multi-request transaction.
+
+`with_run` invokes the callback exactly once and completes only on success. Callback/completion failure retains the run ID and cause in `WorkflowError`. It never polls or creates a replacement run automatically. A lost completion response can leave a completed run, so inspect before retrying.
+
+After acknowledged creation, `stage_draft` and `with_run` also preserve Ctrl+C as `WorkflowError` with the original `KeyboardInterrupt` in `__cause__`; `diagnose_error` returns `cancelled`/exit 130 and all known IDs and confirmed progress in `resources`. Honor that exit code or re-raise the original interrupt after recording recovery information. No callback or completion is retried. `SystemExit` remains the **same native exception with the same code**, annotated with `resource_id`, `completed`, and `resources`; process termination continues normally. Its diagnostic category is `terminated` with Python's exit-code semantics (`None` → 0, integer unchanged, noninteger → 1). An interrupt before a creation response is acknowledged has no invented recovery ID. Other programming errors keep their original classifications; `GeneratorExit` is not wrapped.
+
+Diagnostics traverse nested causes iteratively with cycle detection, retaining the underlying category/status and every acknowledged resource ID rather than stopping after a fixed number of wrappers. Helpers supply each resource's `kind`; manually constructed `WorkflowError` records may omit it. Duplicate IDs keep the largest confirmed count. Cancellation and termination remain authoritative even if they have another exception as their cause. The traversal makes zero requests and uses memory proportional to the supplied cause chain and distinct recovery records.
+
+`verify_webhook` checks exact raw `bytes`, a bounded timestamp window (default ±300 seconds, maximum 3,600), and one or two comma-separated `v1=` signatures used during key rotation. Every candidate uses `hmac.compare_digest`; no cloud request occurs. Default body limit is 1 MiB (maximum 8 MiB); signature headers over 160 characters fail. Deduplicate event IDs yourself: signatures/timestamps do not prevent replay inside the permitted window. `diagnose_error` provides the same category/status/retryability/exit-code vocabulary as TypeScript, with partial-workflow recovery fields.

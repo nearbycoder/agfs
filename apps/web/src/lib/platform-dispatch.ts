@@ -6,6 +6,7 @@ type Loader = () => Promise<Handler>;
 // Match before importing: unrelated handlers must not enter the cold request path.
 // Modules are code only; authentication and authorization still run on every request.
 const extensions: Array<[RegExp, Loader]> = [
+  [/^\/operations\//, async () => (await import("./resource-controls-api")).resourceControlsApi],
   [/^\/batch-rename$/, async () => (await import("./batch-rename-api")).batchRenameApi],
   [/^\/recent-files$/, async () => (await import("./recent-files")).recentFilesApi],
   [/^\/favorites$/, async () => (await import("./library-api")).libraryApi],

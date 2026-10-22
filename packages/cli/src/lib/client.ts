@@ -4,7 +4,7 @@ import { lstat, stat, open } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { lookup as lookupMime } from "mime-types";
-import { mapConcurrent } from "@agfs/sdk";
+import { AgfsError, mapConcurrent } from "@agfs/sdk";
 import {
   uploadResumable,
   accountSummarySchema,
@@ -75,7 +75,7 @@ export class AgfsClient {
     });
 
     if (!response.ok) {
-      throw new Error(await parseError(response));
+      throw new AgfsError(response.status, await parseError(response));
     }
 
     return response;

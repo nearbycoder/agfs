@@ -158,7 +158,7 @@ async function fetchRequest(
           }
           if (response.ok && context?.action) {
             try {
-              await (await import("./lib/background")).dispatchBackground();
+              if (context.auth) await (await import("./lib/background")).dispatchBackground(context.auth.user.id);
             } catch {
               console.error("Background dispatch deferred to cron");
             }
@@ -188,11 +188,10 @@ export default {
           await (await import("./lib/webhooks")).deliverWebhooks();
         }
         await (await import("./lib/operations")).evaluateHealth();
-        if (
+        await (await import("./lib/cleanup")).cleanupExpired(
           controller.cron === "17 * * * *" ||
-          new Date(controller.scheduledTime).getUTCMinutes() === 17
-        )
-          await (await import("./lib/cleanup")).cleanupExpired();
+          new Date(controller.scheduledTime).getUTCMinutes() === 17,
+        );
       })(),
     );
   },

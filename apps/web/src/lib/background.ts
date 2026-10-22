@@ -1,29 +1,9 @@
 import { sql } from "drizzle-orm";
-import { getBindings } from "./bindings";
 import { rows } from "./platform-db";
-export async function dispatchBackground() {
-  const queue = getBindings().BACKGROUND_QUEUE;
-  if (!queue) return;
-  const at = Date.now();
-  // Database rows are the durable outbox. A lost queue send is retried by the cron dispatcher.
-  await rows(
-    sql`INSERT INTO queue_outbox(id,kind,created_at) SELECT j.entry_id,'index',${at} FROM index_jobs j JOIN index_job_status s ON s.entry_id=j.entry_id WHERE s.next_attempt<=${at} ON CONFLICT(id) DO UPDATE SET dispatched_at=CASE WHEN queue_outbox.dispatched_at<${at - 60000} THEN NULL ELSE queue_outbox.dispatched_at END`,
-  );
-  await rows(
-    sql`INSERT INTO queue_outbox(id,kind,created_at) SELECT d.id,'webhook',${at} FROM webhook_deliveries d JOIN webhooks w ON w.id=d.webhook_id WHERE d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1 ON CONFLICT(id) DO UPDATE SET dispatched_at=CASE WHEN queue_outbox.dispatched_at<${at - 60000} THEN NULL ELSE queue_outbox.dispatched_at END`,
-  );
-  const pending = await rows(
-    sql`SELECT id,kind FROM queue_outbox WHERE dispatched_at IS NULL ORDER BY created_at LIMIT 50`,
-  );
-  if (!pending.length) return;
-  // The selection is capped at 50 small messages. Resolve durable delivery
-  // before marking any of them dispatched; a failure leaves every row retryable.
-  await queue.sendBatch(pending.map((item) => ({ body: item })));
-  await rows(sql`UPDATE queue_outbox SET dispatched_at=${at}
-    WHERE id IN (SELECT value FROM json_each(${JSON.stringify(pending.map((item) => item.id))}))`);
-}
+import { atomicBatch } from "./atomic-batch";
+export { dispatchResourceWork as dispatchBackground } from "./resource-controls-background";
 export async function consumeBackground(
-  batch: MessageBatch<{ id: string; kind: string }>,
+  batch: MessageBatch<{ id: string; kind: string; generation?: number }>,
 ) {
   for (const message of batch.messages) {
     const item = message.body;
@@ -35,26 +15,37 @@ export async function consumeBackground(
       message.ack();
       continue;
     }
+    // New messages bind to a logical job generation. Old pre-migration queue
+    // messages remain accepted; stale new messages cannot exhaust newer work.
+    if (item.generation !== undefined) {
+      if (!Number.isSafeInteger(item.generation) || !(await rows(sql`SELECT 1 FROM resource_work WHERE kind=${item.kind} AND id=${item.id} AND generation=${item.generation}`)).length) {
+        message.ack(); continue;
+      }
+    }
     if (batch.queue.endsWith("-dead")) {
-      await rows(
-        sql`INSERT INTO queue_failures VALUES(${item.id},${item.kind},${Date.now()},'Queue retries exhausted') ON CONFLICT(id) DO UPDATE SET created_at=excluded.created_at`,
-      );
-      await rows(sql`DELETE FROM queue_outbox WHERE id=${item.id}`);
-      if (item.kind === "index")
-        await rows(
-          sql`UPDATE index_job_status SET last_error='Queue retries exhausted; reindex to retry',next_attempt=9007199254740991 WHERE entry_id=${item.id}`,
-        );
-      else
-        await rows(
-          sql`UPDATE webhook_deliveries SET status='failed',last_error='Queue retries exhausted' WHERE id=${item.id}`,
-        );
+      // A legacy message has no generation proof. Record its diagnostic, but
+      // never retire whatever newer source work now happens to use that ID.
+      if (item.generation === undefined) {
+        await rows(sql`INSERT INTO queue_failures(id,kind,created_at,last_error) VALUES(${item.id},${item.kind},${Date.now()},'Legacy queue retries exhausted; current work retained')
+          ON CONFLICT(id) DO UPDATE SET created_at=excluded.created_at,last_error=excluded.last_error`);
+        message.ack(); continue;
+      }
+      const guard = sql`EXISTS(SELECT 1 FROM resource_work WHERE kind=${item.kind} AND id=${item.id} AND (${item.generation ?? null} IS NULL OR generation=${item.generation ?? null}))`;
+      await atomicBatch([
+        sql`INSERT INTO queue_failures(id,kind,created_at,last_error) SELECT ${item.id},${item.kind},${Date.now()},'Queue retries exhausted' WHERE ${guard}
+          ON CONFLICT(id) DO UPDATE SET created_at=excluded.created_at`,
+        item.kind === "index"
+          ? sql`UPDATE index_job_status SET attempts=max(attempts,1),last_error='Queue retries exhausted; reindex to retry',next_attempt=9007199254740991 WHERE entry_id=${item.id} AND ${guard}`
+          : sql`UPDATE webhook_deliveries SET status='failed',last_error='Queue retries exhausted' WHERE id=${item.id} AND status IN ('pending','sending') AND ${guard}`,
+        sql`DELETE FROM queue_outbox WHERE id=${item.id}`,
+      ]);
       message.ack();
       continue;
     }
     try {
       if (item.kind === "index")
-        await (await import("./search")).indexFiles(1, item.id);
-      else await (await import("./webhooks")).deliverWebhooks(item.id);
+        await (await import("./search")).indexFiles(1, item.id, item.generation);
+      else await (await import("./webhooks")).deliverWebhooks(item.id, item.generation);
       await rows(sql`DELETE FROM queue_outbox WHERE id=${item.id}`);
       message.ack();
     } catch {

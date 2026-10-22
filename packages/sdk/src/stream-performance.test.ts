@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { AgfsClient, mapConcurrentIterable } from "./index";
 const deferred = () => { let resolve!: () => void; const promise = new Promise<void>((r) => { resolve = r; }); return { promise, resolve }; };
 const collect = async <T>(items: AsyncIterable<T>) => { const result: T[] = []; for await (const item of items) result.push(item); return result; };
@@ -89,7 +90,7 @@ it.each(["short", "extra", "error"])("never completes a %s stream and releases i
 });
 
 it("validates completing resumes and zero-byte streams before a commit", async () => {
-  const f = clientFixture("completing");
+  const f = clientFixture("completing", [{ partNumber: 1, digest: createHash("sha256").update(new Uint8Array(PART)).digest("hex") }, { partNumber: 2, digest: "0".repeat(64) }]);
   await expect(f.client.uploadStream("/stream", byteStream([new Uint8Array(PART)]), PART + 1)).rejects.toThrow("size mismatch");
   expect(f.calls.some((p) => p.endsWith("/complete"))).toBe(false);
   const empty = clientFixture();

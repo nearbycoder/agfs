@@ -136,21 +136,22 @@ describe("#42 health read batch", () => {
 });
 
 describe("#43 bounded health evaluation", () => {
-  it("processes 102 owners with seven calls and fixed bindings, preserving active alert identities", async () => {
+  it("processes 102 owners in two bounded turns with fixed bindings, preserving active alert identities", async () => {
     const minute = Math.floor(Date.now() / 60000);
     const metric = fixture.sqlite.prepare("INSERT INTO operation_metrics VALUES(?,?,'api',10,5,0,50000)");
     for (let i = 0; i < 101; i++) metric.run(`owner-${String(i).padStart(3, "0")}`, minute);
     fixture.sqlite.exec("INSERT INTO health_alerts VALUES('old','bob','indexing','Old backlog',1,NULL)");
     await evaluateHealth();
-    expect(fixture.trips).toBe(7); expect(fixture.batches).toEqual([2, 2, 1, 2]);
-    expect(Math.max(...fixture.calls.map((call) => call.params.length))).toBeLessThanOrEqual(3);
+    await evaluateHealth();
+    expect(fixture.trips).toBe(8); expect(fixture.batches).toEqual([6, 6]);
+    expect(Math.max(...fixture.calls.map((call) => call.params.length))).toBeLessThanOrEqual(4);
     const alerts = fixture.sqlite.prepare("SELECT id,owner_id,kind,created_at FROM health_alerts WHERE resolved_at IS NULL ORDER BY id").all();
     expect(alerts).toHaveLength(202);
     expect(fixture.sqlite.prepare("SELECT resolved_at FROM health_alerts WHERE id='old'").get()!.resolved_at).toBeTypeOf("number");
     await evaluateHealth();
     expect(fixture.sqlite.prepare("SELECT id,owner_id,kind,created_at FROM health_alerts WHERE resolved_at IS NULL ORDER BY id").all()).toEqual(alerts);
     fixture.sqlite.exec("DELETE FROM operation_metrics");
-    await evaluateHealth();
+    await evaluateHealth(); await evaluateHealth();
     expect(fixture.sqlite.prepare("SELECT count(*) AS n FROM health_alerts WHERE resolved_at IS NULL").get()!.n).toBe(0);
   });
   it("honors custom thresholds and the ten-request minimum", async () => {
@@ -179,18 +180,18 @@ describe("#43 bounded health evaluation", () => {
     const alert = fixture.sqlite.prepare("INSERT INTO health_alerts VALUES(?,?,'errors','old alert',1,NULL)");
     for (let i = 0; i < 301; i++) alert.run(`alert-${i}`, `active-${String(i).padStart(4, "0")}`);
     await evaluateHealth();
-    expect(fixture.calls.filter((call) => call.query.includes("health-source-availability"))).toHaveLength(1);
+    for (let turn = 1; turn < 4; turn++) await evaluateHealth();
+    expect(fixture.calls.filter((call) => call.query.includes("health-source-availability"))).toHaveLength(0);
     expect(fixture.calls.filter((call) => /health-source-(metrics|indexing)/.test(call.query))).toHaveLength(0);
     const evaluations = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation"));
     expect(evaluations).toHaveLength(4);
-    expect(evaluations.flatMap((call) => JSON.parse(call.params[1] as string))).toHaveLength(301);
+    expect(new Set(evaluations.flatMap((call) => JSON.parse(call.params[1] as string).map((r: any) => r.owner_id))).size).toBe(302);
     expect(fixture.sqlite.prepare("SELECT count(*) AS n FROM health_alerts WHERE resolved_at IS NULL").get()!.n).toBe(0);
     for (const call of evaluations) {
       const plan = fixture.plan(call.query, call.params);
       expect(plan).toContain("sqlite_autoindex_operation_metrics_1 (owner_id=? AND minute>?)");
-      expect(plan).toContain("webhooks_owner_enabled_idx (owner_id=?)");
-      expect(plan).toContain("sqlite_autoindex_webhook_deliveries_2 (webhook_id=?)");
-      expect(plan).toContain("index_job_owners_owner_entry_idx (owner_id=?)");
+      expect(plan).toContain("sqlite_autoindex_resource_webhook_counts_1 (owner_id=? AND status=?)");
+      expect(plan).toContain("sqlite_autoindex_resource_index_counts_1 (owner_id=?)");
       expect(plan).not.toContain("entries_owner_path_idx");
       expect(plan).not.toContain("operation_metrics_minute_idx");
       expect(plan).not.toContain("delivery_pending_idx");
@@ -201,10 +202,10 @@ describe("#43 bounded health evaluation", () => {
     const metric = fixture.sqlite.prepare("INSERT INTO operation_metrics VALUES(?,?,'api',10,0,0,1)");
     const alert = fixture.sqlite.prepare("INSERT INTO health_alerts VALUES(?,?,'errors','old',1,NULL)");
     for (const owner of owners) { metric.run(owner, Math.floor(Date.now() / 60000)); alert.run(owner, owner); }
-    await evaluateHealth();
-    const evaluated = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation")).flatMap((call) => JSON.parse(call.params[1] as string));
+    await evaluateHealth(); await evaluateHealth(); await evaluateHealth();
+    const evaluated = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation")).flatMap((call) => JSON.parse(call.params[1] as string).map((r: any) => r.owner_id));
     const expected = fixture.sqlite.prepare("SELECT DISTINCT owner_id FROM operation_metrics ORDER BY owner_id").all().map((row) => row.owner_id);
-    expect(evaluated).toEqual(expected);
+    expect(new Set(evaluated)).toEqual(new Set(expected));
     expect(new Set(evaluated).size).toBe(owners.length);
   });
   it("evaluates 5,000 owners once across 50 pages with equivalent alert decisions", async () => {
@@ -222,13 +223,13 @@ describe("#43 bounded health evaluation", () => {
       if (requests >= 10 && duration / requests >= latencyLimit) expected.push({ owner_id: owner, kind: "latency" });
     }
     fixture.sqlite.exec("ANALYZE");
-    await evaluateHealth();
+    for (let turn = 0; turn < 50; turn++) await evaluateHealth();
     const evaluations = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation"));
     expect(evaluations).toHaveLength(50);
     expect(evaluations.every((call) => JSON.parse(call.params[1] as string).length === 100)).toBe(true);
-    expect(new Set(evaluations.flatMap((call) => JSON.parse(call.params[1] as string))).size).toBe(5000);
-    expect(fixture.calls.filter((call) => call.query.includes("health-source-metrics"))).toHaveLength(51);
-    expect(fixture.trips).toBe(152);
+    expect(new Set(evaluations.flatMap((call) => JSON.parse(call.params[1] as string).map((r: any) => r.owner_id))).size).toBe(5000);
+    expect(fixture.calls.filter((call) => call.query.includes("health-source-metrics"))).toHaveLength(0);
+    expect(fixture.trips).toBe(200);
     expect(fixture.sqlite.prepare("SELECT owner_id,kind FROM health_alerts WHERE resolved_at IS NULL ORDER BY owner_id,kind").all()).toEqual(expected);
   });
   it("does not restart a nonempty metric source over an old suffix while jobs and alerts supply later pages", async () => {
@@ -243,10 +244,11 @@ describe("#43 bounded health evaluation", () => {
     }
     fixture.sqlite.exec("ANALYZE");
     await evaluateHealth();
-    expect(fixture.calls.filter((call) => call.query.includes("health-source-metrics"))).toHaveLength(1);
-    expect(fixture.calls.filter((call) => call.query.includes("health-source-indexing"))).toHaveLength(6);
-    const evaluated = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation")).flatMap((call) => JSON.parse(call.params[1] as string));
-    expect(evaluated).toHaveLength(501); expect(new Set(evaluated).size).toBe(501);
+    for (let turn = 1; turn < 6; turn++) await evaluateHealth();
+    expect(fixture.calls.filter((call) => call.query.includes("health-source-metrics"))).toHaveLength(0);
+    expect(fixture.calls.filter((call) => call.query.includes("health-source-indexing"))).toHaveLength(0);
+    const evaluated = fixture.calls.filter((call) => call.query.includes("health-owner-evaluation")).flatMap((call) => JSON.parse(call.params[1] as string).map((r: any) => r.owner_id));
+    expect(evaluated.length).toBeLessThanOrEqual(600); expect(new Set(evaluated).size).toBe(501);
     expect(fixture.sqlite.prepare("SELECT count(*) AS n FROM health_alerts WHERE resolved_at IS NULL").get()!.n).toBe(0);
   });
 });
@@ -295,10 +297,10 @@ describe("#43 maintained index-job owner lookup", () => {
     fixture.sqlite.exec("INSERT INTO health_thresholds VALUES('alice',10,1,2000),('bob',10,1,2000); ANALYZE");
     await evaluateHealth();
     expect(fixture.sqlite.prepare("SELECT owner_id,kind FROM health_alerts WHERE resolved_at IS NULL").all()).toEqual([{ owner_id: "bob", kind: "indexing" }]);
-    const source = fixture.calls.find((call) => call.query.includes("health-source-indexing"))!;
+    const source = fixture.calls.find((call) => call.query.startsWith("SELECT owner_id,revision FROM resource_health_queue"))!;
     const evaluation = fixture.calls.find((call) => call.query.includes("health-owner-evaluation"))!;
-    expect(fixture.plan(source.query, source.params)).toContain("index_job_owners_owner_entry_idx (owner_id>?)");
-    expect(fixture.plan(evaluation.query, evaluation.params)).toContain("index_job_owners_owner_entry_idx (owner_id=?)");
+    expect(fixture.plan(source.query, source.params)).toContain("resource_health_due (due_at<?)");
+    expect(fixture.plan(evaluation.query, evaluation.params)).toContain("sqlite_autoindex_resource_index_counts_1");
     expect(fixture.plan(source.query, source.params)).not.toContain("entries");
     expect(fixture.plan(evaluation.query, evaluation.params)).not.toContain("entries");
   });
@@ -327,13 +329,14 @@ describe("#46, #48, #51, #54 indexed workloads", () => {
   });
   it.each([
     ["object_pins", "expires_at", "object_pins_expiry_idx"],
-    ["change_log", "created_at", "change_log_expiry_idx"],
+    // The narrower rowid-tie index also serves this legacy first-page query.
+    ["change_log", "created_at", "change_log_expiry_idx|cleanup_change_expiry"],
     ["operation_metrics", "minute", "operation_metrics_minute_idx"],
     ["queue_outbox", "created_at", "queue_outbox_created_idx"],
     ["webhook_deliveries", "created_at", "webhook_deliveries_created_idx"],
     ["activity", "created_at", "activity_created_idx"],
   ])("seeks the %s retention boundary", (table, column, index) => {
-    expect(fixture.plan(`SELECT rowid FROM ${table} WHERE ${column}<? LIMIT 1000`, [100])).toContain(`USING COVERING INDEX ${index}`);
+    expect(fixture.plan(`SELECT rowid FROM ${table} WHERE ${column}<? LIMIT 1000`, [100])).toMatch(new RegExp(`SEARCH ${table} USING COVERING INDEX (${index}) \\(${column}<\\?\\)`));
   });
   it("fans out only to the current owner's enabled hooks using the index", () => {
     const insert = fixture.sqlite.prepare("INSERT INTO webhooks(id,owner_id,url,path_prefix,events,secret,created_at,enabled) VALUES(?,?,'https://hooks.agfs.dev','/allowed','[\"upload.commit\"]','secret',1,?)");

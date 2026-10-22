@@ -253,3 +253,4 @@ export type UploadIntent = z.infer<typeof uploadIntentSchema>;
 export type ApiTokenRecord = z.infer<typeof apiTokenRecordSchema>;
 export type ShareLinkRecord = z.infer<typeof shareLinkRecordSchema>;
 export { uploadResumable } from "./upload";
+export * from "./operations";

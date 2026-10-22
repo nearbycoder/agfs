@@ -82,18 +82,25 @@ export async function setWebhook(
   );
   return { ok: true };
 }
-export async function deliverWebhooks(id?: string) {
+export async function deliverWebhooks(id?: string, generation?: number) {
   const at = Date.now();
   const pending =
-    await rows(sql`SELECT d.id FROM webhook_deliveries d JOIN webhooks w ON w.id=d.webhook_id
-    WHERE (${id ?? null} IS NULL OR d.id=${id ?? null}) AND d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1 ORDER BY d.next_attempt LIMIT 20`);
+    await rows(sql`SELECT d.id,r.generation FROM webhook_deliveries d JOIN webhooks w ON w.id=d.webhook_id
+      JOIN resource_work r ON r.kind='webhook' AND r.id=d.id
+    WHERE ${id ? sql`d.id=${id}` : sql`true`} AND d.status IN ('pending','sending') AND d.next_attempt<=${at} AND w.enabled=1
+      AND (${generation ?? null} IS NULL OR r.generation=${generation ?? null})
+      AND NOT EXISTS(SELECT 1 FROM resource_policies p WHERE p.owner_id=w.owner_id AND p.webhooks_paused=1) ORDER BY d.next_attempt LIMIT 20`);
   await forEachConcurrent(pending, 3, async (item) => {
     const claimed =
       await first(sql`UPDATE webhook_deliveries SET status='sending',attempts=attempts+1,next_attempt=${Date.now() + 60000}
-      WHERE id=${item.id} AND status IN ('pending','sending') AND next_attempt<=${at} RETURNING *`);
+      WHERE id=${item.id} AND status IN ('pending','sending') AND next_attempt<=${at}
+        AND EXISTS(SELECT 1 FROM resource_work WHERE kind='webhook' AND id=${item.id} AND generation=${item.generation})
+        AND NOT EXISTS(SELECT 1 FROM webhooks w JOIN resource_policies p ON p.owner_id=w.owner_id WHERE w.id=webhook_deliveries.webhook_id AND p.webhooks_paused=1) RETURNING *`);
     if (!claimed) return;
     const hook = await first(
-      sql`SELECT * FROM webhooks WHERE id=${claimed.webhook_id} AND enabled=1`,
+      sql`SELECT * FROM webhooks WHERE id=${claimed.webhook_id} AND enabled=1
+        AND EXISTS(SELECT 1 FROM resource_work WHERE kind='webhook' AND id=${item.id} AND generation=${item.generation})
+        AND NOT EXISTS(SELECT 1 FROM resource_policies p WHERE p.owner_id=webhooks.owner_id AND p.webhooks_paused=1)`,
     );
     if (!hook) return;
     let status: number | null = null,
@@ -139,7 +146,8 @@ export async function deliverWebhooks(id?: string) {
       error = "Delivery failed or timed out";
     }
     await rows(sql`UPDATE webhook_deliveries SET status=${!error ? "delivered" : claimed.attempts >= 8 ? "failed" : "pending"},last_status=${status},last_error=${error},
-      next_attempt=${Date.now() + Math.min(86400000, 60000 * 2 ** claimed.attempts)} WHERE id=${item.id} AND status='sending' AND attempts=${claimed.attempts}`);
+      next_attempt=${Date.now() + Math.min(86400000, 60000 * 2 ** claimed.attempts)} WHERE id=${item.id} AND status='sending' AND attempts=${claimed.attempts}
+        AND EXISTS(SELECT 1 FROM resource_work WHERE kind='webhook' AND id=${item.id} AND generation=${item.generation})`);
   });
   return pending.length;
 }

@@ -7,6 +7,7 @@ import { errorResponse } from "./http";
 import { readUploadPart } from "./upload-body";
 import { requireResourceBindings } from "./bindings";
 import { commitUpload, createUploadIntent } from "./fs";
+import { reconcileDirectUpload } from "./resource-controls-uploads";
 
 export const PART_SIZE = 8 * 1024 * 1024;
 export const MAX_UPLOAD_SIZE = 20_000_000_000;
@@ -167,20 +168,27 @@ export async function completeMultipart(auth: RequestAuth, id: string) {
     parts.reduce((sum, p) => sum + p.size, 0) !== row.size
   )
     throw errorResponse(409, "Upload still has missing parts");
-  await db
+  const claimed = await db
     .update(uploads)
     .set({ status: "completing" })
-    .where(and(eq(uploads.id, id), eq(uploads.status, "pending")));
+    .where(and(eq(uploads.id, id), eq(uploads.ownerId, auth.user.id),
+      eq(uploads.objectKey, row.objectKey), eq(uploads.path, row.path),
+      sql`${uploads.expiresAt}>${Date.now()}`, sql`${uploads.status} IN ('pending','completing')`))
+    .returning({ id: uploads.id });
+  if (!claimed.length) throw errorResponse(409, "Upload expired, abandoned, or changed");
   const { FILES_BUCKET } = requireResourceBindings("FILES_BUCKET");
-  let object = await FILES_BUCKET.head(row.objectKey);
-  if (!object)
-    object = await FILES_BUCKET.resumeMultipartUpload(
-      row.objectKey,
-      row.multipartId!,
-    ).complete(parts);
-  return {
-    entry: await commitUpload(auth.user, id, object.etag ?? "uploaded"),
-  };
+  try {
+    let object = await FILES_BUCKET.head(row.objectKey);
+    if (!object)
+      object = await FILES_BUCKET.resumeMultipartUpload(
+        row.objectKey,
+        row.multipartId!,
+      ).complete(parts);
+    return { entry: await commitUpload(auth.user, id, object.etag ?? "uploaded") };
+  } finally {
+    // Expiry cleanup can race an already claimed finalization as well as a PUT.
+    await reconcileDirectUpload(id, row.objectKey);
+  }
 }
 export async function abortMultipart(auth: RequestAuth, id: string) {
   const row = await authorizeUpload(auth, id);
