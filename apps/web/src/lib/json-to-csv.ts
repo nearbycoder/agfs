@@ -30,23 +30,23 @@ export function jsonToCsv(value: JsonValue, delimiter = ",") {
   if (!headers.length)
     throw new Error("No object fields are available to export.");
   let cells = 0;
-  const rows = value.map((record) =>
-    headers.map((key) => {
-      const v = (record as { [key: string]: JsonValue })[key];
-      const text =
-        v === undefined
-          ? ""
-          : typeof v === "string"
-            ? v
-            : stringifyExactJson(v);
-      cells += new TextEncoder().encode(text).length + 3;
-      if (cells > 1048576) throw new Error("CSV output exceeds 1 MiB.");
-      return text;
-    }),
-  );
-  return {
-    text: exportCsv([headers, ...rows], delimiter),
-    rows: rows.length,
-    headers,
-  };
+  const encoder = new TextEncoder();
+  function* rows() {
+    yield headers;
+    for (const record of value as { [key: string]: JsonValue }[]) {
+      yield headers.map((key) => {
+        const v = record[key];
+        const text =
+          v === undefined
+            ? ""
+            : typeof v === "string"
+              ? v
+              : stringifyExactJson(v);
+        cells += encoder.encode(text).length + 3;
+        if (cells > 1048576) throw new Error("CSV output exceeds 1 MiB.");
+        return text;
+      });
+    }
+  }
+  return { text: exportCsv(rows(), delimiter), rows: value.length, headers };
 }

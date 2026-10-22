@@ -28,19 +28,25 @@ export async function fileNotesApi(
           }),
         );
   authorize(auth, request.method === "GET" ? "read" : "write", input.path);
+  if (request.method === "GET") {
+    const row = await first(
+      sql`SELECT e.id,e.path,n.body,n.revision,n.updated_at AS updatedAt,n.actor_id AS author
+        FROM entries e LEFT JOIN entry_notes n ON n.entry_id=e.id AND n.owner_id=e.owner_id
+        WHERE e.owner_id=${auth.user.id} AND e.path=${input.path}`,
+    );
+    if (!row) throw errorResponse(404, "File or folder not found");
+    return json({
+      entry: { id: row.id, path: row.path },
+      canEdit: canAccess(auth, "write", input.path),
+      note: row.revision === null ? null : {
+        body: row.body, revision: row.revision, updatedAt: row.updatedAt, author: row.author,
+      },
+    });
+  }
   const entry = await first(
     sql`SELECT id,path FROM entries WHERE owner_id=${auth.user.id} AND path=${input.path}`,
   );
   if (!entry) throw errorResponse(404, "File or folder not found");
-  if (request.method === "GET")
-    return json({
-      entry,
-      canEdit: canAccess(auth, "write", input.path),
-      note:
-        (await first(
-          sql`SELECT body,revision,updated_at AS updatedAt,actor_id AS author FROM entry_notes WHERE entry_id=${entry.id} AND owner_id=${auth.user.id}`,
-        )) ?? null,
-    });
   if (request.method === "PUT" && "body" in input) {
     if (input.entryId !== entry.id)
       throw errorResponse(

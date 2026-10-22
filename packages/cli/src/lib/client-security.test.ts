@@ -8,7 +8,76 @@ import { writeDownloadFile } from "./safe-download";
 const roots: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
+});
+
+it("rejects unsafe credential origins and prevents API redirects", async () => {
+  for (const base of ["http://example.com", "https://user:pass@agfs.dev", "https://agfs.dev/path", "https://agfs.dev?token=x"])
+    expect(() => new AgfsClient(base, "fixture")).toThrow("HTTPS origin");
+  const transport = vi.fn(async (_url: string, _init?: RequestInit) => Response.json({}));
+  vi.stubGlobal("fetch", transport);
+  const client = new AgfsClient("https://agfs.dev", "fixture");
+  for (const route of ["//evil.example/api/v1/", "/api/v1/../../admin", "/api/v1/%2e%2e/other", "/api/v1/whoami#fragment"])
+    await expect(client.request(route)).rejects.toThrow("Invalid AGFS API path");
+  expect(transport).not.toHaveBeenCalled();
+  await client.request("/api/v1/whoami", { redirect: "follow" });
+  expect(transport.mock.calls[0]?.[1]).toMatchObject({ redirect: "error" });
+});
+
+it.each([
+  ["https://www.agfs.dev", "https://agfs.dev"],
+  ["http://127.0.0.1:8787", "http://localhost:8787"],
+  ["https://agfs.dev", "https://evil.example"],
+])("keeps empty-upload capabilities on %s when the API advertises %s", async (base, advertised) => {
+  const root = await mkdtemp(path.join(tmpdir(), "agfs-upload-security-"));
+  roots.push(root);
+  const empty = path.join(root, "empty");
+  await writeFile(empty, "");
+  const transport = vi.fn(async (url: string, init?: RequestInit) => {
+    expect(new URL(url).origin).toBe(base);
+    expect(init?.redirect).toBe("error");
+    if (url.endsWith("/upload-intents")) return Response.json({
+      uploadId: "upl_test", url: `${advertised}/api/v1/fs/uploads/upl_test/blob`, method: "PUT",
+      headers: { "X-AGFS-Upload-Token": "fixture-capability" }, objectKey: "fixture", expiresAt: new Date(Date.now() + 60000).toISOString(),
+    });
+    if (url.endsWith("/blob")) {
+      expect(new Headers(init?.headers).get("authorization")).toBeNull();
+      expect(new Headers(init?.headers).get("X-AGFS-Upload-Token")).toBe("fixture-capability");
+      expect(await new Response(init?.body).text()).toBe("");
+      return new Response(null, { headers: { etag: "empty" } });
+    }
+    expect(url).toBe(`${base}/api/v1/fs/uploads/upl_test/commit`);
+    return Response.json({ entry: { path: "/empty" } });
+  });
+  vi.stubGlobal("fetch", transport);
+  await expect(new AgfsClient(base, "fixture").upload(empty, "/empty")).resolves.toEqual({ entry: { path: "/empty" } });
+  expect(transport).toHaveBeenCalledTimes(3);
+});
+
+it("downloads folder files in bounded parallel streams and waits for every file", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "agfs-download-parallel-"));
+  roots.push(root);
+  const client = new AgfsClient("https://agfs.dev", "fixture");
+  vi.spyOn(client, "list").mockResolvedValue({ path: "/remote", entries: [] });
+  vi.spyOn(client, "tree").mockResolvedValue({ path: "/remote", tree: Array.from({ length: 5 }, (_, i) => ({
+    id: `file_${i}`, path: `/remote/${i}.txt`, name: `${i}.txt`, kind: "file" as const, size: 4,
+  })) });
+  const pending = new Map<string, ReadableStreamDefaultController<Uint8Array>>();
+  vi.spyOn(client, "request").mockImplementation(async (route) => {
+    const name = new URL(route, client.baseUrl).searchParams.get("path")!.split("/").at(-1)!;
+    return new Response(new ReadableStream<Uint8Array>({ start(controller) { pending.set(name, controller); } }), { headers: { "content-length": "4" } });
+  });
+  const downloading = client.download("/remote", root, { concurrency: 2 });
+  for (let finished = 0; finished < 5; finished++) {
+    await vi.waitFor(() => expect(pending.size).toBe(Math.min(2, 5 - finished)));
+    const [name, controller] = [...pending][0];
+    pending.delete(name);
+    controller.enqueue(new TextEncoder().encode("data"));
+    controller.close();
+  }
+  await downloading;
+  for (let i = 0; i < 5; i++) expect(await readFile(path.join(root, `${i}.txt`), "utf8")).toBe("data");
 });
 
 it("replaces a hard-linked destination without changing the other link", async () => {

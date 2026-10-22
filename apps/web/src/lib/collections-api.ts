@@ -42,6 +42,17 @@ export async function collectionsApi(
       return json(result[0], { status: 201 });
     }
   } else {
+    if (items && request.method === "GET") {
+      const result = await rows(
+        sql`SELECT e.id,e.path,e.kind,e.size FROM collections c
+          LEFT JOIN (collection_entries i JOIN entries e ON e.id=i.entry_id AND e.owner_id=${owner} AND i.collection_id=${id})
+            ON i.collection_id=c.id
+          WHERE c.id=${id} AND c.owner_id=${owner} AND c.actor_id=${actor}
+          ORDER BY e.path LIMIT 200`,
+      );
+      if (!result.length) throw errorResponse(404, "Collection not found");
+      return json({ items: result.filter((row) => row.id !== null) });
+    }
     if (
       !(await first(
         sql`SELECT id FROM collections WHERE id=${id} AND owner_id=${owner} AND actor_id=${actor}`,
@@ -65,12 +76,6 @@ export async function collectionsApi(
         return json({ ok: true });
       }
     } else {
-      if (request.method === "GET")
-        return json({
-          items: await rows(
-            sql`SELECT e.id,e.path,e.kind,e.size FROM collection_entries i JOIN entries e ON e.id=i.entry_id WHERE i.collection_id=${id} AND e.owner_id=${owner} ORDER BY e.path LIMIT 200`,
-          ),
-        });
       if (request.method === "DELETE") {
         const input = await parseJson(
           request,

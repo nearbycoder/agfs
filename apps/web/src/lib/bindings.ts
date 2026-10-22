@@ -9,13 +9,21 @@ export interface AppBindings {
   };
   OP_RATE_LIMITER: AppBindings["AUTH_RATE_LIMITER"];
   SEARCH_RATE_LIMITER: AppBindings["AUTH_RATE_LIMITER"];
-  BACKGROUND_QUEUE?: Queue;
+  BACKGROUND_QUEUE?: Queue & {
+    sendBatch(messages: Array<{ body: unknown }>): Promise<unknown>;
+  };
   CIMD_EGRESS?: { fetch(input: string, init?: RequestInit): Promise<Response> };
   RESEND_API_KEY?: string;
   INVITE_FROM_EMAIL?: string;
   BETTER_AUTH_SECRET: string;
   DB: D1Database;
-  FILES_BUCKET: R2Bucket;
+  FILES_BUCKET: R2Bucket & {
+    delete(keys: string[]): Promise<void>;
+    get(key: string, options: {
+      range: { offset: number; length: number };
+      onlyIf: { etagMatches: string };
+    }): Promise<R2Object | Omit<R2Object, "body" | "text"> | null>;
+  };
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   PAID_PLAN_EMAILS?: string;

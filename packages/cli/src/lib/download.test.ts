@@ -78,3 +78,8 @@ it("rejects traversal and Windows paths from remote file listings", () => {
   expect(() => joinRelativeDestination("downloads", "../outside")).toThrow();
   expect(() => getRemoteLeafName("/..")).toThrow();
 });
+
+it("rejects duplicate destinations before concurrent writes can race", () => {
+  const file = { id: "one", path: "/a", name: "a", kind: "file" as const, size: 0 };
+  expect(() => flattenTree([file, { ...file, id: "two" }])).toThrow("Duplicate remote destination");
+});

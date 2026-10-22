@@ -4,6 +4,7 @@ import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { rows, first } from "./platform-db";
 import { json, errorResponse } from "./http";
+import { pathRange } from "./path-range";
 export async function storageInsightsApi(
   request: Request,
   auth: RequestAuth,
@@ -22,8 +23,7 @@ export async function storageInsightsApi(
     if (folder.kind !== "folder")
       throw errorResponse(400, "Choose a folder for storage insights");
   }
-  const prefix = path === "/" ? "/" : path + "/";
-  const scope = sql`owner_id=${auth.user.id} AND (path=${path} OR substr(path,1,length(${prefix}))=${prefix})`;
+  const scope = sql`owner_id=${auth.user.id} AND ${pathRange(sql`path`, path, true)}`;
   const [summary, types, largest, folders] = await Promise.all([
     first(
       sql`SELECT coalesce(sum(CASE WHEN kind='file' THEN size ELSE 0 END),0) AS bytes,coalesce(sum(kind='file'),0) AS files,coalesce(sum(kind='folder'),0) AS folders FROM entries WHERE ${scope}`,

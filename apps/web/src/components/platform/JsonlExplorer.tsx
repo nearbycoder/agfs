@@ -35,6 +35,10 @@ export function JsonlExplorer() {
     () => [...new Set(loaded?.records.map((r) => r.level))].sort(),
     [loaded],
   );
+  const malformed = useMemo(
+    () => loaded?.records.filter((r) => r.error).length ?? 0,
+    [loaded],
+  );
   const pages = Math.max(1, Math.ceil(filtered.length / 50)),
     current = Math.min(page, pages - 1);
   return (
@@ -47,7 +51,10 @@ export function JsonlExplorer() {
       <TextToolSource
         label="JSONL"
         onLoad={(file) => {
-          setLoaded({ path: file.path, records: jsonlRecords(file.text) });
+          setLoaded({
+            path: file.path,
+            records: jsonlRecords(file.text, false),
+          });
           setQuery("");
           setLevel("all");
           setPage(0);
@@ -85,9 +92,8 @@ export function JsonlExplorer() {
             </label>
           </div>
           <p role="status">
-            {filtered.length} matches ·{" "}
-            {loaded.records.filter((r) => r.error).length} malformed lines ·
-            Page {current + 1} of {pages}
+            {filtered.length} matches · {malformed} malformed lines · Page{" "}
+            {current + 1} of {pages}
             {query !== deferred ? " · Filtering…" : ""}
           </p>
           <Table aria-label="JSONL records" scrollClassName="max-h-96">

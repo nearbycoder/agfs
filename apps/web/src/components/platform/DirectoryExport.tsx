@@ -11,10 +11,12 @@ export function DirectoryExport({
   entries,
   page,
   folder,
+  disabled = false,
 }: {
   entries: FsEntry[];
   page: FsEntry[];
   folder: string;
+  disabled?: boolean;
 }) {
   const [scope, setScope] = useState("matching");
   const action = useAction();
@@ -57,14 +59,14 @@ export function DirectoryExport({
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
-          disabled={action.busy}
+          disabled={action.busy || disabled}
           onClick={() => save("json")}
         >
           Download inventory JSON
         </Button>
         <Button
           variant="outline"
-          disabled={action.busy}
+          disabled={action.busy || disabled}
           onClick={() => save("csv")}
         >
           Download inventory CSV

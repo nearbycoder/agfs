@@ -1,14 +1,15 @@
-export function exportCsv(rows: string[][], delimiter = ",") {
+export function exportCsv(rows: Iterable<string[]>, delimiter = ",") {
   if (![",", ";", "\t"].includes(delimiter))
     throw new Error("Unsupported delimiter.");
-  if (rows.length > 5001)
-    throw new Error(
-      "CSV export supports at most 5,001 rows including headers.",
-    );
   let output = "\ufeff";
   let bytes = 3;
   const encoder = new TextEncoder();
+  let count = 0;
   for (const row of rows) {
+    if (++count > 5001)
+      throw new Error(
+        "CSV export supports at most 5,001 rows including headers.",
+      );
     if (row.length > 200)
       throw new Error("CSV export supports at most 200 columns.");
     const line =

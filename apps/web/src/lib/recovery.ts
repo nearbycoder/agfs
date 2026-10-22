@@ -13,7 +13,7 @@ import {
 import { db } from "./db";
 import { authorize, canAccess } from "./scope";
 import type { RequestAuth } from "./authz";
-import { ensureFolderChain } from "./fs";
+import { folderChainStatements } from "./folder-chain";
 import { errorResponse } from "./http";
 import { requireResourceBindings } from "./bindings";
 
@@ -32,10 +32,12 @@ export async function trashEntry(
   const [snapshot] = await atomicBatch([
     sql`INSERT INTO recovery(id,owner_id,group_id,reason,path,kind,size,content_type,etag,r2_key,created_at,retained_at,expires_at)
       SELECT lower(hex(randomblob(16))),owner_id,${group},'trash',path,kind,size,content_type,etag,r2_key,created_at,${at},${at + 30 * 86_400_000}
-      FROM entries WHERE ${where} RETURNING id`,
+      FROM entries WHERE ${where}`,
     sql`DELETE FROM entries WHERE ${where}`,
   ]);
-  if (!snapshot.results.length)
+  // D1 already reports affected rows; returning every recovery ID needlessly
+  // materializes an entire deleted subtree in the Worker.
+  if (!snapshot.meta.changes)
     throw errorResponse(409, "Entry changed or folder is not empty");
 }
 export async function listRecovery(
@@ -87,6 +89,7 @@ export async function restoreRecovery(
   authorize(auth, "read", record.path);
   const target = normalizeAgfsPath(destination ?? record.path);
   if (target === "/") throw errorResponse(400, "Cannot restore to root");
+  authorize(auth, "write", target);
   const rows =
     record.reason === "trash" && record.kind === "folder"
       ? await db
@@ -103,20 +106,31 @@ export async function restoreRecovery(
   const selected = rows.filter(
     (r) => r.path === record.path || r.path.startsWith(`${record.path}/`),
   );
+  // A concurrent purge or expiry must not leave destination ancestors behind.
+  if (!selected.length) throw errorResponse(404, "Recovery item not found");
+  // Every restored child's parent must exist before its INSERT executes.
+  selected.sort((left, right) => left.path.length - right.path.length);
   for (const row of selected) {
     authorize(auth, "read", row.path);
     authorize(auth, "write", `${target}${row.path.slice(record.path.length)}`);
   }
-  await ensureFolderChain(auth.user.id, getParentPath(target) ?? "/");
-  // Unique owner/path conflicts abort the whole transaction. Restore to a new path to avoid overwriting current data.
+  const ancestors = folderChainStatements(auth.user.id, getParentPath(target) ?? "/");
+  const [ancestorConflict] = ancestors;
+  // Ancestors, restored entries and recovery removals must commit or roll back together.
   try {
-    const results = await atomicBatch(
-      selected.flatMap((row) => {
+    // Recheck expiry for every INSERT, including time spent waiting for the batch.
+    const availableAt = sql`max(${Date.now()}, CAST(round((julianday('now') - 2440587.5) * 86400000) AS INTEGER))`;
+    const results = await atomicBatch([
+      ...ancestors,
+      ...selected.flatMap((row) => {
         const path = `${target}${row.path.slice(record.path.length)}`;
+        const parent = getParentPath(path) ?? "/";
         return [
           sql`INSERT INTO entries(id,owner_id,path,parent_path,name,kind,size,content_type,etag,r2_key,created_at,updated_at)
-          VALUES (${createAgfsId("ent")},(SELECT owner_id FROM recovery WHERE id=${row.id} AND owner_id=${auth.user.id} AND expires_at>${Date.now()}),
-          ${path},${getParentPath(path)},${getBaseName(path)},${row.kind},${row.size},${row.contentType},${row.etag},${row.r2Key},${row.createdAt.getTime()},${Date.now()}) RETURNING id`,
+          VALUES (${createAgfsId("ent")},(SELECT owner_id FROM recovery WHERE id=${row.id} AND owner_id=${auth.user.id} AND expires_at>${availableAt}
+            AND NOT EXISTS(${ancestorConflict})
+            AND (${parent}='/' OR EXISTS(SELECT 1 FROM entries p WHERE p.owner_id=${auth.user.id} AND p.path=${parent} AND p.kind='folder'))),
+          ${path},${parent},${getBaseName(path)},${row.kind},${row.size},${row.contentType},${row.etag},${row.r2Key},${row.createdAt.getTime()},${Date.now()}) RETURNING id`,
           db
             .delete(recovery)
             .where(
@@ -124,8 +138,8 @@ export async function restoreRecovery(
             ),
         ];
       }),
-    );
-    if (!(results[0] as { results?: unknown[] }).results?.length)
+    ]);
+    if (!(results[ancestors.length] as { results?: unknown[] }).results?.length)
       throw errorResponse(409, "Recovery item changed or expired");
   } catch (error) {
     if (/UNIQUE|NOT NULL/.test(String(error)))

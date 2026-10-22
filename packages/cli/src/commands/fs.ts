@@ -155,9 +155,10 @@ export function registerFsCommands(program: Command) {
     .description("Download a file or folder from AGFS")
     .argument("<remotePath>", "Remote file or folder path")
     .argument("[localPath]", "Destination path on disk")
-    .action(async (remotePath: string, localPath?: string) => {
+    .option("--concurrency <count>", "Parallel folder downloads (1–8)", "4")
+    .action(async (remotePath: string, localPath: string | undefined, options: { concurrency: string }) => {
       const client = await AgfsClient.fromConfig();
-      const destination = await client.download(remotePath, localPath);
+      const destination = await client.download(remotePath, localPath, { concurrency: Number(options.concurrency) });
       console.log(`Saved ${destination}`);
     });
 

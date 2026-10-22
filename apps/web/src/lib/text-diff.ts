@@ -18,33 +18,58 @@ export function compareText(
   const key = (s: string) =>
     ignoreWhitespace ? s.trim().replace(/\s+/g, " ") : s;
   const ak = a.map(key),
-    bk = b.map(key),
-    width = b.length + 1,
-    dp = new Uint16Array((a.length + 1) * width);
-  for (let i = a.length - 1; i >= 0; i--)
-    for (let j = b.length - 1; j >= 0; j--)
-      dp[i * width + j] =
-        ak[i] === bk[j]
-          ? 1 + dp[(i + 1) * width + j + 1]
-          : Math.max(dp[(i + 1) * width + j], dp[i * width + j + 1]);
-  let i = 0,
-    j = 0;
+    bk = b.map(key);
   const lines: DiffLine[] = [];
+  let prefix = 0;
+  while (prefix < a.length && prefix < b.length && ak[prefix] === bk[prefix]) {
+    lines.push({
+      kind: "same",
+      text: b[prefix],
+      before: prefix + 1,
+      after: prefix + 1,
+    });
+    prefix++;
+  }
+  const height = a.length - prefix,
+    width = b.length - prefix;
+  // Only the right-vs-down decision is needed during traceback. Equality is
+  // checked from source keys, so one bit replaces each full 16-bit score.
+  const decisions = new Uint8Array(Math.ceil((height * width) / 8));
+  let below = new Uint16Array(width + 1),
+    row = new Uint16Array(width + 1);
+  for (let i = height - 1; i >= 0; i--) {
+    row[width] = 0;
+    for (let j = width - 1; j >= 0; j--) {
+      if (ak[i + prefix] === bk[j + prefix]) row[j] = 1 + below[j + 1];
+      else {
+        const right = row[j + 1] > below[j];
+        row[j] = right ? row[j + 1] : below[j];
+        if (right) {
+          const bit = i * width + j;
+          decisions[bit >>> 3] |= 1 << (bit & 7);
+        }
+      }
+    }
+    [row, below] = [below, row];
+  }
+  let i = prefix,
+    j = prefix,
+    added = 0,
+    removed = 0;
   while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && ak[i] === bk[j]) {
+    const bit = (i - prefix) * width + j - prefix;
+    if (i < a.length && j < b.length && ak[i] === bk[j])
       lines.push({ kind: "same", text: b[j], before: ++i, after: ++j });
-    } else if (
+    else if (
       j < b.length &&
-      (i === a.length || dp[i * width + j + 1] > dp[(i + 1) * width + j])
+      (i === a.length || !!(decisions[bit >>> 3] & (1 << (bit & 7))))
     ) {
       lines.push({ kind: "added", text: b[j], before: null, after: ++j });
+      added++;
     } else {
       lines.push({ kind: "removed", text: a[i], before: ++i, after: null });
+      removed++;
     }
   }
-  return {
-    lines,
-    added: lines.filter((l) => l.kind === "added").length,
-    removed: lines.filter((l) => l.kind === "removed").length,
-  };
+  return { lines, added, removed };
 }

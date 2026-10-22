@@ -8,63 +8,96 @@ import {
 } from "~/components/ui/table";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
 import { Select, SelectItem } from "~/components/ui/select";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { platform, useAction } from "./shared";
 import { runSnapshot, compareArtifacts } from "~/lib/run-comparison";
+import { useResultPage, ResultPageControls } from "./ResultPage";
 import { formatBytes } from "~/lib/format";
+function RunMetadata({ value }: { value: unknown }) {
+  const formatted = useMemo(() => JSON.stringify(value, null, 2), [value]);
+  return (
+    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
+      {formatted}
+    </pre>
+  );
+}
+export function RunMetadataDisclosure({ value }: { value: unknown }) {
+  return (
+    <Disclosure lazy>
+      <DisclosureSummary>Run metadata</DisclosureSummary>
+      <RunMetadata value={value} />
+    </Disclosure>
+  );
+}
+export function RunArtifactTable({
+  title,
+  rows,
+  onlyChanges,
+}: {
+  title: string;
+  rows: ReturnType<typeof compareArtifacts>;
+  onlyChanges: boolean;
+}) {
+  const visible = useMemo(
+    () => (onlyChanges ? rows.filter((r) => r.status !== "unchanged") : rows),
+    [rows, onlyChanges],
+  );
+  const counts = useMemo(() => {
+    const counts = { added: 0, removed: 0, changed: 0, unchanged: 0 };
+    for (const row of rows) counts[row.status as keyof typeof counts]++;
+    return counts;
+  }, [rows]);
+  const page = useResultPage(visible);
+  return (
+    <section className="space-y-2">
+      <h3 className="font-semibold">{title}</h3>
+      <p className="text-sm">
+        {counts.added} added · {counts.removed} removed · {counts.changed}{" "}
+        changed · {counts.unchanged} unchanged
+      </p>
+      <Table scrollClassName="max-h-80" aria-label={title + " comparison"}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Path</TableHead>
+            <TableHead>Change</TableHead>
+            <TableHead>Before</TableHead>
+            <TableHead>After</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {page.rows.map((r) => (
+            <TableRow key={r.path} className="border-t">
+              <TableCell className="break-all font-mono">{r.path}</TableCell>
+              <TableCell>{r.status}</TableCell>
+              <TableCell>
+                {r.before ? formatBytes(r.before.size ?? 0) : "—"}
+              </TableCell>
+              <TableCell>
+                {r.after ? formatBytes(r.after.size ?? 0) : "—"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <ResultPageControls {...page} label={title.toLowerCase() + " entries"} />
+      {!visible.length ? (
+        <p className="text-sm">No matching manifest entries.</p>
+      ) : null}
+    </section>
+  );
+}
 export function RunCompare({ runs }: { runs: any[] }) {
   const [left, setLeft] = useState(""),
     [right, setRight] = useState(""),
     [result, setResult] = useState<{
       a: ReturnType<typeof runSnapshot>;
       b: ReturnType<typeof runSnapshot>;
+      inputs: ReturnType<typeof compareArtifacts>;
+      outputs: ReturnType<typeof compareArtifacts>;
     } | null>(null),
     [onlyChanges, setOnlyChanges] = useState(false);
   const action = useAction();
-  function table(title: string, rows: ReturnType<typeof compareArtifacts>) {
-    const visible = rows.filter(
-      (r) => !onlyChanges || r.status !== "unchanged",
-    );
-    return (
-      <section className="space-y-2">
-        <h3 className="font-semibold">{title}</h3>
-        <p className="text-sm">
-          {rows.filter((r) => r.status === "added").length} added ·{" "}
-          {rows.filter((r) => r.status === "removed").length} removed ·{" "}
-          {rows.filter((r) => r.status === "changed").length} changed ·{" "}
-          {rows.filter((r) => r.status === "unchanged").length} unchanged
-        </p>
-        <Table scrollClassName="max-h-80" aria-label={title + " comparison"}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Path</TableHead>
-              <TableHead>Change</TableHead>
-              <TableHead>Before</TableHead>
-              <TableHead>After</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((r) => (
-              <TableRow key={r.path} className="border-t">
-                <TableCell className="break-all font-mono">{r.path}</TableCell>
-                <TableCell>{r.status}</TableCell>
-                <TableCell>
-                  {r.before ? formatBytes(r.before.size ?? 0) : "—"}
-                </TableCell>
-                <TableCell>
-                  {r.after ? formatBytes(r.after.size ?? 0) : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {!visible.length ? (
-          <p className="text-sm">No matching manifest entries.</p>
-        ) : null}
-      </section>
-    );
-  }
   return (
     <Disclosure>
       <DisclosureSummary>Compare agent runs</DisclosureSummary>
@@ -84,7 +117,22 @@ export function RunCompare({ runs }: { runs: any[] }) {
                 platform("/runs/" + encodeURIComponent(left)),
                 platform("/runs/" + encodeURIComponent(right)),
               ]);
-              setResult({ a: runSnapshot(a), b: runSnapshot(b) });
+              const baseline = runSnapshot(a),
+                comparison = runSnapshot(b);
+              setResult({
+                a: baseline,
+                b: comparison,
+                inputs: compareArtifacts(baseline.inputs, comparison.inputs),
+                outputs:
+                  baseline.hasOutputs && comparison.hasOutputs
+                    ? compareArtifacts(
+                        baseline.outputs,
+                        comparison.outputs,
+                        baseline.path,
+                        comparison.path,
+                      )
+                    : [],
+              });
             });
           }}
         >
@@ -138,12 +186,7 @@ export function RunCompare({ runs }: { runs: any[] }) {
                       ? new Date(r.retainedUntil).toLocaleString()
                       : "No completed manifest"}
                   </p>
-                  <Disclosure>
-                    <DisclosureSummary>Run metadata</DisclosureSummary>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
-                      {JSON.stringify(r.metadata, null, 2)}
-                    </pre>
-                  </Disclosure>
+                  <RunMetadataDisclosure value={r.metadata} />
                 </div>
               ))}
             </div>
@@ -155,20 +198,17 @@ export function RunCompare({ runs }: { runs: any[] }) {
               />
               Hide unchanged manifest entries
             </label>
-            {table(
-              "Inputs",
-              compareArtifacts(result.a.inputs, result.b.inputs),
-            )}
+            <RunArtifactTable
+              title="Inputs"
+              rows={result.inputs}
+              onlyChanges={onlyChanges}
+            />
             {result.a.hasOutputs && result.b.hasOutputs ? (
-              table(
-                "Outputs",
-                compareArtifacts(
-                  result.a.outputs,
-                  result.b.outputs,
-                  result.a.path,
-                  result.b.path,
-                ),
-              )
+              <RunArtifactTable
+                title="Outputs"
+                rows={result.outputs}
+                onlyChanges={onlyChanges}
+              />
             ) : (
               <p role="status">
                 Output comparison is available after both runs have completed

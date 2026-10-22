@@ -1,18 +1,27 @@
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useBlocker } from "@tanstack/react-router";
-import { uploadResumable } from "@agfs/contracts";
 import { Button } from "~/components/ui/button";
 import { folderUploadPlan } from "~/lib/folder-upload";
-import { saveBrowserText } from "~/lib/browser-text";
+import {
+  uploadFolderItems,
+  type FolderTransferItem as Item,
+} from "~/lib/browser-folder-transfer";
+import { createFrameBatch } from "~/lib/browser-frame-batch";
 import { formatBytes } from "~/lib/format";
-type Item = {
-  file: File;
-  path: string;
-  status: "queued" | "uploading" | "done" | "failed";
-  bytes: number;
-  error?: string;
-};
+const UploadRow = memo(function UploadRow({ item }: { item: Item }) {
+  return (
+    <li className="break-all py-2">
+      <strong>{item.path}</strong> · {item.status}
+      {item.status === "uploading"
+        ? " " +
+          Math.round((item.bytes / Math.max(1, item.file.size)) * 100) +
+          "%"
+        : ""}
+      {item.error ? <p className="text-destructive">{item.error}</p> : null}
+    </li>
+  );
+});
 export function FolderUpload({
   destination,
   onComplete,
@@ -25,6 +34,25 @@ export function FolderUpload({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [target, setTarget] = useState("");
+  const active = useRef<AbortController | null>(null);
+  const updates = useRef<ReturnType<
+    typeof createFrameBatch<string, Item>
+  > | null>(null);
+  useEffect(() => {
+    updates.current = createFrameBatch<string, Item>((patches) =>
+      setItems((old) =>
+        old.map((item) =>
+          patches.has(item.path)
+            ? { ...item, ...patches.get(item.path) }
+            : item,
+        ),
+      ),
+    );
+    return () => {
+      active.current?.abort();
+      updates.current?.dispose();
+    };
+  }, []);
   const pause = useRef(false),
     pauseReason = useRef(""),
     complete = useRef(onComplete);
@@ -43,59 +71,29 @@ export function FolderUpload({
     disabled: !busy && !pending,
   });
   function update(path: string, values: Partial<Item>) {
-    setItems((old) =>
-      old.map((i) => (i.path === path ? { ...i, ...values } : i)),
-    );
+    updates.current?.push(path, values);
   }
   async function run() {
-    if (busy) return;
+    if (active.current) return;
+    const controller = new AbortController();
+    active.current = controller;
     setBusy(true);
     setError("");
     setNotice("");
     pause.current = false;
     pauseReason.current = "";
-    const request: typeof fetch = async (input, init) => {
-      const response = await fetch(input, init);
-      if ([401, 403, 429, 507].includes(response.status)) {
-        pause.current = true;
-        pauseReason.current =
-          "Paused after an authentication, permission, rate-limit or storage response. Resolve the reported error before retrying.";
-      }
-      return response;
-    };
-    const queue = items.filter((i) => i.status !== "done");
     try {
-      for (const item of queue) {
-        if (pause.current) break;
-        update(item.path, { status: "uploading", error: undefined, bytes: 0 });
-        try {
-          if (item.file.size === 0)
-            await saveBrowserText(
-              item.path,
-              "",
-              null,
-              item.file.type || "application/octet-stream",
-              request,
-            );
-          else
-            await uploadResumable({
-              path: item.path,
-              contentType: item.file.type || "application/octet-stream",
-              size: item.file.size,
-              ifMatch: null,
-              fingerprint: `${item.file.size}:${item.file.lastModified}:${item.path}`,
-              request,
-              read: (start, end) => item.file.slice(start, end).arrayBuffer(),
-              progress: (bytes) => update(item.path, { bytes }),
-            });
-          update(item.path, { status: "done", bytes: item.file.size });
-        } catch (e) {
-          update(item.path, {
-            status: "failed",
-            error: e instanceof Error ? e.message : "Upload failed",
-          });
-        }
-      }
+      await uploadFolderItems(items, {
+        signal: controller.signal,
+        shouldStop: () => pause.current,
+        pause: (reason) => {
+          pause.current = true;
+          pauseReason.current = reason;
+        },
+        update,
+      });
+      controller.signal.throwIfAborted();
+      updates.current?.flush();
       setNotice(
         pause.current
           ? pauseReason.current || "Paused. Resume pending uploads when ready."
@@ -103,9 +101,14 @@ export function FolderUpload({
       );
       await complete.current();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not refresh folder");
+      if (!controller.signal.aborted)
+        setError(e instanceof Error ? e.message : "Could not refresh folder");
     } finally {
-      setBusy(false);
+      if (active.current === controller) active.current = null;
+      if (!controller.signal.aborted) {
+        updates.current?.flush();
+        setBusy(false);
+      }
     }
   }
   const total = items.reduce((n, i) => n + i.file.size, 0),
@@ -187,10 +190,10 @@ export function FolderUpload({
                   variant="outline"
                   onClick={() => {
                     pause.current = true;
-                    setNotice("Pausing after the current file finishes.");
+                    setNotice("Pausing after active files finish.");
                   }}
                 >
-                  Pause after current file
+                  Pause after active files
                 </Button>
               ) : (
                 <Button
@@ -213,19 +216,7 @@ export function FolderUpload({
             </div>
             <ul className="max-h-80 divide-y overflow-auto text-sm">
               {items.map((item) => (
-                <li key={item.path} className="break-all py-2">
-                  <strong>{item.path}</strong> · {item.status}
-                  {item.status === "uploading"
-                    ? " " +
-                      Math.round(
-                        (item.bytes / Math.max(1, item.file.size)) * 100,
-                      ) +
-                      "%"
-                    : ""}
-                  {item.error ? (
-                    <p className="text-destructive">{item.error}</p>
-                  ) : null}
-                </li>
+                <UploadRow key={item.path} item={item} />
               ))}
             </ul>
           </>

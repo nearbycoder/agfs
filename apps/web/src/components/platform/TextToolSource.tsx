@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Field, platform, useAction } from "./shared";
+import { Field, platform } from "./shared";
+import { useBrowserRead } from "~/lib/use-browser-read";
 export function TextToolSource({
   label,
   onLoad,
@@ -11,19 +12,23 @@ export function TextToolSource({
   disabled?: boolean;
 }) {
   const [path, setPath] = useState("");
-  const action = useAction();
+  const action = useBrowserRead();
   return (
     <div className="space-y-3">
       <form
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          void action.run(async () => {
-            const file = await platform(
-              "/text?path=" + encodeURIComponent(path),
-            );
-            onLoad(file);
-          });
+          void action.run(
+            (signal) =>
+              platform(
+                "/text?path=" + encodeURIComponent(path),
+                "GET",
+                undefined,
+                signal,
+              ),
+            onLoad,
+          );
         }}
       >
         <Field
@@ -34,6 +39,11 @@ export function TextToolSource({
           onChange={(e) => setPath(e.target.value)}
         />
         <Button disabled={action.busy || disabled}>Load {label}</Button>
+        {action.busy ? (
+          <Button type="button" variant="outline" onClick={action.cancel}>
+            Cancel loading {label}
+          </Button>
+        ) : null}
       </form>
       {action.error ? (
         <p role="alert" className="text-sm text-destructive">

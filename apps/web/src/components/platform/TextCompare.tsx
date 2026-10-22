@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field, platform, useAction } from "./shared";
-import { compareText } from "~/lib/text-diff";
+import { useResultPage, ResultPageControls } from "./ResultPage";
+import { compareText, type DiffLine } from "~/lib/text-diff";
 export function TextCompare() {
   const [left, setLeft] = useState(""),
     [right, setRight] = useState(""),
@@ -14,6 +15,13 @@ export function TextCompare() {
     >(null),
     [changesOnly, setChangesOnly] = useState(false);
   const action = useAction();
+  const visible = useMemo(
+    () =>
+      result?.lines.filter((line) => !changesOnly || line.kind !== "same") ??
+      [],
+    [result, changesOnly],
+  );
+
   return (
     <section aria-label="Text comparison" className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -84,38 +92,42 @@ export function TextCompare() {
             />
             Show changed lines only
           </label>
-          <div
-            className="max-h-96 overflow-auto rounded-lg border p-3 font-mono text-xs"
-            aria-label="Compared lines"
-          >
-            {result.lines
-              .filter((l) => !changesOnly || l.kind !== "same")
-              .map((l, i) => (
-                <div
-                  key={i}
-                  className={
-                    "flex gap-3 whitespace-pre " +
-                    (l.kind === "added"
-                      ? "bg-success/10 text-success"
-                      : l.kind === "removed"
-                        ? "bg-destructive/10 text-destructive"
-                        : "")
-                  }
-                >
-                  <span className="w-20 shrink-0 opacity-70">
-                    {l.before ?? "—"}:{l.after ?? "—"}{" "}
-                    {l.kind === "added"
-                      ? "+"
-                      : l.kind === "removed"
-                        ? "−"
-                        : " "}
-                  </span>
-                  <span>{l.text || " "}</span>
-                </div>
-              ))}
-          </div>
+          <TextComparisonRows lines={visible} />
         </>
       ) : null}
     </section>
+  );
+}
+
+export function TextComparisonRows({ lines }: { lines: DiffLine[] }) {
+  const page = useResultPage(lines);
+  return (
+    <>
+      <div
+        className="max-h-96 overflow-auto rounded-lg border p-3 font-mono text-xs"
+        aria-label="Compared lines"
+      >
+        {page.rows.map((l, i) => (
+          <div
+            key={i}
+            className={
+              "flex gap-3 whitespace-pre " +
+              (l.kind === "added"
+                ? "bg-success/10 text-success"
+                : l.kind === "removed"
+                  ? "bg-destructive/10 text-destructive"
+                  : "")
+            }
+          >
+            <span className="w-20 shrink-0 opacity-70">
+              {l.before ?? "—"}:{l.after ?? "—"}{" "}
+              {l.kind === "added" ? "+" : l.kind === "removed" ? "−" : " "}
+            </span>
+            <span>{l.text || " "}</span>
+          </div>
+        ))}
+      </div>
+      <ResultPageControls {...page} label="compared lines" />
+    </>
   );
 }

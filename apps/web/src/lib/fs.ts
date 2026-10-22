@@ -2,6 +2,8 @@ import { requestContext } from "./request-context";
 import { usageDay, tokenStorageSql } from "./budgets";
 import { atomicBatch } from "./atomic-batch";
 import { moveStatement } from "./move-statement";
+import { folderChainStatements } from "./folder-chain";
+import { pathRange } from "./path-range";
 import { storageUsageSql } from "./storage-usage";
 import { trashEntry } from "./recovery";
 import { and, asc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
@@ -32,8 +34,7 @@ import { createUploadIntentUrl } from "./r2";
 
 // SQLite LIKE is case-insensitive and treats %/_ as wildcards. Paths are literal.
 export function descendantPathCondition(path: string) {
-  const prefix = `${path}/`;
-  return sql`substr(${entries.path}, 1, length(${prefix})) = ${prefix}`;
+  return pathRange(entries.path, path);
 }
 
 function mapEntry(row: typeof entries.$inferSelect): FsEntry {
@@ -71,32 +72,10 @@ export async function ensureFolderChain(ownerId: string, path: string) {
     return;
   }
 
-  const parts = normalized.split("/").filter(Boolean);
-  let current = "";
-  for (const part of parts) {
-    current += `/${part}`;
-    const existing = await getEntryByPath(ownerId, current);
-    if (existing) {
-      if (existing.kind !== "folder") {
-        throw errorResponse(
-          400,
-          `Cannot create folder path through file ${existing.path}`,
-        );
-      }
-      continue;
-    }
-
-    await db.insert(entries).values({
-      id: createAgfsId("ent"),
-      ownerId,
-      parentPath: getParentPath(current),
-      path: current,
-      name: getBaseName(current),
-      kind: "folder",
-      createdAt: now(),
-      updatedAt: now(),
-    });
-  }
+  const [conflicts] = await atomicBatch(folderChainStatements(ownerId, normalized));
+  const conflict = conflicts.results[0];
+  if (conflict)
+    throw errorResponse(400, `Cannot create folder path through file ${conflict.path}`);
 }
 
 export async function listEntries(ownerId: string, path: string) {
@@ -140,10 +119,7 @@ export async function treeEntries(
           .where(
             and(
               eq(entries.ownerId, ownerId),
-              or(
-                eq(entries.path, normalized),
-                descendantPathCondition(normalized),
-              ),
+              pathRange(entries.path, normalized, true),
             ),
           )
           .orderBy(asc(entries.path));
@@ -451,24 +427,13 @@ export async function deleteEntry(
     throw errorResponse(400, "Entry not found");
   }
 
-  const affected =
-    entry.kind === "folder"
-      ? await db
-          .select()
-          .from(entries)
-          .where(
-            and(
-              eq(entries.ownerId, ownerId),
-              or(
-                eq(entries.path, normalized),
-                descendantPathCondition(normalized),
-              ),
-            ),
-          )
-      : [entry];
-
-  if (entry.kind === "folder" && !recursive && affected.length > 1) {
-    throw errorResponse(400, "Folder is not empty");
+  if (entry.kind === "folder" && !recursive) {
+    const children = await db
+      .select({ id: entries.id })
+      .from(entries)
+      .where(and(eq(entries.ownerId, ownerId), descendantPathCondition(normalized)))
+      .limit(1);
+    if (children.length) throw errorResponse(400, "Folder is not empty");
   }
 
   await trashEntry(ownerId, normalized, recursive, ifMatch);

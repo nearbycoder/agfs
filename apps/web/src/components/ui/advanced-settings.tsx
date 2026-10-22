@@ -10,16 +10,19 @@ export function AdvancedSettings({
   summary,
   title = "Advanced settings",
   className,
+  lazy = false,
 }: {
   children: ReactNode;
   summary: string;
   title?: string;
   className?: string;
+  lazy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [revealInvalid, setRevealInvalid] = useState(false);
   return (
     <Disclosure
+      lazy={lazy}
       className={cn("advanced-settings", className)}
       open={open}
       data-invalid-reveal={revealInvalid || undefined}

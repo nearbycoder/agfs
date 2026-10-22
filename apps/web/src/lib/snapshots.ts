@@ -57,15 +57,26 @@ export async function restoreSnapshot(auth: RequestAuth, id: string) {
   const prefix = s.path_prefix === "/" ? "/" : s.path_prefix + "/",
     at = Date.now(),
     group = createAgfsId("restore");
-  // A transaction-local guard prevents partial restores after expiration or a workspace pause.
   const parent = s.path_prefix.slice(0, s.path_prefix.lastIndexOf("/")) || "/";
-  const guard = sql`EXISTS(SELECT 1 FROM snapshots WHERE id=${id} AND owner_id=${auth.user.id} AND expires_at>${at}) AND ${workspaceWriteSql(auth.user.id, actorId(auth), 0)} AND (${parent}='/' OR EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=${parent} AND kind='folder'))`;
+  // Like run completion, check the database clock when the batch executes.
+  const availableAt = sql`max(${at}, CAST(round((julianday('now') - 2440587.5) * 86400000) AS INTEGER))`;
+  // A temporary snapshot header latches eligibility for the entire transaction,
+  // including empty subtrees. Rechecking the clock on each statement could retain
+  // or delete entries without restoring them if expiry passes during the batch.
+  // The marker is removed before commit (or rolled back with any failed write).
+  const guard = sql`EXISTS(SELECT 1 FROM snapshots WHERE id=${group} AND owner_id=${auth.user.id})`;
   const selected = sql`owner_id=${auth.user.id} AND (path=${s.path_prefix} OR substr(path,1,length(${prefix}))=${prefix})`;
   const results = await atomicBatch([
-    sql`SELECT id FROM snapshots WHERE id=${id} AND ${guard}`,
+    sql`INSERT INTO snapshots(id,owner_id,name,path_prefix,created_at,expires_at,actor_id)
+      SELECT ${group},owner_id,name,path_prefix,created_at,expires_at,actor_id FROM snapshots
+      WHERE id=${id} AND owner_id=${auth.user.id} AND path_prefix=${s.path_prefix} AND expires_at>${availableAt}
+        AND ${workspaceWriteSql(auth.user.id, actorId(auth), 0)}
+        AND (${parent}='/' OR EXISTS(SELECT 1 FROM entries WHERE owner_id=${auth.user.id} AND path=${parent} AND kind='folder'))
+      RETURNING id`,
     sql`INSERT INTO recovery(id,owner_id,group_id,reason,path,kind,size,content_type,etag,r2_key,created_at,retained_at,expires_at) SELECT lower(hex(randomblob(16))),owner_id,${group},'trash',path,kind,size,content_type,etag,r2_key,created_at,${at},${at + 30 * 86400000} FROM entries WHERE ${selected} AND ${guard}`,
     sql`DELETE FROM entries WHERE ${selected} AND ${guard}`,
     sql`INSERT INTO entries(id,owner_id,path,parent_path,name,kind,size,content_type,etag,r2_key,token_id,created_at,updated_at) SELECT lower(hex(randomblob(16))),${auth.user.id},path,json_extract(entry,'$.parent_path'),json_extract(entry,'$.name'),json_extract(entry,'$.kind'),json_extract(entry,'$.size'),json_extract(entry,'$.content_type'),json_extract(entry,'$.etag'),json_extract(entry,'$.r2_key'),json_extract(entry,'$.token_id'),json_extract(entry,'$.created_at'),${at} FROM snapshot_entries WHERE snapshot_id=${id} AND ${guard} ORDER BY length(path),path`,
+    sql`DELETE FROM snapshots WHERE id=${group} AND owner_id=${auth.user.id}`,
   ]);
   if (!results[0].results.length)
     throw errorResponse(

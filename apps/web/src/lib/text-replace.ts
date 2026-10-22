@@ -21,7 +21,9 @@ export function textReplacement(
     matchCase ? "gu" : "giu",
   );
   let count = 0,
-    removed = 0;
+    removed = 0,
+    cursor = 0;
+  const chunks: string[] = [];
   const samples: { before: string; after: string }[] = [];
   for (const match of text.matchAll(pattern)) {
     if (++count > 10000)
@@ -29,6 +31,10 @@ export function textReplacement(
         "More than 10,000 matches. Narrow the search before replacing.",
       );
     removed += match[0].length;
+    if (text.length - removed + count * replacement.length > 262144)
+      throw new Error("Replacement would exceed the editor’s 256 KiB limit.");
+    chunks.push(text.slice(cursor, match.index!), replacement);
+    cursor = match.index! + match[0].length;
     if (samples.length < 5) {
       const start = match.index!,
         end = start + match[0].length;
@@ -42,7 +48,8 @@ export function textReplacement(
   }
   if (text.length - removed + count * replacement.length > 262144)
     throw new Error("Replacement would exceed the editor’s 256 KiB limit.");
-  const output = text.replace(pattern, () => replacement);
+  chunks.push(text.slice(cursor));
+  const output = count ? chunks.join("") : text;
   if (new TextEncoder().encode(output).length > 262144)
     throw new Error("Replacement would exceed the editor’s 256 KiB limit.");
   return { output, count, samples };

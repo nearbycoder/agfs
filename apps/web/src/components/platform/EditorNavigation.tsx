@@ -1,8 +1,19 @@
-import { useEffect, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { Button } from "~/components/ui/button";
 import { Field } from "./shared";
 import { Disclosure, DisclosureSummary } from "~/components/ui/disclosure";
-import { lineRange, editorPosition } from "~/lib/editor-position";
+import {
+  createEditorIndex,
+  lineRange,
+  editorPosition,
+  type EditorIndex,
+} from "~/lib/editor-position";
 export function EditorNavigation({
   editor,
   value,
@@ -14,25 +25,66 @@ export function EditorNavigation({
   wrap: boolean;
   onWrap: (wrap: boolean) => void;
 }) {
+  const index = useRef<EditorIndex | null>(null);
+  if (index.current === null) index.current = createEditorIndex(value);
   const [line, setLine] = useState("1"),
     [error, setError] = useState(""),
-    [position, setPosition] = useState({ line: 1, column: 1, selected: 0 });
+    [position, setPosition] = useState({
+      line: 1,
+      column: 1,
+      selected: 0,
+      lines: index.current.lineStarts.length,
+    });
+  const readIndex = useCallback(
+    (field: HTMLTextAreaElement, refresh = false) => {
+      // Only input and prop changes need to read the draft. Other caret events
+      // reuse the index, including Unicode metadata, without touching its text.
+      if (!index.current || (refresh && index.current.text !== field.value))
+        index.current = createEditorIndex(field.value);
+      return index.current;
+    },
+    [],
+  );
+  const updatePosition = useCallback(
+    (refresh = false) => {
+      const field = editor.current;
+      if (!field) return;
+      const current = readIndex(field, refresh);
+      const next = {
+        ...editorPosition(current, field.selectionStart, field.selectionEnd),
+        lines: current.lineStarts.length,
+      };
+      setPosition((previous) =>
+        previous.line === next.line &&
+        previous.column === next.column &&
+        previous.selected === next.selected &&
+        previous.lines === next.lines
+          ? previous
+          : next,
+      );
+    },
+    [editor, readIndex],
+  );
+  useEffect(() => {
+    // Covers replacements, undo, and opening a document without an input event.
+    // Read textarea.value because browsers normalize CRLF in textarea offsets.
+    updatePosition(true);
+  }, [value, updatePosition]);
   useEffect(() => {
     const field = editor.current;
     if (!field) return;
-    const update = () =>
-      setPosition(
-        editorPosition(field.value, field.selectionStart, field.selectionEnd),
-      );
-    update();
-    for (const event of ["select", "keyup", "click", "input"])
+    const update = () => updatePosition();
+    const input = () => updatePosition(true);
+    for (const event of ["select", "keyup", "click"])
       field.addEventListener(event, update);
+    field.addEventListener("input", input);
     return () => {
-      for (const event of ["select", "keyup", "click", "input"])
+      for (const event of ["select", "keyup", "click"])
         field.removeEventListener(event, update);
+      field.removeEventListener("input", input);
     };
-  }, [editor, value]);
-  const lines = value.split("\n").length;
+  }, [editor, updatePosition]);
+  const lines = position.lines;
   return (
     <Disclosure>
       <DisclosureSummary>
@@ -46,10 +98,10 @@ export function EditorNavigation({
           try {
             const field = editor.current;
             if (!field) return;
-            const range = lineRange(field.value, Number(line));
+            const range = lineRange(readIndex(field, true), Number(line));
             field.focus();
             field.setSelectionRange(range.start, range.end);
-            setPosition(editorPosition(field.value, range.start, range.end));
+            updatePosition();
             setError("");
           } catch (e) {
             setError(e instanceof Error ? e.message : "Cannot locate line");

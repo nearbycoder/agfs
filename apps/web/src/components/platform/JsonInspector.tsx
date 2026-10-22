@@ -1,26 +1,26 @@
 import { Select, SelectItem } from "~/components/ui/select";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Field, platform, useAction } from "./shared";
-import { inspectJson } from "~/lib/json-inspector";
+import { inspectJson, visibleJsonNodes } from "~/lib/json-inspector";
 export function JsonInspector() {
   const [path, setPath] = useState(""),
-    [loaded, setLoaded] = useState<
-      ({ path: string; raw: string } & ReturnType<typeof inspectJson>) | null
-    >(null),
+    [loaded, setLoaded] = useState<{
+      path: string;
+      raw: string;
+      inspection: ReturnType<typeof inspectJson>;
+    } | null>(null),
     [view, setView] = useState("tree"),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(0),
     [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const action = useAction();
-  const nodes = (loaded?.nodes ?? []).filter((n) =>
-    query
-      ? (n.path + " " + n.label + " " + n.value)
-          .toLowerCase()
-          .includes(query.toLowerCase())
-      : !Array.from(collapsed).some(
-          (p) => n.path !== p && (p === "" || n.path.startsWith(p + "/")),
-        ),
+  const nodes = useMemo(
+    () =>
+      view === "tree"
+        ? visibleJsonNodes(loaded?.inspection.nodes ?? [], collapsed, query)
+        : [],
+    [loaded, collapsed, query, view],
   );
   const pages = Math.max(1, Math.ceil(nodes.length / 100)),
     current = Math.min(page, pages - 1);
@@ -44,7 +44,7 @@ export function JsonInspector() {
             setLoaded({
               path: file.path,
               raw: file.text,
-              ...inspectJson(file.text),
+              inspection: inspectJson(file.text),
             });
             setPage(0);
             setCollapsed(new Set());
@@ -83,7 +83,9 @@ export function JsonInspector() {
               variant="outline"
               onClick={() =>
                 void action.run(async () => {
-                  await navigator.clipboard.writeText(loaded.formatted);
+                  await navigator.clipboard.writeText(
+                    loaded.inspection.formatted,
+                  );
                   action.setNotice("Formatted JSON copied.");
                 })
               }
@@ -102,8 +104,8 @@ export function JsonInspector() {
                 }}
               />
               <p className="text-sm" role="status">
-                Valid JSON · {loaded.nodes.length} values · {nodes.length}{" "}
-                visible matches
+                Valid JSON · {loaded.inspection.nodes.length} values ·{" "}
+                {nodes.length} visible matches
               </p>
               <ul className="max-h-96 overflow-auto rounded-lg border p-3 font-mono text-xs">
                 {nodes.slice(current * 100, current * 100 + 100).map((n) => (
@@ -155,7 +157,7 @@ export function JsonInspector() {
             </>
           ) : (
             <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg border p-3 text-xs">
-              {view === "raw" ? loaded.raw : loaded.formatted}
+              {view === "raw" ? loaded.raw : loaded.inspection.formatted}
             </pre>
           )}
         </>

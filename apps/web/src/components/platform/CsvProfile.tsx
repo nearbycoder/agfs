@@ -18,15 +18,20 @@ export function CsvProfile({
   headers: string[];
 }) {
   const [column, setColumn] = useState(0);
+  const [open, setOpen] = useState(false);
   const index = Math.min(column, headers.length - 1);
   const profile = useMemo(
-    () => (index < 0 ? null : profileColumn(rows, index, headers.length)),
-    [rows, index, headers.length],
+    () =>
+      !open || index < 0 ? null : profileColumn(rows, index, headers.length),
+    [open, rows, index, headers.length],
   );
   return (
-    <Disclosure>
+    <Disclosure
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <DisclosureSummary>Column quality & statistics</DisclosureSummary>
-      {profile ? (
+      {open && profile ? (
         <>
           <label className="grid gap-2 text-sm">
             Profile column
@@ -90,9 +95,9 @@ export function CsvProfile({
             <p>No nonblank values to profile.</p>
           ) : null}
         </>
-      ) : (
+      ) : open ? (
         <p>No columns available.</p>
-      )}
+      ) : null}
     </Disclosure>
   );
 }

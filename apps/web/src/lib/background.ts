@@ -15,12 +15,12 @@ export async function dispatchBackground() {
   const pending = await rows(
     sql`SELECT id,kind FROM queue_outbox WHERE dispatched_at IS NULL ORDER BY created_at LIMIT 50`,
   );
-  for (const item of pending) {
-    await queue.send(item);
-    await rows(
-      sql`UPDATE queue_outbox SET dispatched_at=${at} WHERE id=${item.id}`,
-    );
-  }
+  if (!pending.length) return;
+  // The selection is capped at 50 small messages. Resolve durable delivery
+  // before marking any of them dispatched; a failure leaves every row retryable.
+  await queue.sendBatch(pending.map((item) => ({ body: item })));
+  await rows(sql`UPDATE queue_outbox SET dispatched_at=${at}
+    WHERE id IN (SELECT value FROM json_each(${JSON.stringify(pending.map((item) => item.id))}))`);
 }
 export async function consumeBackground(
   batch: MessageBatch<{ id: string; kind: string }>,

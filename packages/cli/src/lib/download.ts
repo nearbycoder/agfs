@@ -28,11 +28,15 @@ export function getRemoteLeafName(remotePath: string): string {
 export function flattenTree(nodes: FsTreeNode[]): FlattenedTree {
   const directories: string[] = [];
   const files: Array<{ path: string; relativePath: string }> = [];
+  const destinations = new Set<string>();
 
   function walk(items: FsTreeNode[], parentSegments: string[]) {
     for (const item of items) {
       const segments = [...parentSegments, validateName(item.name)];
       const relativePath = segments.join("/");
+      const destinationKey = process.platform === "win32" ? relativePath.toLowerCase() : relativePath;
+      if (destinations.has(destinationKey)) throw new Error("Duplicate remote destination");
+      destinations.add(destinationKey);
 
       if (item.kind === "folder") {
         directories.push(relativePath);

@@ -47,8 +47,9 @@ export class TransferProgress {
 
   update(currentBytes: number) {
     this.current = currentBytes;
+    if (!this.isInteractive) return;
     const now = Date.now();
-    if (now - this.lastRenderAt < 50 && currentBytes < this.totalBytes) {
+    if (now - this.lastRenderAt < 50 && (this.totalBytes <= 0 || currentBytes < this.totalBytes)) {
       return;
     }
 

@@ -4,18 +4,17 @@ import type { RequestAuth } from "./authz";
 import { authorize } from "./scope";
 import { actorId } from "./workspaces";
 import { rows } from "./platform-db";
+import { atomicBatch } from "./atomic-batch";
 import { json, parseJson, errorResponse } from "./http";
 export async function recordRecentFile(auth: RequestAuth, entryId: string) {
   if (auth.authSource !== "session") return;
   const owner = auth.user.id,
     actor = actorId(auth);
   try {
-    await rows(
+    await atomicBatch([
       sql`INSERT INTO recent_files(owner_id,actor_id,entry_id,opened_at) SELECT ${owner},${actor},id,${Date.now()} FROM entries WHERE id=${entryId} AND owner_id=${owner} AND kind='file' ON CONFLICT(owner_id,actor_id,entry_id) DO UPDATE SET opened_at=excluded.opened_at`,
-    );
-    await rows(
       sql`DELETE FROM recent_files WHERE owner_id=${owner} AND actor_id=${actor} AND entry_id NOT IN (SELECT entry_id FROM recent_files WHERE owner_id=${owner} AND actor_id=${actor} ORDER BY opened_at DESC,entry_id LIMIT 100)`,
-    );
+    ]);
   } catch {
     console.error("Could not record recent file");
   }
