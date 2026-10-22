@@ -107,7 +107,7 @@ describe("#45 reuse verified immutable indexed content", () => {
     expect(state.get).not.toHaveBeenCalled();
     expect(fixture.sqlite.prepare("SELECT name,content,tags FROM file_search").all()).toEqual([{ name: "renamed", content: "body e", tags: '["release"]' }]);
     const selection = fixture.calls.find((call) => call.query.includes("AS reusable"))!;
-    expect(selection.query).not.toMatch(/SELECT[^]*d\.content[,\s]/);
+    expect(fixture.sqlite.prepare(selection.query).columns().map((column) => column.name)).not.toContain("content");
   });
   it("refetches replacement keys and unverified legacy or tag-only placeholders", async () => {
     fixture.entry("e");

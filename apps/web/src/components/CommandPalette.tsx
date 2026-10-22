@@ -1,12 +1,18 @@
 import { platform } from "~/components/platform/shared";
 import { fileSearchCommands } from "~/lib/command-search";
 import { agentTools } from "~/lib/agent-tool-catalog";
+import { browserFeatures } from "~/lib/browser-feature-catalog";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 type Command = { label: string; href: string; keywords?: string; id?: string };
 const tools: Command[] = [
+  ...browserFeatures.map((tool) => ({
+    label: tool.label,
+    href: "/app/tools#" + tool.id,
+    keywords: tool.description,
+  })),
   ...agentTools.map((tool) => ({
     label: tool.label,
     href: "/app/agent-tools#" + tool.id,

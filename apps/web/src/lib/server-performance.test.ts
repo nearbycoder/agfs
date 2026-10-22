@@ -442,13 +442,13 @@ describe("batched object collection", () => {
     database.prepare("INSERT INTO object_gc VALUES(?,1)").run(key);
     database.prepare("INSERT INTO object_usage VALUES(?,'alice',NULL,10)").run(key);
   }
-  it("deletes at most 100 unreferenced objects with one R2 call and one metadata transaction", async () => {
+  it("deletes at most 100 unreferenced objects with one R2 call, cursor and guarded metadata transactions", async () => {
     for (let i = 0; i < 150; i++) queued(`key-${i}`);
     await collectGarbage();
     expect(state.remove).toHaveBeenCalledOnce();
     expect(state.remove.mock.calls[0][0]).toHaveLength(100);
-    expect(roundTrips).toBe(2);
-    expect(calls).toHaveLength(3);
+    expect(roundTrips).toBe(5);
+    expect(calls).toHaveLength(7);
     expect(database.prepare("SELECT count(*) AS n FROM object_gc").get()!.n).toBe(50);
     expect(database.prepare("SELECT count(*) AS n FROM object_usage").get()!.n).toBe(50);
   });
@@ -467,7 +467,7 @@ describe("batched object collection", () => {
     queued("a"); queued("b");
     state.remove.mockRejectedValue(new Error("unavailable"));
     await collectGarbage();
-    expect(roundTrips).toBe(1);
+    expect(roundTrips).toBe(4);
     expect(database.prepare("SELECT count(*) AS n FROM object_gc").get()!.n).toBe(2);
     expect(database.prepare("SELECT count(*) AS n FROM object_usage").get()!.n).toBe(2);
   });
@@ -485,23 +485,24 @@ describe("batched object collection", () => {
   });
   it("does no writes or R2 calls for an empty queue", async () => {
     await collectGarbage();
-    expect(roundTrips).toBe(1);
+    expect(roundTrips).toBe(2);
+    expect(calls.every((call) => call.query.startsWith("SELECT"))).toBe(true);
     expect(state.remove).not.toHaveBeenCalled();
   });
 });
 
 describe("durable queue send batching", () => {
-  it("sends at most 50 messages and marks only that page after the send resolves", async () => {
+  it("claims at most 50 messages while retaining source work until completion", async () => {
     for (let i = 0; i < 60; i++) entry(`e${i}`, `/f${i}`);
     state.sendBatch.mockImplementation(async (messages) => {
       expect(messages).toHaveLength(50);
-      expect(database.prepare("SELECT count(*) AS n FROM queue_outbox WHERE dispatched_at IS NOT NULL").get()!.n).toBe(0);
+      expect(database.prepare("SELECT count(*) AS n FROM resource_work WHERE due_at>?").get(Date.now())!.n).toBe(50);
     });
     await dispatchBackground();
     expect(state.sendBatch).toHaveBeenCalledOnce();
     expect(roundTrips).toBe(4);
-    expect(database.prepare("SELECT count(*) AS n FROM queue_outbox WHERE dispatched_at IS NOT NULL").get()!.n).toBe(50);
-    expect(database.prepare("SELECT count(*) AS n FROM queue_outbox WHERE dispatched_at IS NULL").get()!.n).toBe(10);
+    expect(database.prepare("SELECT count(*) AS n FROM resource_work WHERE due_at>?").get(Date.now())!.n).toBe(50);
+    expect(database.prepare("SELECT count(*) AS n FROM resource_work WHERE due_at<=?").get(Date.now())!.n).toBe(10);
   });
   it("retains all work for retry when delivery fails and sends nothing for an empty outbox", async () => {
     await dispatchBackground();
@@ -509,10 +510,11 @@ describe("durable queue send batching", () => {
     entry("e", "/file");
     state.sendBatch.mockRejectedValue(new Error("queue unavailable"));
     await expect(dispatchBackground()).rejects.toThrow("queue unavailable");
-    expect(database.prepare("SELECT dispatched_at FROM queue_outbox").get()!.dispatched_at).toBeNull();
+    expect(database.prepare("SELECT due_at FROM resource_work").get()!.due_at).toBeGreaterThan(Date.now());
+    const next = Date.now() + 60001; vi.spyOn(Date,"now").mockReturnValue(next);
     state.sendBatch.mockResolvedValue(undefined);
     await dispatchBackground();
-    expect(database.prepare("SELECT dispatched_at FROM queue_outbox").get()!.dispatched_at).not.toBeNull();
+    expect(database.prepare("SELECT due_at FROM resource_work").get()!.due_at).toBeGreaterThan(Date.now());
   });
 });
 

@@ -20,6 +20,17 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
+import { browserFeatures, featureGroup } from "~/lib/browser-feature-catalog";
+const loadPreparation = () => import("./DataPreparationWorkbench");
+const RecordPreparation = lazy(() =>
+  loadPreparation().then((m) => ({ default: m.RecordPreparation })),
+);
+const TablePreparation = lazy(() =>
+  loadPreparation().then((m) => ({ default: m.TablePreparation })),
+);
+const DocumentPreparation = lazy(() =>
+  loadPreparation().then((m) => ({ default: m.DocumentPreparation })),
+);
 const loadTextCompare = () => import("./TextCompare");
 const TextCompare = lazy(() =>
   loadTextCompare().then((module) => ({ default: module.TextCompare })),
@@ -77,6 +88,9 @@ const EncodingWorkbench = lazy(() =>
   loadEncodingWorkbench().then((m) => ({ default: m.EncodingWorkbench })),
 );
 const toolGroups: Record<string, string> = {
+  "record-preparation": "Prepare",
+  "table-preparation": "Prepare",
+  "document-preparation": "Prepare",
   "text-editor": "Write",
   "markdown-reader": "Write",
   "file-notes": "Write",
@@ -98,15 +112,44 @@ export function FileToolsPage() {
   const [query, setQuery] = useState("");
   useEffect(() => {
     if (!location.hash) return;
-    setCategory(toolGroups[location.hash.replace(/^#/, "")] ?? "All");
+    const hash = location.hash.replace(/^#/, "");
+    const id = featureGroup(hash) ?? hash;
+    setCategory(toolGroups[id] ?? "All");
     setQuery("");
-    const target = document.getElementById(location.hash.replace(/^#/, ""));
+    const target = document.getElementById(id);
     if (target instanceof HTMLDetailsElement) {
       target.open = true;
       requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
     }
   }, [location.hash]);
   const tools = [
+    {
+      id: "record-preparation",
+      label: "Prepare JSON records",
+      description:
+        "Shape, organize, patch, and audit records before a handoff. Seven connected tasks, exact numbers, local previews.",
+      icon: Braces,
+      component: RecordPreparation,
+      preload: loadPreparation,
+    },
+    {
+      id: "table-preparation",
+      label: "Prepare & reconcile tables",
+      description:
+        "Sort, deduplicate, summarize, reshape, append, rename, and compare CSV datasets in one workflow.",
+      icon: TableProperties,
+      component: TablePreparation,
+      preload: loadPreparation,
+    },
+    {
+      id: "document-preparation",
+      label: "Review documents for handoff",
+      description:
+        "Inventory Markdown links, extract tasks, and redact configured literals before sharing a document.",
+      icon: BookOpen,
+      component: DocumentPreparation,
+      preload: loadPreparation,
+    },
     {
       id: "encoding-workbench",
       label: "Encoding workbench",
@@ -222,7 +265,10 @@ export function FileToolsPage() {
   ];
   const matches = (tool: (typeof tools)[number]) =>
     (category === "All" || toolGroups[tool.id] === category) &&
-    `${tool.label} ${tool.description}`
+    `${tool.label} ${tool.description} ${browserFeatures
+      .filter((feature) => feature.group === tool.id)
+      .map((feature) => feature.label + " " + feature.description)
+      .join(" ")}`
       .toLowerCase()
       .includes(query.trim().toLowerCase());
   const count = tools.filter(matches).length;
@@ -252,19 +298,25 @@ export function FileToolsPage() {
           role="group"
           aria-label="Tool categories"
         >
-          {["Write", "Inspect", "Convert", "Compare", "Verify", "All"].map(
-            (name) => (
-              <Button
-                key={name}
-                variant={category === name ? "secondary" : "ghost"}
-                size="sm"
-                aria-pressed={category === name}
-                onClick={() => setCategory(name)}
-              >
-                {name}
-              </Button>
-            ),
-          )}
+          {[
+            "Write",
+            "Prepare",
+            "Inspect",
+            "Convert",
+            "Compare",
+            "Verify",
+            "All",
+          ].map((name) => (
+            <Button
+              key={name}
+              variant={category === name ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={category === name}
+              onClick={() => setCategory(name)}
+            >
+              {name}
+            </Button>
+          ))}
         </div>
         <p role="status" className="text-xs text-muted-foreground">
           {count} {count === 1 ? "tool" : "tools"} · Open one to get started.

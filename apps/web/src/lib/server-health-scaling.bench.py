@@ -1,7 +1,10 @@
-"""Read-work scaling regression for health evaluation (#43).
+"""Historical read-work scaling regression for health evaluation (#43).
 
 Run: python3 apps/web/src/lib/server-health-scaling.bench.py
-Uses migrated in-memory SQLite only. Extracts the current tagged production SQL;
+Default preserves the original whole-population benchmark at commit9663bb0 and
+its original fixture coverage, through migration0017. It does NOT measure the
+current bounded-turn scheduler. Use --current for that separate workload.
+Uses migrated in-memory SQLite only. Extracts the frozen tagged production SQL;
 mirrors its bounded source merge, and compares every evaluated owner's aggregates
 with the previous per-owner reads. Actual JS merge/alert writes are covered by
 server-expansion.test.ts. Counts SQL VM instructions, not latency/billing. Alert
@@ -12,9 +15,19 @@ from pathlib import Path
 import json
 import re
 import sqlite3
+import subprocess
+import sys
+import runpy
 
 ROOT = Path(__file__).resolve().parents[4]
-SOURCE = (ROOT / "apps/web/src/lib/operations.ts").read_text()
+if "--current" in sys.argv:
+    print("Current bounded-turn scheduler: different workload; includes mutations and full-backlog convergence.", file=sys.stderr)
+    runpy.run_path(str(ROOT / "apps/web/src/lib/server-feature-expansion.bench.py"), run_name="__main__")
+    raise SystemExit(0)
+if any(arg != "--historical" for arg in sys.argv[1:]):
+    raise SystemExit("Usage: server-health-scaling.bench.py [--historical | --current]")
+print("Historical whole-population read-only SQL at9663bb0 (not the current scheduler).", file=sys.stderr)
+SOURCE = subprocess.check_output(["git", "show", "9663bb0:apps/web/src/lib/operations.ts"], cwd=ROOT, text=True)
 QUERIES = {
     name: re.sub(r"\$\{[^}]+\}", "?", query)
     for name, query in re.findall(r"sql`/\* health-([a-z-]+) \*/(.*?)`", SOURCE, re.S)
@@ -28,6 +41,8 @@ def fixture(kind, size, job_count=1, dispersed=False):
     db = sqlite3.connect(":memory:")
     db.execute("PRAGMA foreign_keys=ON")
     for migration in sorted((ROOT / "packages/db/src/migrations").glob("*.sql")):
+        if migration.name >= "0018":
+            break
         db.executescript(migration.read_text())
     if kind == "balanced":
         db.executemany("INSERT INTO operation_metrics VALUES(?,100,'api',10,1,0,200)",
@@ -187,4 +202,4 @@ for analyzed in (False, True):
         if kind in ("empty_jobs", "sparse_jobs"):
             assert pair[1] <= pair[0] * 1.02, "Unused entries should not affect health reads"
 
-print(json.dumps({"sqlite": sqlite3.sqlite_version, "measurement": "read-only SQL VM instructions", "results": results}, indent=2))
+print(json.dumps({"sqlite": sqlite3.sqlite_version, "historical_commit": "9663bb0", "measurement": "Historical whole-population read-only SQL VM instructions; not current bounded-turn scheduler or CPU", "results": results}, indent=2))

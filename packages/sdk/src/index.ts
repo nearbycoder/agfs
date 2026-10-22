@@ -1,4 +1,10 @@
 import { mapConcurrent } from "./concurrency.js";
+import { integer, ResourceLimitError } from "./automation-core.js";
+import { openWorkflowScope } from "./workflow-state.js";
+export * from "./automation-core.js";
+export * from "./inventory.js";
+export * from "./lines.js";
+export * from "./automation.js";
 export { mapConcurrent, mapConcurrentIterable } from "./concurrency.js";
 export type Permission = "read" | "write" | "delete" | "share" | "manage";
 export interface Entry {
@@ -36,6 +42,8 @@ export interface UploadOptions {
   onProgress?: (bytes: number) => void;
   /** Concurrent 8 MiB parts, from 1 to 8. Defaults to 3 for upload, 1 for custom sources. */
   concurrency?: number;
+  /** Optional local race guard, awaited immediately before the remote commit. */
+  verifySource?: () => Promise<void>;
 }
 export class AgfsError extends Error {
   constructor(
@@ -70,6 +78,60 @@ const delay = (ms: number, signal?: AbortSignal | null) =>
 export class AgfsClient {
   readonly baseUrl: string;
   private readonly transport: typeof fetch;
+  get signal() { return this.options.signal; }
+  /** The callback owns the complete operation, including response-body consumption. */
+  async withScope<T>(options: { maxRequests?: number; timeoutMs?: number; signal?: AbortSignal }, work: (client: AgfsClient) => Promise<T>): Promise<T> {
+    const limit = integer(options.maxRequests ?? 100, "maxRequests", 1, 10000);
+    const timeout = integer(options.timeoutMs ?? 30000, "timeoutMs", 1, 3600000);
+    // An opaque token provider may perform its own requests outside this transport.
+    if (typeof this.options.token !== "string") throw new TypeError("Request scopes require a static token; resolve OAuth refresh before entering the scope");
+    const controller = new AbortController(); let requests = 0;
+    const signals = [this.options.signal, options.signal].filter((s): s is AbortSignal => !!s);
+    const listeners = signals.map(signal => {
+      const abort = () => controller.abort(Object.assign(new DOMException("Operation cancelled", "AbortError"), { cause: signal.reason }));
+      if (signal.aborted) abort(); else signal.addEventListener("abort", abort, { once: true });
+      return () => signal.removeEventListener("abort", abort);
+    });
+    const timer = setTimeout(() => controller.abort(new DOMException("Operation deadline exceeded", "TimeoutError")), timeout);
+    const pendingCancellations: Promise<void>[] = [];
+    const ownResponse = (response: Response, responseSignal: AbortSignal) => {
+      if (!response.body) return response;
+      const reader = response.body.getReader(); let finished = false;
+      let streamController: ReadableStreamDefaultController<Uint8Array>;
+      const finish = () => { finished = true; responseSignal.removeEventListener("abort", abort); };
+      const cancel = (reason?: unknown) => { finish(); const promise = reader.cancel(reason).catch(() => {}).finally(() => reader.releaseLock()); pendingCancellations.push(promise); return promise; };
+      const abort = () => { if (!finished) { streamController.error(responseSignal.reason); void cancel(responseSignal.reason); } };
+      const body = new ReadableStream<Uint8Array>({
+        start(c) { streamController = c; responseSignal.addEventListener("abort", abort, { once: true }); if (responseSignal.aborted) abort(); },
+        async pull(c) {
+          if (finished) return;
+          try { const next = await reader.read(); if (finished) return; if (next.done) { finish(); reader.releaseLock(); c.close(); } else c.enqueue(next.value); }
+          catch (error) { if (!finished) { finish(); reader.releaseLock(); c.error(error); } }
+        },
+        cancel,
+      }, { highWaterMark: 0 });
+      return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+    };
+    const scoped = new AgfsClient({ ...this.options, signal: controller.signal, fetch: async (input, init) => {
+      controller.signal.throwIfAborted();
+      const signal = init?.signal ? AbortSignal.any([controller.signal, init.signal]) : controller.signal;
+      signal.throwIfAborted();
+      if (requests >= limit) throw new ResourceLimitError("Request attempt budget exhausted");
+      requests++;
+      const response = await this.transport(input, { ...init, signal });
+      if (controller.signal.aborted) { await response.body?.cancel().catch(() => {}); controller.signal.throwIfAborted(); }
+      return ownResponse(response, signal);
+    } });
+    const journal = openWorkflowScope(scoped, this);
+    let rejectAbort: (() => void) | undefined;
+    try {
+      controller.signal.throwIfAborted();
+      const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = () => reject(controller.signal.reason); controller.signal.addEventListener("abort", rejectAbort, { once: true }); });
+      return await Promise.race([Promise.resolve().then(() => work(scoped)), aborted]);
+    }
+    catch (error) { throw journal.failure(error); }
+    finally { journal.close(); clearTimeout(timer); if (rejectAbort) controller.signal.removeEventListener("abort", rejectAbort); for (const remove of listeners) remove(); controller.abort(new DOMException("Request scope closed", "AbortError")); for (const cancellation of pendingCancellations) await cancellation; }
+  }
   constructor(private options: ClientOptions) {
     if (options.retries !== undefined && (!Number.isInteger(options.retries) || options.retries < 0 || options.retries > 5))
       throw new Error("Retries must be an integer from 0 to 5");
@@ -128,7 +190,7 @@ export class AgfsClient {
           redirect: "error",
         });
       } catch (error) {
-        if (attempt >= retries || init.signal?.aborted) throw error;
+        if (error instanceof ResourceLimitError || error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name) || attempt >= retries || init.signal?.aborted) throw error;
         await delay(250 * 2 ** attempt, init.signal);
         continue;
       }
@@ -490,6 +552,7 @@ export class AgfsClient {
       await response.body?.cancel();
       if (!response.ok) throw new AgfsError(response.status, "Upload failed");
       await beforeComplete?.();
+      await options.verifySource?.();
       return (
         await this.json<{ entry: Entry }>(
           "/fs/uploads/" + encodeURIComponent(intent.uploadId) + "/commit",
@@ -528,18 +591,24 @@ export class AgfsClient {
       completed.set(part.partNumber, part.digest);
     }
     let transferred = 0;
-    if (state.status !== "completing") {
-      await mapConcurrent(Array.from({ length: partCount }, (_, index) => index + 1), concurrency, async (part) => {
+    const completing = state.status === "completing";
+    if (completing && completed.size !== partCount)
+      throw new AgfsError(409, "Completing upload has unverifiable parts; inspect the upload before retrying");
+    // A fingerprint covers only part one. A completing session is immutable, so
+    // every part must match this source before we may certify its committed bytes.
+    // Verify sequentially to preserve the one-owned-part stream memory bound.
+    await mapConcurrent(Array.from({ length: partCount }, (_, index) => index + 1), completing ? 1 : concurrency, async (part) => {
         const start = (part - 1) * state.partSize;
         const end = Math.min(size, start + state.partSize),
           bytes = part === 1 ? first! : await read(start, end);
         if (part === 1) first = undefined;
-        if (bytes.length !== end - start)
+        if (!(bytes instanceof Uint8Array) || bytes.length !== end - start)
           throw new Error("Local file changed during upload");
         this.options.signal?.throwIfAborted();
         if (
           completed.get(part) !== (part === 1 ? firstDigest : await digest(bytes))
         ) {
+          if (completing) throw new AgfsError(409, "Completing upload content differs from source; inspect the upload before retrying");
           const response = await this.request(
             `/api/v1/fs/resumable/${state.uploadId}/parts/${part}`,
             { method: "PUT", body: bytes as Uint8Array<ArrayBuffer> },
@@ -549,11 +618,9 @@ export class AgfsClient {
         transferred += bytes.length;
         options.onProgress?.(transferred);
       }, this.options.signal);
-    }
-    // Completing resumes skip the workers that normally release this snapshot.
-    // Do not retain it while a stream's completion hook reads later parts.
     first = undefined;
     await beforeComplete?.();
+    await options.verifySource?.();
     return (
       await this.json<{ entry: Entry }>(
         `/fs/resumable/${state.uploadId}/complete`,
